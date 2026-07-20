@@ -16,6 +16,30 @@ TPL_DIR_ALT="$HOME/.local/share/godot/export_templates/4.3.stable"
 log() { echo "[export-godot] $*"; }
 die() { echo "[export-godot] ERROR: $*" >&2; exit 1; }
 
+# unzip no siempre está en el VPS minimal
+ensure_unzip() {
+  if command -v unzip >/dev/null 2>&1; then
+    return 0
+  fi
+  log "Instalando unzip..."
+  if command -v apt-get >/dev/null 2>&1; then
+    apt-get update -qq
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq unzip
+  elif command -v dnf >/dev/null 2>&1; then
+    dnf install -y unzip
+  else
+    die "No hay unzip y no se pudo instalar (apt/dnf)"
+  fi
+  command -v unzip >/dev/null 2>&1 || die "unzip sigue sin estar disponible"
+}
+
+extract_zip() {
+  local zip="$1"
+  local dest="$2"
+  ensure_unzip
+  unzip -qo "$zip" -d "$dest"
+}
+
 need_export() {
   # ¿Hay export web real (wasm) y binario linux no-shell?
   if [ ! -f export/web/index.html ]; then return 0; fi
@@ -36,7 +60,7 @@ install_godot() {
   local zip="$CACHE/godot.tgz"
   curl -fsSL -o "$zip" \
     "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VER}/Godot_v${GODOT_VER}_linux.x86_64.zip"
-  unzip -qo "$zip" -d "$CACHE"
+  extract_zip "$zip" "$CACHE"
   # El binario puede llamarse Godot_v4.3-stable_linux.x86_64
   local found
   found="$(find "$CACHE" -maxdepth 1 -type f -name 'Godot_v*_linux.x86_64' | head -1)"
@@ -61,7 +85,7 @@ install_templates() {
   local tmp="$CACHE/tpl_extract"
   rm -rf "$tmp"
   mkdir -p "$tmp"
-  unzip -qo "$tpz" -d "$tmp"
+  extract_zip "$tpz" "$tmp"
   rm -rf "$dest"
   mv "$tmp/templates" "$dest"
   log "Templates en $dest"
