@@ -1,0 +1,87 @@
+name: Deploy Botgame
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      command:
+        description: "Comando de deploy"
+        required: false
+        default: update
+        type: choice
+        options:
+          - update
+          - start
+          - restart
+          - status
+
+concurrency:
+  group: botgame-production-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to RenaceNet
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.repository == 'ExpertosTI/botgame' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Check required secrets
+        run: |
+          test -n "$BOTGAME_DEPLOY_HOST" || { echo "::error::Missing BOTGAME_DEPLOY_HOST"; exit 1; }
+          test -n "$BOTGAME_DEPLOY_USER" || { echo "::error::Missing BOTGAME_DEPLOY_USER"; exit 1; }
+          test -n "$BOTGAME_DEPLOY_SSH_KEY" || { echo "::error::Missing BOTGAME_DEPLOY_SSH_KEY"; exit 1; }
+        env:
+          BOTGAME_DEPLOY_HOST: ${{ secrets.BOTGAME_DEPLOY_HOST }}
+          BOTGAME_DEPLOY_USER: ${{ secrets.BOTGAME_DEPLOY_USER }}
+          BOTGAME_DEPLOY_SSH_KEY: ${{ secrets.BOTGAME_DEPLOY_SSH_KEY }}
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.BOTGAME_DEPLOY_HOST }}
+          username: ${{ secrets.BOTGAME_DEPLOY_USER }}
+          key: ${{ secrets.BOTGAME_DEPLOY_SSH_KEY }}
+          port: ${{ secrets.BOTGAME_DEPLOY_PORT || 22 }}
+          command_timeout: 25m
+          script: |
+            set -euo pipefail
+            APP_DIR="${{ secrets.BOTGAME_DEPLOY_PATH || '/opt/botgame' }}"
+            DEPLOY_CMD="${{ github.event.inputs.command || 'update' }}"
+
+            echo "=== Botgame CI deploy (${DEPLOY_CMD}) ==="
+            echo "Commit: ${{ github.sha }}"
+
+            if [ ! -d "$APP_DIR/.git" ]; then
+              echo "Clonando repo en $APP_DIR..."
+              sudo mkdir -p "$(dirname "$APP_DIR")"
+              sudo git clone https://github.com/ExpertosTI/botgame.git "$APP_DIR"
+            fi
+
+            cd "$APP_DIR"
+            git fetch --all --prune
+            git checkout main
+            git reset --hard origin/main
+            chmod +x deploy.sh
+            sudo ./deploy.sh "$DEPLOY_CMD"
+
+      - name: Verify HTTPS
+        if: ${{ (github.event.inputs.command || 'update') != 'status' }}
+        run: |
+          URL="${{ secrets.BOTGAME_HEALTH_URL || 'https://botgame.renace.tech/' }}"
+          echo "Checking $URL"
+          for i in $(seq 1 24); do
+            if curl -fsSI "$URL" >/dev/null 2>&1; then
+              echo "Health OK"
+              exit 0
+            fi
+            echo "Waiting... ($i/24)"
+            sleep 5
+          done
+          echo "::warning::Health check no respondió aún (¿export web / DNS?)"

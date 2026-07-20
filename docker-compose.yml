@@ -1,0 +1,73 @@
+# Bestia vs Robots — Stack Swarm + Traefik (RenaceNet)
+# Deploy: ./deploy.sh update
+version: "3.8"
+
+services:
+  web:
+    image: botgame-web:${GIT_SHA:-latest}
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.web
+    networks:
+      - RenaceNet
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+        reservations:
+          cpus: "0.05"
+          memory: 32M
+      labels:
+        - "traefik.enable=true"
+        - "traefik.docker.network=RenaceNet"
+        - "traefik.http.routers.botgame-web.rule=Host(`${BOTGAME_DOMAIN:-botgame.renace.tech}`)"
+        - "traefik.http.routers.botgame-web.entrypoints=websecure"
+        - "traefik.http.routers.botgame-web.tls=true"
+        - "traefik.http.routers.botgame-web.tls.certresolver=letsencryptresolver"
+        - "traefik.http.routers.botgame-web.priority=1"
+        - "traefik.http.services.botgame-web.loadbalancer.server.port=80"
+
+  game-server:
+    image: botgame-server:${GIT_SHA:-latest}
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.server
+    networks:
+      - RenaceNet
+    environment:
+      BOTGAME_WS_PORT: "7777"
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 768M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+      labels:
+        - "traefik.enable=true"
+        - "traefik.docker.network=RenaceNet"
+        # WebSocket en wss://dominio/ws → puerto Godot 7777
+        - "traefik.http.routers.botgame-ws.rule=Host(`${BOTGAME_DOMAIN:-botgame.renace.tech}`) && PathPrefix(`/ws`)"
+        - "traefik.http.routers.botgame-ws.entrypoints=websecure"
+        - "traefik.http.routers.botgame-ws.tls=true"
+        - "traefik.http.routers.botgame-ws.tls.certresolver=letsencryptresolver"
+        - "traefik.http.routers.botgame-ws.priority=100"
+        - "traefik.http.routers.botgame-ws.middlewares=botgame-ws-strip"
+        - "traefik.http.middlewares.botgame-ws-strip.stripprefix.prefixes=/ws"
+        - "traefik.http.services.botgame-ws.loadbalancer.server.port=7777"
+        # Sticky / timeouts largos para partidas
+        - "traefik.http.services.botgame-ws.loadbalancer.sticky.cookie=true"
+        - "traefik.http.services.botgame-ws.loadbalancer.responseforwarding.flushinterval=1ms"
+
+networks:
+  RenaceNet:
+    external: true

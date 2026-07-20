@@ -1,0 +1,124 @@
+class_name PlayerBase
+extends CharacterBody3D
+
+@export var move_speed := 6.0
+@export var sprint_multiplier := 1.55
+@export var jump_velocity := 5.5
+@export var mouse_sensitivity := 0.003
+@export var touch_look_sensitivity := 0.004
+
+@onready var camera_pivot: Node3D = $CameraPivot
+@onready var camera: Camera3D = $CameraPivot/Camera3D
+@onready var mesh: Node3D = $Mesh
+@onready var crew: CrewVisual = $Mesh/CrewVisual
+
+var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
+var peer_id: int = 1
+var combat: CombatKit
+
+
+func _ready() -> void:
+	peer_id = name.to_int() if name.is_valid_int() else multiplayer.get_unique_id()
+	add_to_group("player_characters")
+	combat = CombatKit.new()
+	add_child(combat)
+
+	if not is_multiplayer_authority():
+		camera.current = false
+		set_process_input(false)
+	else:
+		if not DisplayServer.is_touchscreen_available() and not OS.has_feature("mobile"):
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		InputManager.look_delta.connect(_on_touch_look)
+
+
+func _exit_tree() -> void:
+	if InputManager.look_delta.is_connected(_on_touch_look):
+		InputManager.look_delta.disconnect(_on_touch_look)
+
+
+func _input(event: InputEvent) -> void:
+	if not is_multiplayer_authority():
+		return
+	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		_apply_look(event.relative * mouse_sensitivity)
+	if event.is_action_pressed("ui_cancel"):
+		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		else:
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	if event.is_action_pressed("weapon_next"):
+		combat.cycle_weapon(1)
+	if event.is_action_pressed("weapon_prev"):
+		combat.cycle_weapon(-1)
+	if event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+			combat.cycle_weapon(1)
+		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			combat.cycle_weapon(-1)
+
+
+func _on_touch_look(delta: Vector2) -> void:
+	if is_multiplayer_authority():
+		_apply_look(delta * touch_look_sensitivity)
+
+
+func _apply_look(rel: Vector2) -> void:
+	rotate_y(-rel.x)
+	camera_pivot.rotate_x(-rel.y)
+	camera_pivot.rotation.x = clampf(camera_pivot.rotation.x, -1.2, 0.8)
+
+
+func _physics_process(delta: float) -> void:
+	if not is_multiplayer_authority():
+		return
+
+	_handle_combat_input()
+
+	if not is_on_floor():
+		velocity.y -= gravity * delta
+
+	if InputManager.jump_just and is_on_floor():
+		velocity.y = jump_velocity
+
+	var input_dir := InputManager.move_vector
+	var direction := (transform.basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()
+
+	var speed := move_speed * (combat.speed_mult if combat else 1.0)
+	if InputManager.sprint_held:
+		speed *= sprint_multiplier
+
+	if direction:
+		velocity.x = direction.x * speed
+		velocity.z = direction.z * speed
+	else:
+		velocity.x = move_toward(velocity.x, 0, speed)
+		velocity.z = move_toward(velocity.z, 0, speed)
+
+	if crew:
+		crew.set_moving(direction.length() > 0.1)
+
+	move_and_slide()
+
+
+func _handle_combat_input() -> void:
+	if combat == null:
+		return
+	if InputManager.ability_1_just:
+		combat.use_ability(0)
+	if InputManager.ability_2_just:
+		combat.use_ability(1)
+	if InputManager.ability_3_just:
+		combat.use_ability(2)
+	if InputManager.ability_4_just:
+		combat.use_ability(3)
+	if InputManager.weapon_cycle_just:
+		combat.cycle_weapon(1)
+
+
+func get_aim_origin() -> Vector3:
+	return camera.global_position + (-camera.global_transform.basis.z * 0.8)
+
+
+func get_aim_dir() -> Vector3:
+	return -camera.global_transform.basis.z

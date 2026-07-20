@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ServerConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://config/server_config.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+server_url = "wss://botgame.renace.tech/ws"
+websocket_port = 7777
+max_players = 4
+match_time_seconds = 240
+easy_beast_mode = false

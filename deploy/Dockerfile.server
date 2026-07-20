@@ -1,0 +1,25 @@
+# Servidor dedicado Godot (headless) — requiere export Linux en export/server/
+FROM ubuntu:22.04
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates libx11-6 libxcursor1 libxinerama1 libxrandr2 libxi6 libgl1 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Binario esperado tras export Godot Linux:
+#   export/server/BestiaVsRobots.x86_64
+#   export/server/BestiaVsRobots.pck
+COPY export/server/ /app/
+
+RUN chmod +x /app/BestiaVsRobots.x86_64 2>/dev/null || true \
+ && if [ ! -x /app/BestiaVsRobots.x86_64 ]; then \
+      printf '%s\n' '#!/bin/sh' \
+        'echo "[botgame] Falta export Linux: export/server/BestiaVsRobots.x86_64"' \
+        'echo "Exporta desde Godot (Linux/X11 headless) y vuelve a desplegar."' \
+        'sleep 3600' > /app/BestiaVsRobots.x86_64 \
+      && chmod +x /app/BestiaVsRobots.x86_64; \
+    fi
+
+EXPOSE 7777
+CMD ["./BestiaVsRobots.x86_64", "--headless", "--", "--server"]

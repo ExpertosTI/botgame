@@ -1,0 +1,46 @@
+[gd_scene load_steps=5 format=3 uid="uid://beast_player"]
+
+[ext_resource type="Script" path="res://scripts/player/beast.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/player/crew_visual.gd" id="2"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1"]
+radius = 0.55
+height = 1.6
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_attack"]
+radius = 2.6
+
+[node name="Beast" type="CharacterBody3D"]
+collision_layer = 2
+collision_mask = 1
+script = ExtResource("1")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.85, 0)
+shape = SubResource("CapsuleShape3D_1")
+
+[node name="Mesh" type="Node3D" parent="."]
+
+[node name="CrewVisual" type="Node3D" parent="Mesh"]
+script = ExtResource("2")
+is_beast = true
+body_scale = 1.0
+
+[node name="CameraPivot" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)
+
+[node name="Camera3D" type="Camera3D" parent="CameraPivot"]
+transform = Transform3D(1, 0, 0, 0, 0.94, 0.34, 0, -0.34, 0.94, 0, 1.2, 4.5)
+current = true
+fov = 75.0
+
+[node name="AttackArea" type="Area3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, -1.4)
+collision_layer = 0
+collision_mask = 2
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="AttackArea"]
+shape = SubResource("SphereShape3D_attack")
+
+[node name="AttackTimer" type="Timer" parent="."]
+one_shot = true
