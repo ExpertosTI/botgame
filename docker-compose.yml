@@ -1,6 +1,5 @@
 # Bestia vs Robots — Stack Swarm + Traefik (RenaceNet)
 # Deploy: ./deploy.sh update
-version: "3.8"
 
 services:
   web:

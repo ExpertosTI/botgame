@@ -49,7 +49,12 @@ load_env() {
     fi
     export BOTGAME_DOMAIN="${BOTGAME_DOMAIN:-$APP_DOMAIN}"
     export APP_DOMAIN="$BOTGAME_DOMAIN"
-    export GIT_SHA="${GIT_SHA:-$(git rev-parse --short HEAD 2>/dev/null || echo latest)}"
+}
+
+# Siempre recalcular desde HEAD actual (no reusar GIT_SHA del env anterior al pull)
+refresh_git_sha() {
+    export GIT_SHA
+    GIT_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo latest)"
 }
 
 ensure_renacenet() {
@@ -71,8 +76,11 @@ build_images() {
 
 stack_deploy() {
     log "→ docker stack deploy ($STACK_NAME)"
-    # Compose v2 convert + stack deploy
     docker stack deploy -c "$COMPOSE_FILE" --with-registry-auth "$STACK_NAME"
+    # Swarm no recrea tareas si el tag de imagen no cambia; forzar con digest local
+    log "→ Force update servicios (imagen local)"
+    docker service update --force --image "botgame-web:${GIT_SHA}" "${STACK_NAME}_web" >/dev/null
+    docker service update --force --image "botgame-server:${GIT_SHA}" "${STACK_NAME}_game-server" >/dev/null
 }
 
 wait_services() {
@@ -110,6 +118,7 @@ cmd_update() {
         git reset --hard "origin/$(git rev-parse --abbrev-ref HEAD)"
     fi
     load_env
+    refresh_git_sha
     build_images
     stack_deploy
     wait_services || true
@@ -121,6 +130,7 @@ cmd_update() {
 cmd_start() {
     banner
     load_env
+    refresh_git_sha
     ensure_renacenet
     build_images
     stack_deploy
