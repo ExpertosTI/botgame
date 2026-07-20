@@ -113,11 +113,20 @@ cmd_update() {
     ensure_renacenet
     if [ -d .git ]; then
         log "→ git fetch + reset origin/main"
+        local before after
+        before="$(git rev-parse HEAD 2>/dev/null || true)"
         git fetch --all --prune
         git checkout main 2>/dev/null || git checkout master
         git reset --hard "origin/$(git rev-parse --abbrev-ref HEAD)"
+        after="$(git rev-parse HEAD 2>/dev/null || true)"
+        # Re-ejecutar el script NUEVO del disco (el actual ya está en memoria)
+        if [ -n "$before" ] && [ -n "$after" ] && [ "$before" != "$after" ]; then
+            log "→ Código actualizado; reiniciando deploy con script nuevo..."
+            exec bash "$ROOT/deploy.sh" start
+        fi
     fi
     load_env
+    unset GIT_SHA
     refresh_git_sha
     build_images
     stack_deploy
@@ -130,12 +139,15 @@ cmd_update() {
 cmd_start() {
     banner
     load_env
+    unset GIT_SHA
     refresh_git_sha
     ensure_renacenet
     build_images
     stack_deploy
     wait_services || true
     health
+    log "Listo: https://${BOTGAME_DOMAIN}/"
+    log "WebSocket: wss://${BOTGAME_DOMAIN}/ws"
 }
 
 cmd_status() {
