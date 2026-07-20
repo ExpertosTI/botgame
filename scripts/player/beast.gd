@@ -22,7 +22,7 @@ func _apply_beast_visuals() -> void:
 	crew.is_beast = true
 	var colors := GameManager.get_beast_colors()
 	crew.apply_colors(colors.body, colors.visor, colors.accent)
-	var pname := NetworkManager.players.get(peer_id, {}).get("name", "Bestia")
+	var pname: String = str(NetworkManager.players.get(peer_id, {}).get("name", "Bestia"))
 	crew.set_player_name(pname)
 
 

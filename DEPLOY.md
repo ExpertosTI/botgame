@@ -46,29 +46,17 @@ botgame.renace.tech  →  A  →  IP del nodo Swarm (Traefik)
 
 Traefik saca el certificado Let’s Encrypt solo (labels del compose).
 
-## Primera vez en el VPS
+## Flujo (sin rsync / sin contraseñas)
 
 ```bash
-# 1) Clonar
-sudo mkdir -p /opt
-sudo git clone https://github.com/ExpertosTI/botgame.git /opt/botgame
-cd /opt/botgame
+# 1) Código → GitHub
+git push origin main
 
-# 2) Env
-sudo mkdir -p /etc/botgame
-sudo cp env.template /etc/botgame/botgame.env
-# editar BOTGAME_DOMAIN si hace falta
-
-# 3) Exports de Godot (obligatorio para partida real)
-#    En tu Mac: Godot → Export → Web → export/web/
-#               Godot → Export → Linux → export/server/BestiaVsRobots.x86_64 (+ .pck)
-#    Luego rsync o commit de binaries (mejor artefactos o scp):
-# scp -r export/ user@vps:/opt/botgame/
-
-# 4) Deploy
-chmod +x deploy.sh
-sudo ./deploy.sh update
+# 2) VPS (sesión ya abierta o CI)
+cd /opt/botgame && ./deploy.sh update
 ```
+
+El VPS descarga Godot headless, exporta Web+Linux a `export/`, construye imágenes y hace `docker stack deploy` en **RenaceNet**.
 
 ## Comandos
 

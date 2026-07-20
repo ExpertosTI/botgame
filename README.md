@@ -48,27 +48,19 @@ La bestia tiene barra de HP (disparos la debilitan; al llegar a 0 queda aturdida
 4. Instancia B: URL `ws://127.0.0.1:7777` → **Entrar a la partida**
 5. En lobby: una persona elige Bestia, el resto Robot → Listo → Empezar
 
-## Despliegue en VPS (WebApp + servidor)
-
-Stack **RenaceNet**: Docker Swarm + Traefik. Ver guía completa: [`DEPLOY.md`](DEPLOY.md)
-
-- URL: `https://botgame.renace.tech`
-- WS: `wss://botgame.renace.tech/ws`
-- Repo: https://github.com/ExpertosTI/botgame
+## Flujo de deploy (Renace — sin rsync ni passwords)
 
 ```bash
-cd /opt/botgame && sudo ./deploy.sh update
+# Mac / CI
+git add -A && git commit -m "..." && git push origin main
+
+# VPS (ya logueado, o CI con deploy key)
+cd /opt/botgame && ./deploy.sh update
 ```
 
-### Consumo aproximado
+`deploy.sh update` hace: `git pull` → **export Godot en el VPS** (Web + Linux) → Docker build → Swarm/Traefik.
 
-| | Límite | Típico (4 jugadores) |
-|--|--------|----------------------|
-| RAM total stack | ~900 MB | **300–550 MB** |
-| CPU | 1.25 vCPU | bajo en idle / medio en partida |
-| Disco | — | < 1 GB imágenes + export |
-
-Recomendado en el host RenaceNet: **~1 GB libres**. Solo botgame: VPS **1 vCPU / 1 GB**.
+No subas binarios por SSH. Los exports se generan en el servidor.
 
 
 ## Estructura

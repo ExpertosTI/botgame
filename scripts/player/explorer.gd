@@ -32,7 +32,7 @@ func _apply_robot_visuals() -> void:
 	crew.is_beast = false
 	var color := GameManager.get_explorer_color(variant)
 	crew.apply_colors(color, Color(0.75, 0.95, 1.0), color.lightened(0.2))
-	var pname := NetworkManager.players.get(peer_id, {}).get("name", "Robot")
+	var pname: String = str(NetworkManager.players.get(peer_id, {}).get("name", "Robot"))
 	crew.set_player_name(pname)
 
 

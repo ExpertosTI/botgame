@@ -1,4 +1,0 @@
-#!/bin/sh
-# Placeholder hasta exportar desde Godot (Linux/X11).
-echo "[botgame] Placeholder. Exporta BestiaVsRobots.x86_64 desde Godot a export/server/"
-sleep 3600

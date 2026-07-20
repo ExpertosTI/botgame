@@ -67,9 +67,12 @@ ensure_renacenet() {
 }
 
 build_images() {
+    log "→ Export Godot en servidor (si hace falta)"
+    chmod +x scripts/export_godot_linux.sh 2>/dev/null || true
+    bash scripts/export_godot_linux.sh
+
     log "→ Build images (GIT_SHA=$GIT_SHA)"
     docker compose -f "$COMPOSE_FILE" build
-    # Tag explícito para stack deploy
     docker tag "botgame-web:${GIT_SHA}" "botgame-web:latest" 2>/dev/null || true
     docker tag "botgame-server:${GIT_SHA}" "botgame-server:latest" 2>/dev/null || true
 }
@@ -77,10 +80,13 @@ build_images() {
 stack_deploy() {
     log "→ docker stack deploy ($STACK_NAME)"
     docker stack deploy -c "$COMPOSE_FILE" --with-registry-auth "$STACK_NAME"
-    # Swarm no recrea tareas si el tag de imagen no cambia; forzar con digest local
-    log "→ Force update servicios (imagen local)"
-    docker service update --force --image "botgame-web:${GIT_SHA}" "${STACK_NAME}_web" >/dev/null
-    docker service update --force --image "botgame-server:${GIT_SHA}" "${STACK_NAME}_game-server" >/dev/null
+    wait_services || true
+    # Swarm a veces no pilla rebuild del mismo tag: forzar tras estar estable
+    log "→ Force recreate (imagen local ${GIT_SHA})"
+    docker service update --detach --force --image "botgame-web:${GIT_SHA}" "${STACK_NAME}_web" >/dev/null || true
+    docker service update --detach --force --image "botgame-server:${GIT_SHA}" "${STACK_NAME}_game-server" >/dev/null || true
+    sleep 5
+    wait_services || true
 }
 
 wait_services() {
@@ -91,7 +97,7 @@ wait_services() {
         web=$(docker service ls --format '{{.Name}} {{.Replicas}}' | awk -v n="${STACK_NAME}_web" '$1==n{print $2}')
         ok_server=$(docker service ls --format '{{.Name}} {{.Replicas}}' | awk -v n="${STACK_NAME}_game-server" '$1==n{print $2}')
         if [[ "$web" == 1/1* ]] && [[ "$ok_server" == 1/1* ]]; then
-            log "Servicios OK"
+            log "Servicios OK ($web / $ok_server)"
             return 0
         fi
         echo "  web=$web  game-server=$ok_server  ($i/$tries)"
@@ -104,7 +110,19 @@ wait_services() {
 health() {
     local url="https://${BOTGAME_DOMAIN}/"
     log "→ Health $url"
-    curl -fsSI "$url" | head -5 || warn "Web aún no responde (¿DNS / export web?)"
+    local i code
+    for i in $(seq 1 18); do
+        code=$(curl -sS -o /dev/null -w '%{http_code}' "$url" || echo "000")
+        if [ "$code" = "200" ]; then
+            curl -sSI "$url" | head -6
+            log "Health OK"
+            return 0
+        fi
+        echo "  HTTP $code — reintento $i/18"
+        sleep 3
+    done
+    warn "Health aún no es 200 (último). Traefik puede estar reconectando."
+    docker service ps "${STACK_NAME}_web" --no-trunc 2>/dev/null | head -5 || true
 }
 
 cmd_update() {
@@ -176,13 +194,19 @@ usage() {
     cat <<EOF
 Uso: ./deploy.sh <comando>
 
-  update    git pull + build + stack deploy + health
-  start     build + stack deploy (sin git pull)
+  update    git pull + export Godot (VPS) + build + stack deploy
+  start     export Godot + build + stack deploy (sin git pull)
   status    estado Swarm
   logs [web|game-server]
   restart   force update servicios
   stop      baja el stack
   health    curl HTTPS
+
+Flujo Renace (sin rsync / sin passwords):
+  1) En Mac:  git push origin main
+  2) En VPS:  cd /opt/botgame && ./deploy.sh update
+
+Forzar re-export: FORCE_GODOT_EXPORT=1 ./deploy.sh start
 
 Dominio: ${BOTGAME_DOMAIN:-botgame.renace.tech}
 Env:     $ENV_FILE
