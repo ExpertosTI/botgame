@@ -1,21 +1,30 @@
 extends Control
 
-@onready var player_list: VBoxContainer = $VBox/PlayerList
-@onready var ready_button: Button = $VBox/ReadyButton
-@onready var start_button: Button = $VBox/StartButton
-@onready var role_beast_button: Button = $VBox/RoleRow/BeastRoleButton
-@onready var role_robot_button: Button = $VBox/RoleRow/RobotRoleButton
-@onready var beast_variant_option: OptionButton = $VBox/BeastVariantOption
-@onready var map_option: OptionButton = $VBox/MapOption
-@onready var status_label: Label = $VBox/StatusLabel
-@onready var easy_check: CheckBox = $VBox/EasyBeastCheck
+@onready var player_list: VBoxContainer = %PlayerList
+@onready var ready_button: Button = %ReadyButton
+@onready var start_button: Button = %StartButton
+@onready var role_beast_button: Button = %BeastRoleButton
+@onready var role_robot_button: Button = %RobotRoleButton
+@onready var beast_variant_option: OptionButton = %BeastVariantOption
+@onready var map_option: OptionButton = %MapOption
+@onready var status_label: Label = %StatusLabel
+@onready var easy_check: CheckBox = %EasyBeastCheck
+@onready var title: Label = %Title
+@onready var wait_label: Label = %WaitLabel
+@onready var atmosphere: ColorRect = %Atmosphere
+@onready var map_hint: Label = %MapHint
 
 const GAME_SCENE := "res://scenes/main/game.tscn"
 
 var local_ready := false
+var _pulse_t := 0.0
 
 
 func _ready() -> void:
+	GameTheme.apply(self)
+	_style_ui()
+	_setup_atmosphere()
+
 	ready_button.pressed.connect(_on_ready_pressed)
 	start_button.pressed.connect(_on_start_pressed)
 	role_beast_button.pressed.connect(_on_pick_beast)
@@ -30,12 +39,38 @@ func _ready() -> void:
 
 	_setup_options()
 	_refresh_player_list()
-	# Servidor dedicado: permanece en lobby vacío hasta que haya jugadores
 	if NetworkManager.is_dedicated_server:
-		status_label.text = "Servidor dedicado activo — esperando jugadores"
+		status_label.text = "Servidor dedicado — esperando tripulación"
 		ready_button.visible = false
 		role_beast_button.visible = false
 		role_robot_button.visible = false
+
+
+func _style_ui() -> void:
+	GameTheme.style_title(title, 36)
+	GameTheme.style_muted(wait_label, 15)
+	GameTheme.style_danger(role_beast_button)
+	GameTheme.style_primary(role_robot_button)
+	GameTheme.style_primary(start_button)
+	role_beast_button.text = "SOY LA BESTIA"
+	role_robot_button.text = "SOY ROBOT"
+	ready_button.text = "MARCAR LISTO"
+	start_button.text = "EMPEZAR PARTIDA"
+	map_hint.add_theme_color_override("font_color", GameTheme.C_MUTED)
+
+
+func _setup_atmosphere() -> void:
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://shaders/ui_atmosphere.gdshader")
+	atmosphere.material = mat
+
+
+func _process(delta: float) -> void:
+	_pulse_t += delta
+	var pulse := 0.65 + 0.35 * sin(_pulse_t * 2.4)
+	wait_label.modulate.a = pulse
+	var dots := int(_pulse_t * 2.0) % 4
+	wait_label.text = "Esperando tripulación" + ".".repeat(dots)
 
 
 func _setup_options() -> void:
@@ -49,18 +84,28 @@ func _setup_options() -> void:
 	for map_id in NetworkManager.MAP_IDS:
 		map_option.add_item(NetworkManager.MAP_NAMES[map_id])
 	map_option.item_selected.connect(_on_map_selected)
-
 	easy_check.button_pressed = GameManager.easy_beast_mode
+	_update_map_hint()
+
+
+func _update_map_hint() -> void:
+	var mid: String = NetworkManager.selected_map
+	match mid:
+		"containers":
+			map_hint.text = "Ciudad de contenedores — pasillos estrechos, emboscadas."
+		"ruins":
+			map_hint.text = "Ruinas del núcleo — plataforma elevada, combate vertical."
+		_:
+			map_hint.text = "Laboratorio neon — arena abierta, luces frías."
 
 
 func _on_beast_variant_selected(index: int) -> void:
-	var variant := beast_variant_option.get_item_id(index)
-	NetworkManager.set_beast_variant.rpc(variant)
+	NetworkManager.set_beast_variant.rpc(beast_variant_option.get_item_id(index))
 
 
 func _on_map_selected(index: int) -> void:
-	var map_id: String = NetworkManager.MAP_IDS[index]
-	NetworkManager.set_selected_map.rpc(map_id)
+	NetworkManager.set_selected_map.rpc(NetworkManager.MAP_IDS[index])
+	_update_map_hint()
 
 
 func _on_easy_toggled(on: bool) -> void:
@@ -79,7 +124,13 @@ func _on_pick_robot() -> void:
 
 func _on_ready_pressed() -> void:
 	local_ready = not local_ready
-	ready_button.text = "¡Listo!" if local_ready else "Marcar listo"
+	ready_button.text = "¡LISTO!" if local_ready else "MARCAR LISTO"
+	if local_ready:
+		GameTheme.style_primary(ready_button)
+	else:
+		ready_button.remove_theme_stylebox_override("normal")
+		ready_button.remove_theme_stylebox_override("hover")
+		ready_button.remove_theme_stylebox_override("pressed")
 	NetworkManager.set_player_ready.rpc(multiplayer.get_unique_id(), local_ready)
 	_check_can_start()
 
@@ -105,6 +156,7 @@ func _on_settings_changed() -> void:
 	var map_idx := NetworkManager.MAP_IDS.find(NetworkManager.selected_map)
 	if map_idx >= 0 and map_option.selected != map_idx:
 		map_option.select(map_idx)
+	_update_map_hint()
 	_refresh_player_list()
 
 
@@ -113,12 +165,12 @@ func _refresh_player_list() -> void:
 		child.queue_free()
 	for peer_id in NetworkManager.players:
 		var info: Dictionary = NetworkManager.players[peer_id]
-		var label := Label.new()
-		var role_raw: String = info.get("role", "")
-		var role := "Bestia" if role_raw == "beast" else ("Robot" if role_raw == "explorer" else "Sin rol")
-		var ready_text := " [LISTO]" if info.get("ready", false) else ""
-		label.text = "%s — %s%s" % [info.get("name", "?"), role, ready_text]
-		player_list.add_child(label)
+		var card := GameTheme.make_player_card(
+			str(info.get("name", "?")),
+			str(info.get("role", "")),
+			bool(info.get("ready", false))
+		)
+		player_list.add_child(card)
 	_check_can_start()
 
 
@@ -128,9 +180,15 @@ func _check_can_start() -> void:
 	var count := NetworkManager.get_player_count()
 	var ok := count >= 2 and NetworkManager.all_players_ready() and NetworkManager.has_exactly_one_beast()
 	start_button.disabled = not ok
-	status_label.text = "%d jugadores | listos %d | mapa: %s" % [
-		count, _count_ready(), NetworkManager.MAP_NAMES.get(NetworkManager.selected_map, "?")
+	var ready_n := _count_ready()
+	status_label.text = "%d en sala  ·  %d listos  ·  mapa: %s" % [
+		count, ready_n, NetworkManager.MAP_NAMES.get(NetworkManager.selected_map, "?")
 	]
+	if ok:
+		status_label.add_theme_color_override("font_color", GameTheme.C_CYAN)
+		status_label.text += "  ·  ¡pueden despegar!"
+	else:
+		status_label.add_theme_color_override("font_color", GameTheme.C_AMBER)
 
 
 func _count_ready() -> int:

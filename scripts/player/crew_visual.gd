@@ -137,8 +137,9 @@ func _set_mat(mi: MeshInstance3D, color: Color, emission: float = 0.0, shiny: bo
 		return
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = color
-	mat.roughness = 0.35 if shiny else 0.55
-	mat.metallic = 0.35 if shiny else 0.05
+	mat.roughness = 0.22 if shiny else 0.48
+	mat.metallic = 0.55 if shiny else 0.12
+	mat.specular_mode = BaseMaterial3D.SPECULAR_SCHLICK_GGX
 	if emission > 0.0:
 		mat.emission_enabled = true
 		mat.emission = color

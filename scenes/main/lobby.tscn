@@ -11,74 +11,171 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Atmosphere" type="ColorRect" parent="."]
+unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.07, 0.08, 0.14, 1)
+mouse_filter = 2
+color = Color(0.04, 0.07, 0.1, 1)
 
-[node name="VBox" type="VBoxContainer" parent="."]
+[node name="Margin" type="MarginContainer" parent="."]
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -260.0
-offset_top = -260.0
-offset_right = 260.0
-offset_bottom = 260.0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = 16.0
+offset_right = -20.0
+offset_bottom = -16.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 10
 
-[node name="Title" type="Label" parent="VBox"]
+[node name="Root" type="VBoxContainer" parent="Margin"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 28
-text = "Sala de Espera"
+theme_override_constants/separation = 14
+
+[node name="Header" type="VBoxContainer" parent="Margin/Root"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Title" type="Label" parent="Margin/Root/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 34
+text = "SALA DE ESPERA"
 horizontal_alignment = 1
 
-[node name="PlayerList" type="VBoxContainer" parent="VBox"]
+[node name="WaitLabel" type="Label" parent="Margin/Root/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Esperando tripulación…"
+horizontal_alignment = 1
+
+[node name="Body" type="HBoxContainer" parent="Margin/Root"]
 layout_mode = 2
 size_flags_vertical = 3
+theme_override_constants/separation = 20
 
-[node name="RoleRow" type="HBoxContainer" parent="VBox"]
+[node name="CrewPanel" type="PanelContainer" parent="Margin/Root/Body"]
 layout_mode = 2
-alignment = 1
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 1.1
+
+[node name="CrewMargin" type="MarginContainer" parent="Margin/Root/Body/CrewPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 14
+
+[node name="CrewCol" type="VBoxContainer" parent="Margin/Root/Body/CrewPanel/CrewMargin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="CrewTitle" type="Label" parent="Margin/Root/Body/CrewPanel/CrewMargin/CrewCol"]
+layout_mode = 2
+text = "TRIPULACIÓN EN HANGAR"
+
+[node name="Scroll" type="ScrollContainer" parent="Margin/Root/Body/CrewPanel/CrewMargin/CrewCol"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="PlayerList" type="VBoxContainer" parent="Margin/Root/Body/CrewPanel/CrewMargin/CrewCol/Scroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="SetupPanel" type="PanelContainer" parent="Margin/Root/Body"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 0.95
+
+[node name="SetupMargin" type="MarginContainer" parent="Margin/Root/Body/SetupPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 14
+
+[node name="SetupCol" type="VBoxContainer" parent="Margin/Root/Body/SetupPanel/SetupMargin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="RoleTitle" type="Label" parent="Margin/Root/Body/SetupPanel/SetupMargin/SetupCol"]
+layout_mode = 2
+text = "ELIGE TU ROL"
+
+[node name="RoleRow" type="HBoxContainer" parent="Margin/Root/Body/SetupPanel/SetupMargin/SetupCol"]
+layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="BeastRoleButton" type="Button" parent="VBox/RoleRow"]
+[node name="BeastRoleButton" type="Button" parent="Margin/Root/Body/SetupPanel/SetupMargin/SetupCol/RoleRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Soy la Bestia"
+text = "SOY LA BESTIA"
 
-[node name="RobotRoleButton" type="Button" parent="VBox/RoleRow"]
+[node name="RobotRoleButton" type="Button" parent="Margin/Root/Body/SetupPanel/SetupMargin/SetupCol/RoleRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Soy Robot"
+text = "SOY ROBOT"
 
-[node name="MapOption" type="OptionButton" parent="VBox"]
+[node name="MapTitle" type="Label" parent="Margin/Root/Body/SetupPanel/SetupMargin/SetupCol"]
+layout_mode = 2
+text = "MAPA"
+
+[node name="MapOption" type="OptionButton" parent="Margin/Root/Body/SetupPanel/SetupMargin/SetupCol"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
 
-[node name="BeastVariantOption" type="OptionButton" parent="VBox"]
+[node name="MapHint" type="Label" parent="Margin/Root/Body/SetupPanel/SetupMargin/SetupCol"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 2
+text = "…"
+
+[node name="VariantTitle" type="Label" parent="Margin/Root/Body/SetupPanel/SetupMargin/SetupCol"]
+layout_mode = 2
+text = "VARIANTE BESTIA"
+
+[node name="BeastVariantOption" type="OptionButton" parent="Margin/Root/Body/SetupPanel/SetupMargin/SetupCol"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
 
-[node name="EasyBeastCheck" type="CheckBox" parent="VBox"]
+[node name="EasyBeastCheck" type="CheckBox" parent="Margin/Root/Body/SetupPanel/SetupMargin/SetupCol"]
+unique_name_in_owner = true
 layout_mode = 2
 text = "Modo fácil Bestia (más lenta)"
 
-[node name="ReadyButton" type="Button" parent="VBox"]
+[node name="Spacer" type="Control" parent="Margin/Root/Body/SetupPanel/SetupMargin/SetupCol"]
+custom_minimum_size = Vector2(0, 8)
 layout_mode = 2
-text = "Marcar listo"
 
-[node name="StartButton" type="Button" parent="VBox"]
+[node name="ReadyButton" type="Button" parent="Margin/Root/Body/SetupPanel/SetupMargin/SetupCol"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 46)
 layout_mode = 2
-text = "Empezar Partida"
+text = "MARCAR LISTO"
 
-[node name="StatusLabel" type="Label" parent="VBox"]
+[node name="StartButton" type="Button" parent="Margin/Root/Body/SetupPanel/SetupMargin/SetupCol"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+text = "EMPEZAR PARTIDA"
+
+[node name="StatusLabel" type="Label" parent="Margin/Root"]
+unique_name_in_owner = true
 layout_mode = 2
 horizontal_alignment = 1
 autowrap_mode = 2

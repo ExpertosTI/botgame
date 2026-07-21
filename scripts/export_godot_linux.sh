@@ -78,6 +78,7 @@ prune_unused_templates() {
   rm -f "$TPL_DEST"/android_* \
     "$TPL_DEST"/ios.zip \
     "$TPL_DEST"/macos.zip \
+    "$TPL_DEST"/windows_* \
     "$TPL_DEST"/web_dlink_* \
     "$TPL_DEST"/linux_debug.* \
     "$TPL_DEST"/linux_release.arm* \

@@ -23,6 +23,9 @@ var _stick_radius := 70.0
 
 func _ready() -> void:
 	visible = DisplayServer.is_touchscreen_available() or OS.has_feature("mobile") or OS.get_name() == "Web"
+	GameTheme.apply(self)
+	GameTheme.style_danger(btn_action)
+	GameTheme.style_primary(btn_dash)
 	call_deferred("_init_stick")
 	btn_action.button_down.connect(func(): InputManager.set_touch_action(true))
 	btn_action.button_up.connect(func(): InputManager.set_touch_action(false))
