@@ -118,16 +118,22 @@ func _adapt_mobile_lobby() -> void:
 		return
 	var crew := body.get_node_or_null("CrewPanel") as Control
 	var setup := body.get_node_or_null("SetupScroll") as Control
-	# Móvil: roles/listo primero; escritorio: hangar primero
 	if narrow and crew and setup:
 		if body.get_child(0) != setup:
 			body.move_child(setup, 0)
 		if hangar_slot:
-			hangar_slot.custom_minimum_size = Vector2(0, 130)
-		ready_button.custom_minimum_size = Vector2(0, 60)
-		start_button.custom_minimum_size = Vector2(0, 52)
-		role_beast_button.custom_minimum_size = Vector2(0, 64)
-		role_robot_button.custom_minimum_size = Vector2(0, 64)
+			hangar_slot.custom_minimum_size = Vector2(0, 150)
+		ready_button.custom_minimum_size = Vector2(0, 68)
+		ready_button.add_theme_font_size_override("font_size", 22)
+		start_button.custom_minimum_size = Vector2(0, 56)
+		role_beast_button.custom_minimum_size = Vector2(0, 72)
+		role_robot_button.custom_minimum_size = Vector2(0, 72)
+		# Filas de selección: chips más altos en móvil
+		skin_row.add_theme_constant_override("separation", 6)
+		loadout_row.add_theme_constant_override("separation", 6)
+		map_row.add_theme_constant_override("separation", 6)
+		beast_row.add_theme_constant_override("separation", 6)
+		GameTheme.style_title(title, 28)
 	elif crew and setup:
 		if body.get_child(0) != crew:
 			body.move_child(crew, 0)

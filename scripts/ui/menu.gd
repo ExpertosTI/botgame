@@ -53,18 +53,25 @@ func _is_mobile_layout() -> bool:
 
 
 func _style_ui() -> void:
-	var title_size := 34 if _mobile else 46
+	var title_size := 40 if _mobile else 46
 	GameTheme.style_title(title_label, title_size)
-	GameTheme.style_muted(subtitle, 14 if _mobile else 17)
+	GameTheme.style_muted(subtitle, 16 if _mobile else 17)
 	GameTheme.style_primary(join_button)
-	join_button.text = "▶  ENTRAR A LA PARTIDA"
+	join_button.text = "▶  ENTRAR"
 	host_button.text = "Probar en local"
 	status_label.add_theme_color_override("font_color", GameTheme.C_AMBER)
-	join_button.custom_minimum_size = Vector2(0, 64 if _mobile else 52)
-	name_input.custom_minimum_size = Vector2(0, 52 if _mobile else 44)
-	address_input.custom_minimum_size = Vector2(0, 48 if _mobile else 44)
+	join_button.custom_minimum_size = Vector2(0, 72 if _mobile else 52)
+	join_button.add_theme_font_size_override("font_size", 26 if _mobile else 22)
+	name_input.custom_minimum_size = Vector2(0, 58 if _mobile else 44)
+	name_input.add_theme_font_size_override("font_size", 20 if _mobile else 16)
+	address_input.custom_minimum_size = Vector2(0, 52 if _mobile else 44)
 	if _mobile:
 		host_button.visible = false
+		# En móvil: ocultar URL (usa la del servidor por defecto)
+		var addr_label := get_node_or_null("Main/Col/FormWrap/Margin/Form/AddrLabel") as Control
+		if addr_label:
+			addr_label.visible = false
+		address_input.visible = false
 
 
 func _setup_atmosphere() -> void:
@@ -102,6 +109,7 @@ func _spawn_showcase() -> void:
 func _fill_web_stage(stage_wrap: Control) -> void:
 	var cap := stage_wrap.get_node_or_null("VBox/StageCaption") as Label
 	if cap:
+		cap.visible = not _mobile
 		cap.text = "BESTIA VS ROBOTS"
 	var view := stage_wrap.get_node_or_null("VBox/StageView") as Control
 	if view:
@@ -110,28 +118,38 @@ func _fill_web_stage(stage_wrap: Control) -> void:
 	if vbox == null:
 		return
 
-	# Hero: TextureRect directo (sin shader canvas — evita rosa/negro en Web)
 	_hero = TextureRect.new()
 	_hero.texture = UiIcons.tex(UiIcons.MENU_HERO)
 	_hero.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_hero.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	_hero.custom_minimum_size = Vector2(0, 180 if _mobile else 240)
+	_hero.custom_minimum_size = Vector2(0, 260 if _mobile else 240)
 	_hero.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_hero.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hero.clip_contents = true
 	vbox.add_child(_hero)
 
-	# Ken Burns con tween (seguro en Web)
-	_hero.pivot_offset = Vector2(160, 90)
+	_hero.pivot_offset = Vector2(180, 120)
 	var ken := create_tween().set_loops()
-	ken.tween_property(_hero, "scale", Vector2(1.06, 1.06), 3.2).set_trans(Tween.TRANS_SINE)
+	ken.tween_property(_hero, "scale", Vector2(1.05, 1.05), 3.2).set_trans(Tween.TRANS_SINE)
 	ken.tween_property(_hero, "scale", Vector2.ONE, 3.2).set_trans(Tween.TRANS_SINE)
 
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 8)
-	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	vbox.add_child(row)
+	# Móvil: rejilla 2×2 (chips grandes); desktop: fila
+	var grid := GridContainer.new() if _mobile else null
+	var row: Container
+	if _mobile:
+		grid.columns = 2
+		grid.add_theme_constant_override("h_separation", 10)
+		grid.add_theme_constant_override("v_separation", 10)
+		grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		vbox.add_child(grid)
+		row = grid
+	else:
+		var h := HBoxContainer.new()
+		h.alignment = BoxContainer.ALIGNMENT_CENTER
+		h.add_theme_constant_override("separation", 8)
+		h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		vbox.add_child(h)
+		row = h
 
 	for item in [
 		[UiIcons.skin_tex(0), "Robot", GameTheme.C_CYAN],
@@ -147,34 +165,38 @@ func _fill_web_stage(stage_wrap: Control) -> void:
 	tip.text = "Táctil · DISPARO · sabotea núcleos\nElige rol y arsenal en la sala."
 	tip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	tip.add_theme_font_size_override("font_size", 13 if _mobile else 15)
+	tip.add_theme_font_size_override("font_size", 16 if _mobile else 15)
 	tip.add_theme_color_override("font_color", GameTheme.C_MUTED)
 	vbox.add_child(tip)
 
 
 func _make_chip(tex: Texture2D, label: String, accent: Color) -> PanelContainer:
 	var chip := PanelContainer.new()
-	chip.custom_minimum_size = Vector2(74 if _mobile else 90, 88 if _mobile else 100)
-	chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if _mobile:
+		chip.custom_minimum_size = Vector2(0, 128)
+		chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	else:
+		chip.custom_minimum_size = Vector2(90, 100)
+		chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	chip.add_theme_stylebox_override(
 		"panel",
-		GameTheme.panel_style(Color(0.05, 0.08, 0.1, 0.95), accent.darkened(0.15), 10, 2)
+		GameTheme.panel_style(Color(0.05, 0.08, 0.1, 0.95), accent.darkened(0.15), 12, 2)
 	)
 	var col := VBoxContainer.new()
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
-	col.add_theme_constant_override("separation", 4)
+	col.add_theme_constant_override("separation", 6)
 	chip.add_child(col)
 	var tr := TextureRect.new()
 	tr.texture = tex
 	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	tr.custom_minimum_size = Vector2(56, 48)
+	tr.custom_minimum_size = Vector2(72 if _mobile else 56, 64 if _mobile else 48)
 	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(tr)
 	var lb := Label.new()
 	lb.text = label
 	lb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lb.add_theme_font_size_override("font_size", 12)
+	lb.add_theme_font_size_override("font_size", 16 if _mobile else 12)
 	lb.add_theme_color_override("font_color", GameTheme.C_TEXT)
 	col.add_child(lb)
 	return chip
@@ -219,7 +241,7 @@ func _adapt_layout() -> void:
 		if stage and col.get_child(0) != stage:
 			col.move_child(stage, 0)
 	if is_instance_valid(_hero):
-		_hero.custom_minimum_size = Vector2(0, 180 if _mobile else 240)
+		_hero.custom_minimum_size = Vector2(0, 260 if _mobile else 240)
 
 
 func _on_join_pressed() -> void:

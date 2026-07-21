@@ -172,15 +172,23 @@ run_export() {
   log "Export OK"
 }
 
+cache_bust() {
+  local sha
+  sha="$(git rev-parse --short HEAD 2>/dev/null || date +%s)"
+  chmod +x "$ROOT/scripts/cache_bust_web.sh" 2>/dev/null || true
+  bash "$ROOT/scripts/cache_bust_web.sh" "$ROOT/export/web" "$sha"
+}
+
 main() {
-  if ! need_export; then
+  if need_export; then
+    install_godot
+    [ -x "$GODOT_BIN" ] || die "Godot no ejecutable: $GODOT_BIN"
+    install_templates
+    run_export
+  else
     log "Exports ya presentes — omitiendo (FORCE_GODOT_EXPORT=1 para forzar)"
-    return 0
   fi
-  install_godot
-  [ -x "$GODOT_BIN" ] || die "Godot no ejecutable: $GODOT_BIN"
-  install_templates
-  run_export
+  cache_bust
 }
 
 main "$@"
