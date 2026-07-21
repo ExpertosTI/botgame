@@ -9,19 +9,16 @@ extends Control
 @onready var subtitle: Label = %Subtitle
 @onready var stage_root: Node3D = %StageRoot
 @onready var atmosphere: ColorRect = %Atmosphere
-@onready var main_scroll: ScrollContainer = $Main
 
 const LOBBY_SCENE := "res://scenes/main/lobby.tscn"
 const CREW_SCRIPT := preload("res://scripts/player/crew_visual.gd")
-const HERO_SHADER := preload("res://shaders/ui_hero_motion.gdshader")
 const BG_SHADER := preload("res://shaders/ui_mobile_bg.gdshader")
 
 var _spin_nodes: Array[Node3D] = []
 var _hero: TextureRect
-var _pulse_fx: TextureRect
-var _mobile := false
 var _chip_nodes: Array[Control] = []
 var _anim_t := 0.0
+var _mobile := false
 
 
 func _ready() -> void:
@@ -51,14 +48,14 @@ func _ready() -> void:
 func _is_mobile_layout() -> bool:
 	if OS.has_feature("mobile"):
 		return true
-	var sz := DisplayServer.window_get_size()
+	var sz := get_viewport().get_visible_rect().size
 	return sz.x < 820 or sz.y > sz.x
 
 
 func _style_ui() -> void:
-	var title_size := 36 if _mobile else 48
+	var title_size := 34 if _mobile else 46
 	GameTheme.style_title(title_label, title_size)
-	GameTheme.style_muted(subtitle, 15 if _mobile else 17)
+	GameTheme.style_muted(subtitle, 14 if _mobile else 17)
 	GameTheme.style_primary(join_button)
 	join_button.text = "▶  ENTRAR A LA PARTIDA"
 	host_button.text = "Probar en local"
@@ -67,21 +64,20 @@ func _style_ui() -> void:
 	name_input.custom_minimum_size = Vector2(0, 52 if _mobile else 44)
 	address_input.custom_minimum_size = Vector2(0, 48 if _mobile else 44)
 	if _mobile:
-		host_button.visible = false  # local host poco útil en móvil web
+		host_button.visible = false
 
 
 func _setup_atmosphere() -> void:
+	# Fondo animado suave (shader simple, compatible Web)
 	var mat := ShaderMaterial.new()
 	mat.shader = BG_SHADER
 	atmosphere.material = mat
 
 
 func _spawn_showcase() -> void:
-	if stage_root == null:
-		return
 	var stage_wrap := get_node_or_null("Main/Col/StageWrap") as Control
-	# Web / móvil: arte 2D animado (sin SubViewport 3D)
-	if OS.has_feature("web") or OS.get_name() == "Web" or _mobile:
+	# Web siempre usa arte 2D (SubViewport 3D falla / se ve roto en GL Compatibility)
+	if OS.has_feature("web") or OS.get_name() == "Web" or stage_root == null:
 		if stage_wrap:
 			_fill_web_stage(stage_wrap)
 		return
@@ -100,30 +96,13 @@ func _spawn_showcase() -> void:
 	stage_root.add_child(beast)
 	beast.apply_colors(Color(0.55, 0.08, 0.12), Color(1.0, 0.35, 0.2), Color(0.9, 0.55, 0.1))
 	beast.set_player_name("BESTIA")
-
 	_spin_nodes = [robot, beast]
-
-	var pad := MeshInstance3D.new()
-	var cyl := CylinderMesh.new()
-	cyl.top_radius = 2.4
-	cyl.bottom_radius = 2.6
-	cyl.height = 0.12
-	pad.mesh = cyl
-	pad.position = Vector3(0, -0.05, 0)
-	var pad_mat := StandardMaterial3D.new()
-	pad_mat.albedo_color = Color(0.08, 0.12, 0.15)
-	pad_mat.emission_enabled = true
-	pad_mat.emission = Color(0.1, 0.5, 0.45)
-	pad_mat.emission_energy_multiplier = 0.35
-	pad.material_override = pad_mat
-	stage_root.add_child(pad)
 
 
 func _fill_web_stage(stage_wrap: Control) -> void:
 	var cap := stage_wrap.get_node_or_null("VBox/StageCaption") as Label
 	if cap:
-		cap.text = "⚔️  BESTIA VS ROBOTS"
-		cap.add_theme_font_size_override("font_size", 14)
+		cap.text = "BESTIA VS ROBOTS"
 	var view := stage_wrap.get_node_or_null("VBox/StageView") as Control
 	if view:
 		view.visible = false
@@ -131,66 +110,36 @@ func _fill_web_stage(stage_wrap: Control) -> void:
 	if vbox == null:
 		return
 
-	var hero_wrap := Control.new()
-	hero_wrap.custom_minimum_size = Vector2(0, 160 if _mobile else 220)
-	hero_wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hero_wrap.clip_contents = true
-	vbox.add_child(hero_wrap)
-
+	# Hero: TextureRect directo (sin shader canvas — evita rosa/negro en Web)
 	_hero = TextureRect.new()
-	_hero.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_hero.texture = UiIcons.tex(UiIcons.MENU_HERO)
 	_hero.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_hero.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_hero.custom_minimum_size = Vector2(0, 180 if _mobile else 240)
+	_hero.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_hero.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var hero_mat := ShaderMaterial.new()
-	hero_mat.shader = HERO_SHADER
-	_hero.material = hero_mat
-	hero_wrap.add_child(_hero)
+	_hero.clip_contents = true
+	vbox.add_child(_hero)
 
-	_pulse_fx = TextureRect.new()
-	_pulse_fx.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	_pulse_fx.custom_minimum_size = Vector2(96, 96)
-	_pulse_fx.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_pulse_fx.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	_pulse_fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_pulse_fx.texture = _make_pulse_anim()
-	_pulse_fx.modulate = Color(1, 1, 1, 0.65)
-	hero_wrap.add_child(_pulse_fx)
+	# Ken Burns con tween (seguro en Web)
+	_hero.pivot_offset = Vector2(160, 90)
+	var ken := create_tween().set_loops()
+	ken.tween_property(_hero, "scale", Vector2(1.06, 1.06), 3.2).set_trans(Tween.TRANS_SINE)
+	ken.tween_property(_hero, "scale", Vector2.ONE, 3.2).set_trans(Tween.TRANS_SINE)
 
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 8 if _mobile else 10)
+	row.add_theme_constant_override("separation", 8)
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox.add_child(row)
 
 	for item in [
-		[UiIcons.skin_tex(0), "Robot"],
-		[UiIcons.beast_tex(GameManager.BeastVariant.CLASSIC), "Bestia"],
-		[UiIcons.loadout_tex(0), "Arsenal"],
-		[UiIcons.map_tex("lab_neon"), "Mapas"],
+		[UiIcons.skin_tex(0), "Robot", GameTheme.C_CYAN],
+		[UiIcons.beast_tex(GameManager.BeastVariant.CLASSIC), "Bestia", GameTheme.C_CRIMSON],
+		[UiIcons.loadout_tex(0), "Arsenal", Color(1.0, 0.75, 0.2)],
+		[UiIcons.map_tex("lab_neon"), "Mapas", Color(0.45, 0.7, 1.0)],
 	]:
-		var chip := PanelContainer.new()
-		chip.custom_minimum_size = Vector2(72 if _mobile else 88, 84 if _mobile else 96)
-		chip.add_theme_stylebox_override(
-			"panel",
-			GameTheme.panel_style(Color(0.06, 0.1, 0.12, 0.9), GameTheme.C_CYAN.darkened(0.3), 8, 1)
-		)
-		var chip_col := VBoxContainer.new()
-		chip_col.alignment = BoxContainer.ALIGNMENT_CENTER
-		chip.add_child(chip_col)
-		var tr := TextureRect.new()
-		tr.texture = item[0]
-		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		tr.custom_minimum_size = Vector2(52 if _mobile else 64, 44 if _mobile else 52)
-		tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		chip_col.add_child(tr)
-		var lb := Label.new()
-		lb.text = item[1]
-		lb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		lb.add_theme_font_size_override("font_size", 11 if _mobile else 12)
-		lb.add_theme_color_override("font_color", GameTheme.C_MUTED)
-		chip_col.add_child(lb)
+		var chip := _make_chip(item[0], item[1], item[2])
 		row.add_child(chip)
 		_chip_nodes.append(chip)
 
@@ -203,29 +152,38 @@ func _fill_web_stage(stage_wrap: Control) -> void:
 	vbox.add_child(tip)
 
 
-func _make_pulse_anim() -> AnimatedTexture:
-	var anim := AnimatedTexture.new()
-	anim.frames = 4
-	for i in 4:
-		var path := "res://assets/ui/fx/pulse_%d.png" % i
-		if ResourceLoader.exists(path):
-			anim.set_frame_texture(i, load(path) as Texture2D)
-			anim.set_frame_duration(i, 0.12)
-	anim.oneshot = false
-	anim.pause = false
-	return anim
+func _make_chip(tex: Texture2D, label: String, accent: Color) -> PanelContainer:
+	var chip := PanelContainer.new()
+	chip.custom_minimum_size = Vector2(74 if _mobile else 90, 88 if _mobile else 100)
+	chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	chip.add_theme_stylebox_override(
+		"panel",
+		GameTheme.panel_style(Color(0.05, 0.08, 0.1, 0.95), accent.darkened(0.15), 10, 2)
+	)
+	var col := VBoxContainer.new()
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", 4)
+	chip.add_child(col)
+	var tr := TextureRect.new()
+	tr.texture = tex
+	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	tr.custom_minimum_size = Vector2(56, 48)
+	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(tr)
+	var lb := Label.new()
+	lb.text = label
+	lb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lb.add_theme_font_size_override("font_size", 12)
+	lb.add_theme_color_override("font_color", GameTheme.C_TEXT)
+	col.add_child(lb)
+	return chip
 
 
 func _start_ui_motion() -> void:
-	# Pulso CTA
 	var tw := create_tween().set_loops()
-	tw.tween_property(join_button, "modulate", Color(1.08, 1.08, 1.08, 1.0), 0.7).set_trans(Tween.TRANS_SINE)
-	tw.tween_property(join_button, "modulate", Color.WHITE, 0.7).set_trans(Tween.TRANS_SINE)
-	# Título
-	title_label.pivot_offset = title_label.size * 0.5
-	var tw2 := create_tween().set_loops()
-	tw2.tween_property(title_label, "scale", Vector2(1.02, 1.02), 1.1).set_trans(Tween.TRANS_SINE)
-	tw2.tween_property(title_label, "scale", Vector2.ONE, 1.1).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(join_button, "modulate", Color(0.85, 1.0, 0.95), 0.85).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(join_button, "modulate", Color.WHITE, 0.85).set_trans(Tween.TRANS_SINE)
 
 
 func _process(delta: float) -> void:
@@ -234,14 +192,12 @@ func _process(delta: float) -> void:
 		var n := _spin_nodes[i]
 		if is_instance_valid(n):
 			n.rotate_y(delta * (0.55 if i == 0 else -0.4))
-	# Chips flotando
+	# Pulso de borde en chips (sin tocar position — rompe HBox)
 	for i in _chip_nodes.size():
 		var c := _chip_nodes[i]
 		if is_instance_valid(c):
-			c.position.y = sin(_anim_t * 2.2 + i * 0.9) * 3.0
-	if is_instance_valid(_pulse_fx):
-		_pulse_fx.rotation = _anim_t * 0.4
-		_pulse_fx.modulate.a = 0.35 + 0.35 * (0.5 + 0.5 * sin(_anim_t * 3.0))
+			var a := 0.88 + 0.12 * sin(_anim_t * 2.0 + i)
+			c.modulate = Color(a, a, a, 1.0)
 
 
 func _notification(what: int) -> void:
@@ -256,17 +212,14 @@ func _adapt_layout() -> void:
 	var col := get_node_or_null("Main/Col") as VBoxContainer
 	if col == null:
 		return
-	# En pantallas anchas: arte arriba del formulario; en móvil CTA primero
 	if _mobile:
 		if form and col.get_child(0) != form:
 			col.move_child(form, 0)
-		if stage:
-			stage.custom_minimum_size = Vector2(0, 210)
 	else:
 		if stage and col.get_child(0) != stage:
 			col.move_child(stage, 0)
-		if stage:
-			stage.custom_minimum_size = Vector2(0, 280)
+	if is_instance_valid(_hero):
+		_hero.custom_minimum_size = Vector2(0, 180 if _mobile else 240)
 
 
 func _on_join_pressed() -> void:

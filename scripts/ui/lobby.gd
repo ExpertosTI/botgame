@@ -138,12 +138,13 @@ func _adapt_mobile_lobby() -> void:
 func _setup_hangar() -> void:
 	if hangar_slot == null:
 		return
-	hangar_slot.add_theme_stylebox_override(
-		"panel",
-		GameTheme.panel_style(Color(0.03, 0.06, 0.08, 0.95), GameTheme.C_CYAN.darkened(0.35), 12, 2)
-	)
+	# Limpiar hijos previos del PanelContainer slot
+	for c in hangar_slot.get_children():
+		c.queue_free()
 	_hangar = HANGAR_SCRIPT.new() as LobbyHangar
 	hangar_slot.add_child(_hangar)
+	# El hangar ya se estiliza a sí mismo; slot transparente
+	hangar_slot.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 
 
 func _update_hangar_preview() -> void:
