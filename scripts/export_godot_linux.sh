@@ -1,16 +1,39 @@
 #!/usr/bin/env bash
-# Export Godot en el VPS vía imagen godot-ci (templates incluidos).
-# Sin rsync / sin passwords. Llamado por deploy.sh.
+# Export Godot en el VPS (Linux). Sin rsync / sin passwords.
+# Llamado por deploy.sh. Cache en /var/cache/botgame-godot
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-GODOT_CI_IMAGE="${GODOT_CI_IMAGE:-barichello/godot-ci:4.3}"
+GODOT_VER="${GODOT_VER:-4.3-stable}"
+CACHE="${BOTGAME_GODOT_CACHE:-/var/cache/botgame-godot}"
+GODOT_BIN="$CACHE/Godot_v${GODOT_VER}_linux.x86_64"
+# Godot 4.3 busca plantillas en: ~/.local/share/godot/export_templates/4.3.stable
+TPL_DEST="$HOME/.local/share/godot/export_templates/4.3.stable"
+
 export GODOT_SILENCE_ROOT_WARNING=1
 
 log() { echo "[export-godot] $*"; }
 die() { echo "[export-godot] ERROR: $*" >&2; exit 1; }
+
+ensure_unzip() {
+  if command -v unzip >/dev/null 2>&1; then
+    return 0
+  fi
+  log "Instalando unzip..."
+  if command -v apt-get >/dev/null 2>&1; then
+    apt-get update -qq
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq unzip
+  else
+    die "No hay unzip y no se pudo instalar"
+  fi
+}
+
+extract_zip() {
+  ensure_unzip
+  unzip -qo "$1" -d "$2"
+}
 
 need_export() {
   if [ ! -f export/web/index.html ]; then return 0; fi
@@ -21,78 +44,128 @@ need_export() {
   return 1
 }
 
-prepare_dirs() {
+install_godot() {
+  local found
+  found="$(find "$CACHE" -maxdepth 1 -type f -name 'Godot_v*_linux.x86_64' 2>/dev/null | head -1 || true)"
+  if [ -n "$found" ] && [ -x "$found" ]; then
+    GODOT_BIN="$found"
+    log "Godot OK: $GODOT_BIN"
+    return
+  fi
+  log "Descargando Godot $GODOT_VER (linux.x86_64)..."
+  mkdir -p "$CACHE"
+  local zip="$CACHE/godot.zip"
+  curl -fsSL -o "$zip" \
+    "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VER}/Godot_v${GODOT_VER}_linux.x86_64.zip"
+  extract_zip "$zip" "$CACHE"
+  found="$(find "$CACHE" -maxdepth 1 -type f -name 'Godot_v*_linux.x86_64' | head -1)"
+  [ -n "$found" ] || die "No se encontró binario Godot tras unzip"
+  chmod +x "$found"
+  GODOT_BIN="$found"
+  log "Godot instalado: $GODOT_BIN"
+}
+
+templates_ok() {
+  # thread_support=false → web_nothreads_*; Linux dedicado → linux_release.x86_64
+  [ -f "$TPL_DEST/web_nothreads_release.zip" ] && [ -f "$TPL_DEST/linux_release.x86_64" ]
+}
+
+# Solo necesitamos Web + Linux; android/ios/macos ocupan ~1.5GB en disco VPS.
+prune_unused_templates() {
+  [ -d "$TPL_DEST" ] || return 0
+  local before after
+  before="$(du -sm "$TPL_DEST" 2>/dev/null | awk '{print $1}')"
+  rm -f "$TPL_DEST"/android_* \
+    "$TPL_DEST"/ios.zip \
+    "$TPL_DEST"/macos.zip \
+    "$TPL_DEST"/web_dlink_* \
+    "$TPL_DEST"/linux_debug.* \
+    "$TPL_DEST"/linux_release.arm* \
+    "$TPL_DEST"/linux_release.x86_32 \
+    "$TPL_DEST"/web_debug.zip \
+    "$TPL_DEST"/web_release.zip \
+    "$TPL_DEST"/web_nothreads_debug.zip \
+    2>/dev/null || true
+  # Mantener: web_nothreads_release.zip, linux_release.x86_64, version.txt
+  after="$(du -sm "$TPL_DEST" 2>/dev/null | awk '{print $1}')"
+  if [ -n "$before" ] && [ -n "$after" ] && [ "$before" != "$after" ]; then
+    log "Templates podados: ${before}MB → ${after}MB (solo Web+Linux)"
+  fi
+}
+
+install_templates() {
+  if templates_ok && [ "${FORCE_GODOT_TEMPLATES:-0}" != "1" ]; then
+    log "Templates OK: $TPL_DEST"
+    prune_unused_templates
+    ls "$TPL_DEST" | head -20
+    return
+  fi
+  log "Descargando export templates $GODOT_VER..."
+  mkdir -p "$HOME/.local/share/godot/export_templates" "$CACHE"
+  local tpz="$CACHE/export_templates.tpz"
+  curl -fsSL -o "$tpz" \
+    "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VER}/Godot_v${GODOT_VER}_export_templates.tpz"
+  local tmp="$CACHE/tpl_extract"
+  rm -rf "$tmp"
+  mkdir -p "$tmp"
+  extract_zip "$tpz" "$tmp"
+  [ -d "$tmp/templates" ] || die "El .tpz no contiene carpeta templates/"
+  rm -rf "$TPL_DEST"
+  mv "$tmp/templates" "$TPL_DEST"
+  prune_unused_templates
+  log "Templates en $TPL_DEST:"
+  ls -lh "$TPL_DEST" | head -30
+  templates_ok || die "Faltan web_nothreads_release.zip o linux_release.x86_64 en $TPL_DEST"
+}
+
+run_export() {
+  [ -f "$ROOT/export_presets.cfg" ] || die "Falta export_presets.cfg"
+
   mkdir -p export/web export/server
   if [ -f export/server/BestiaVsRobots.x86_64 ] && head -1 export/server/BestiaVsRobots.x86_64 | grep -q '^#!'; then
     rm -f export/server/BestiaVsRobots.x86_64
   fi
-  # Placeholder web no debe confundir al export
-  if [ -f export/web/index.html ] && ! ls export/web/*.wasm >/dev/null 2>&1; then
-    rm -f export/web/index.html
+
+  log "Importando proyecto (.godot)..."
+  "$GODOT_BIN" --headless --path "$ROOT" --import >/tmp/botgame-godot-import.log 2>&1 || true
+  # Segunda pasada: asegura que los scripts compilan
+  "$GODOT_BIN" --headless --path "$ROOT" --editor --quit-after 3 >/tmp/botgame-godot-editor.log 2>&1 || true
+
+  if grep -qiE 'SCRIPT ERROR|Parse Error|Compile Error' /tmp/botgame-godot-editor.log /tmp/botgame-godot-import.log 2>/dev/null; then
+    warn_scripts=1
+    log "AVISO: hay errores de script en import — dump:"
+    grep -iE 'SCRIPT ERROR|Parse Error|Compile Error' /tmp/botgame-godot-editor.log /tmp/botgame-godot-import.log 2>/dev/null | head -20 || true
   fi
-}
 
-export_with_docker() {
-  command -v docker >/dev/null 2>&1 || die "docker no está en PATH"
-  [ -f "$ROOT/export_presets.cfg" ] || die "Falta export_presets.cfg"
+  # Godot 4.3: for_mobile=true + sin import_etc2_astc → error vacío en Web.
+  # Ver export_presets (for_mobile=false) y project.godot (import_etc2_astc).
+  log "Export Web → export/web/index.html (renderer=gl_compatibility, etc2 ok)"
+  if ! "$GODOT_BIN" --headless --path "$ROOT" --export-release "Web" "$ROOT/export/web/index.html" \
+      >/tmp/botgame-export-web.log 2>&1; then
+    echo "----- /tmp/botgame-export-web.log -----" >&2
+    cat /tmp/botgame-export-web.log >&2
+    echo "----- project rendering -----" >&2
+    grep -E 'renderer|vram|etc2|features' "$ROOT/project.godot" >&2 || true
+    echo "----- preset web options -----" >&2
+    grep -A30 '^\[preset.0.options\]' "$ROOT/export_presets.cfg" | head -20 >&2 || true
+    echo "----- templates dir -----" >&2
+    ls -la "$TPL_DEST" >&2 || true
+    die "Export Web falló"
+  fi
 
-  log "Pull imagen $GODOT_CI_IMAGE (si hace falta)..."
-  docker pull "$GODOT_CI_IMAGE"
+  log "Export Linux → export/server/BestiaVsRobots.x86_64"
+  if ! "$GODOT_BIN" --headless --path "$ROOT" --export-release "Linux" "$ROOT/export/server/BestiaVsRobots.x86_64" \
+      >/tmp/botgame-export-linux.log 2>&1; then
+    echo "----- /tmp/botgame-export-linux.log -----" >&2
+    cat /tmp/botgame-export-linux.log >&2
+    die "Export Linux falló"
+  fi
 
-  log "Export Web + Linux dentro de godot-ci..."
-  # HOME del contenedor ya trae export_templates/4.3.stable
-  docker run --rm \
-    -e GODOT_SILENCE_ROOT_WARNING=1 \
-    -v "$ROOT:/project" \
-    -w /project \
-    "$GODOT_CI_IMAGE" \
-    bash -lc '
-      set -euo pipefail
-      echo "[ci] Godot: $(godot --version 2>/dev/null || true)"
-      echo "[ci] Templates:"
-      ls -la /root/.local/share/godot/export_templates/ 2>/dev/null || ls -la "$HOME/.local/share/godot/export_templates/" 2>/dev/null || true
-      TPL=$(ls -d /root/.local/share/godot/export_templates/*.stable 2>/dev/null | head -1 || true)
-      if [ -z "$TPL" ]; then
-        TPL=$(ls -d "$HOME"/.local/share/godot/export_templates/*.stable 2>/dev/null | head -1 || true)
-      fi
-      echo "[ci] Using templates dir: ${TPL:-NONE}"
-      ls -la "${TPL:-/nonexistent}" 2>/dev/null | head -20 || true
-
-      rm -rf /project/.godot
-      mkdir -p /project/export/web /project/export/server
-
-      godot --headless --path /project --import > /tmp/import.log 2>&1 || true
-      godot --headless --path /project --editor --quit-after 2 > /tmp/editor.log 2>&1 || true
-      if grep -qiE "SCRIPT ERROR|Parse Error|Compile Error" /tmp/import.log /tmp/editor.log 2>/dev/null; then
-        echo "[ci] Script errors:"
-        grep -iE "SCRIPT ERROR|Parse Error|Compile Error" /tmp/import.log /tmp/editor.log | head -40
-      fi
-
-      echo "[ci] Export Web..."
-      if ! godot --headless --path /project --export-release "Web" /project/export/web/index.html > /tmp/web.log 2>&1; then
-        echo "[ci] WEB EXPORT FAILED"
-        cat /tmp/web.log
-        # Reintentar con thread_support forzado vía sed en preset
-        exit 1
-      fi
-
-      echo "[ci] Export Linux..."
-      if ! godot --headless --path /project --export-release "Linux" /project/export/server/BestiaVsRobots.x86_64 > /tmp/linux.log 2>&1; then
-        echo "[ci] LINUX EXPORT FAILED"
-        cat /tmp/linux.log
-        exit 1
-      fi
-
-      chmod +x /project/export/server/BestiaVsRobots.x86_64 || true
-      echo "[ci] Results:"
-      ls -lh /project/export/web/ | head -20
-      ls -lh /project/export/server/ | head -10
-      ls /project/export/web/*.wasm >/dev/null
-    '
-
-  ls export/web/*.wasm >/dev/null 2>&1 || die "Export Web sin .wasm tras docker"
-  [ -f export/server/BestiaVsRobots.x86_64 ] || die "Falta binario Linux"
-  log "Export OK (godot-ci)"
+  chmod +x export/server/BestiaVsRobots.x86_64 || true
+  ls -lh export/web/ | head -20
+  ls -lh export/server/ | head -10
+  ls export/web/*.wasm >/dev/null 2>&1 || die "Export Web sin .wasm"
+  log "Export OK"
 }
 
 main() {
@@ -100,8 +173,10 @@ main() {
     log "Exports ya presentes — omitiendo (FORCE_GODOT_EXPORT=1 para forzar)"
     return 0
   fi
-  prepare_dirs
-  export_with_docker
+  install_godot
+  [ -x "$GODOT_BIN" ] || die "Godot no ejecutable: $GODOT_BIN"
+  install_templates
+  run_export
 }
 
 main "$@"
