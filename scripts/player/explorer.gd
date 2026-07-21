@@ -49,6 +49,8 @@ func _physics_process(delta: float) -> void:
 	if not alive:
 		return
 	super._physics_process(delta)
+	if has_meta("is_bot") and get_meta("is_bot"):
+		return
 	if not is_multiplayer_authority():
 		return
 
@@ -91,6 +93,13 @@ func _looking_at_core() -> bool:
 		return false
 	var collider := interact_ray.get_collider()
 	return collider is BeastObjective and collider.is_active
+
+
+func get_sabotage_progress() -> float:
+	if not is_sabotaging or sabotage_timer.is_stopped():
+		return 0.0
+	var total := maxf(sabotage_timer.wait_time, 0.001)
+	return clampf(1.0 - sabotage_timer.time_left / total, 0.0, 1.0)
 
 
 func _try_sabotage() -> void:

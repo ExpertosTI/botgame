@@ -15,15 +15,17 @@ signal match_start_requested(map_id: String)
 const CONFIG_PATH := "res://config/server_config.tres"
 const MAX_PLAYERS_DEFAULT := 5
 
-var peer: WebSocketMultiplayerPeer = null
+var peer: MultiplayerPeer = null
 var players: Dictionary = {}  # peer_id -> { name, role, ready }
 var local_player_name := "Jugador"
 var selected_map: String = "lab_neon"
 var is_dedicated_server := false
+var is_solo_practice := false
 var config: ServerConfig = null
 var last_reject_reason := ""
 var _join_confirmed := false
 
+const BOT_PEER_BASE := 9001
 const MAP_IDS := ["lab_neon", "containers", "ruins"]
 const MAP_NAMES := {
 	"lab_neon": "Laboratorio Neon",
@@ -70,6 +72,7 @@ func start_dedicated_server(port: int = -1) -> Error:
 func host_listen_server(player_name: String = "Anfitrión", port: int = -1) -> Error:
 	## Modo desarrollo: el PC hace de servidor y también juega.
 	is_dedicated_server = false
+	is_solo_practice = false
 	local_player_name = player_name
 	if port < 0:
 		port = config.websocket_port
@@ -83,8 +86,80 @@ func host_listen_server(player_name: String = "Anfitrión", port: int = -1) -> E
 	return OK
 
 
+func start_solo_practice(player_name: String = "Practicante") -> Error:
+	## Campaña / práctica offline: OfflineMultiplayerPeer + bots.
+	disconnect_from_game()
+	is_dedicated_server = false
+	is_solo_practice = true
+	local_player_name = player_name
+	var offline := OfflineMultiplayerPeer.new()
+	multiplayer.multiplayer_peer = offline
+	peer = null  # no WebSocket
+	ProgressionManager.campaign_mode = true
+	selected_map = ProgressionManager.force_campaign_map()
+	_add_player(1, player_name)
+	players[1]["role"] = "explorer"
+	players[1]["ready"] = true
+	server_started.emit()
+	return OK
+
+
+func is_bot_peer(peer_id: int) -> bool:
+	return peer_id >= BOT_PEER_BASE
+
+
+func prepare_solo_bots() -> void:
+	## Rellena rivales IA según el rol del jugador humano (peer 1).
+	if not is_solo_practice:
+		return
+	# Quitar bots previos
+	var to_erase: Array = []
+	for pid in players.keys():
+		if is_bot_peer(int(pid)):
+			to_erase.append(pid)
+	for pid in to_erase:
+		players.erase(pid)
+
+	var human_role := str(players.get(1, {}).get("role", "explorer"))
+	if human_role == "":
+		human_role = "explorer"
+		players[1]["role"] = human_role
+	players[1]["ready"] = true
+
+	if human_role == "beast":
+		# Tú eres bestia → 2 robots bot
+		for i in 2:
+			var bid := BOT_PEER_BASE + i
+			_add_player(bid, "Bot Robot %d" % (i + 1))
+			players[bid]["role"] = "explorer"
+			players[bid]["ready"] = true
+			players[bid]["skin"] = (i + 1) % 4
+			players[bid]["loadout"] = clampi(i, 0, 3)
+			if not ProgressionManager.is_loadout_unlocked(players[bid]["loadout"]):
+				players[bid]["loadout"] = 0
+	else:
+		# Tú eres robot → 1 bestia bot (+ opcional aliado robot bot en niveles altos)
+		var bid := BOT_PEER_BASE
+		_add_player(bid, "Bot Bestia")
+		players[bid]["role"] = "beast"
+		players[bid]["ready"] = true
+		if ProgressionManager.campaign_index >= 2:
+			var ally := BOT_PEER_BASE + 1
+			_add_player(ally, "Bot Aliado")
+			players[ally]["role"] = "explorer"
+			players[ally]["ready"] = true
+			players[ally]["skin"] = 2
+			players[ally]["loadout"] = 0
+
+	GameManager.easy_beast_mode = true
+	if config:
+		config.easy_beast_mode = true
+	players_updated.emit()
+
+
 func join_game(address: String = "", player_name: String = "Jugador") -> Error:
 	is_dedicated_server = false
+	is_solo_practice = false
 	_join_confirmed = false
 	last_reject_reason = ""
 	local_player_name = player_name
@@ -111,6 +186,7 @@ func disconnect_from_game() -> void:
 		peer = null
 	players.clear()
 	_join_confirmed = false
+	is_solo_practice = false
 	multiplayer.multiplayer_peer = null
 
 
@@ -175,20 +251,43 @@ func _broadcast_lobby() -> void:
 	if not multiplayer.is_server():
 		return
 	# call_local en _sync_full_state actualiza también al servidor
-	_sync_full_state.rpc(players, selected_map, GameManager.beast_variant)
+	_sync_full_state.rpc(
+		players,
+		selected_map,
+		GameManager.beast_variant,
+		GameManager.easy_beast_mode,
+		ProgressionManager.campaign_mode
+	)
 
 
 func _on_peer_connected(id: int) -> void:
 	if multiplayer.is_server():
 		# Sync lista y settings al nuevo peer
-		_sync_full_state.rpc_id(id, players, selected_map, GameManager.beast_variant)
+		_sync_full_state.rpc_id(
+			id,
+			players,
+			selected_map,
+			GameManager.beast_variant,
+			GameManager.easy_beast_mode,
+			ProgressionManager.campaign_mode
+		)
 
 
 @rpc("authority", "call_local", "reliable")
-func _sync_full_state(remote_players: Dictionary, map_id: String, beast_variant: int) -> void:
+func _sync_full_state(
+	remote_players: Dictionary,
+	map_id: String,
+	beast_variant: int,
+	easy_beast: bool = false,
+	campaign: bool = false
+) -> void:
 	players = _normalize_players(remote_players)
 	selected_map = map_id
 	GameManager.beast_variant = beast_variant as GameManager.BeastVariant
+	GameManager.easy_beast_mode = easy_beast
+	if config:
+		config.easy_beast_mode = easy_beast
+	ProgressionManager.campaign_mode = campaign
 	players_updated.emit()
 	lobby_settings_changed.emit()
 	var my_id := multiplayer.get_unique_id()
@@ -292,6 +391,45 @@ func submit_beast_variant(variant: int) -> void:
 		set_beast_variant.rpc_id(1, variant)
 
 
+func submit_easy_beast(on: bool) -> void:
+	if multiplayer.is_server():
+		set_easy_beast(on)
+	else:
+		set_easy_beast.rpc_id(1, on)
+
+
+func request_return_to_lobby() -> void:
+	if multiplayer.is_server():
+		_return_to_lobby_rpc.rpc()
+	else:
+		_request_return_lobby.rpc_id(1)
+
+
+@rpc("any_peer", "reliable")
+func _request_return_lobby() -> void:
+	if multiplayer.is_server():
+		_return_to_lobby_rpc.rpc()
+
+
+@rpc("authority", "call_local", "reliable")
+func _return_to_lobby_rpc() -> void:
+	# Mantener flag solo al rematchear práctica
+	var keep_solo := is_solo_practice
+	for pid in players:
+		players[pid]["ready"] = false
+	# Quitar bots; se recrean al empezar de nuevo
+	var erase: Array = []
+	for pid in players.keys():
+		if is_bot_peer(int(pid)):
+			erase.append(pid)
+	for pid in erase:
+		players.erase(pid)
+	players_updated.emit()
+	is_solo_practice = keep_solo
+	if not is_dedicated_server:
+		get_tree().change_scene_to_file("res://scenes/main/lobby.tscn")
+
+
 @rpc("any_peer", "reliable")
 func set_player_role(peer_id: int, role: String) -> void:
 	if not multiplayer.is_server():
@@ -332,22 +470,9 @@ func set_selected_map(map_id: String) -> void:
 	if not multiplayer.is_server():
 		return
 	if map_id in MAP_IDS:
+		# En campaña libre el host puede forzar; clientes solo unlocked localmente se valida en UI
 		selected_map = map_id
 		_broadcast_lobby()
-
-
-@rpc("any_peer", "reliable")
-func set_player_skin(peer_id: int, skin: int) -> void:
-	if not multiplayer.is_server():
-		return
-	var sender := multiplayer.get_remote_sender_id()
-	if sender != 0 and sender != peer_id:
-		return
-	peer_id = int(peer_id)
-	if not players.has(peer_id):
-		return
-	players[peer_id]["skin"] = clampi(skin, 0, 3)
-	_broadcast_lobby()
 
 
 @rpc("any_peer", "reliable")
@@ -365,11 +490,52 @@ func set_player_loadout(peer_id: int, loadout: int) -> void:
 
 
 @rpc("any_peer", "reliable")
+func set_player_skin(peer_id: int, skin: int) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != peer_id:
+		return
+	peer_id = int(peer_id)
+	if not players.has(peer_id):
+		return
+	players[peer_id]["skin"] = clampi(skin, 0, 3)
+	_broadcast_lobby()
+
+
+@rpc("any_peer", "reliable")
 func set_beast_variant(variant: int) -> void:
 	if not multiplayer.is_server():
 		return
 	GameManager.beast_variant = variant as GameManager.BeastVariant
 	_broadcast_lobby()
+
+
+@rpc("any_peer", "reliable")
+func set_easy_beast(on: bool) -> void:
+	if not multiplayer.is_server():
+		return
+	GameManager.easy_beast_mode = on
+	if config:
+		config.easy_beast_mode = on
+	_broadcast_lobby()
+
+
+@rpc("any_peer", "reliable")
+func set_campaign_mode(on: bool) -> void:
+	if not multiplayer.is_server():
+		return
+	ProgressionManager.campaign_mode = on
+	if on:
+		selected_map = ProgressionManager.force_campaign_map()
+	_broadcast_lobby()
+
+
+func submit_campaign_mode(on: bool) -> void:
+	if multiplayer.is_server():
+		set_campaign_mode(on)
+	else:
+		set_campaign_mode.rpc_id(1, on)
 
 
 
@@ -402,9 +568,14 @@ func count_explorers() -> int:
 func request_start_match() -> void:
 	if not multiplayer.is_server():
 		return
-	if players.size() < 2:
+	if is_solo_practice:
+		prepare_solo_bots()
+		if players.get(1, {}).get("role", "") == "":
+			players[1]["role"] = "explorer"
+		players[1]["ready"] = true
+	elif players.size() < 2:
 		return
-	if not all_players_ready():
+	if not all_players_ready() and not is_solo_practice:
 		return
 	if not has_exactly_one_beast():
 		return
@@ -412,10 +583,31 @@ func request_start_match() -> void:
 	for pid in players:
 		if players[pid].get("role", "") == "":
 			players[pid]["role"] = "explorer"
-	_do_start_match.rpc(selected_map)
+	var cores := -1
+	var match_time := -1.0
+	var beast_hp := 1.0
+	if ProgressionManager.campaign_mode or is_solo_practice:
+		ProgressionManager.campaign_mode = true
+		selected_map = ProgressionManager.force_campaign_map()
+		var lv := ProgressionManager.current_level()
+		cores = int(lv.get("cores", 5))
+		match_time = float(lv.get("time", 240))
+		beast_hp = float(lv.get("beast_hp", 1.0))
+	_do_start_match.rpc(selected_map, cores, match_time, beast_hp)
 
 
 @rpc("authority", "call_local", "reliable")
-func _do_start_match(map_id: String) -> void:
+func _do_start_match(map_id: String, cores: int = -1, match_time: float = -1.0, beast_hp: float = 1.0) -> void:
 	selected_map = map_id
+	if cores > 0:
+		GameManager.level_core_count = cores
+		GameManager.level_match_time = match_time
+		GameManager.level_beast_hp_mult = beast_hp
+		GameManager.level_rules_locked = true
+		ProgressionManager.campaign_mode = true
+	else:
+		GameManager.level_rules_locked = false
+		GameManager.level_core_count = GameManager.OBJECTIVES_TO_WIN
+		GameManager.level_match_time = -1.0
+		GameManager.level_beast_hp_mult = 1.0
 	match_start_requested.emit(map_id)

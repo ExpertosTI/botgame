@@ -31,7 +31,8 @@ func _ready() -> void:
 	combat.name = "CombatKit"
 	add_child(combat)
 
-	if not is_multiplayer_authority():
+	var bot := has_meta("is_bot") and bool(get_meta("is_bot"))
+	if not is_multiplayer_authority() or bot:
 		camera.current = false
 		set_process_input(false)
 	else:
@@ -79,6 +80,8 @@ func _apply_look(rel: Vector2) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if has_meta("is_bot") and get_meta("is_bot"):
+		return  # PracticeAI controla movimiento
 	if is_multiplayer_authority():
 		_authority_move(delta)
 		_maybe_sync(delta)

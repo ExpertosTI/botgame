@@ -77,44 +77,95 @@ autowrap_mode = 3
 [node name="Subtitle" type="Label" parent="Main/Col/FormWrap/Margin/Form"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Asimétrico · 1 Bestia vs 1–3 Robots · sabotaje de núcleos"
+text = "Elige modo: Online o Campaña solitaria"
 horizontal_alignment = 1
 autowrap_mode = 2
 
-[node name="NameLabel" type="Label" parent="Main/Col/FormWrap/Margin/Form"]
+[node name="ModeRow" type="HBoxContainer" parent="Main/Col/FormWrap/Margin/Form"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="OnlineModeButton" type="Button" parent="Main/Col/FormWrap/Margin/Form/ModeRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "ONLINE"
+
+[node name="SoloModeButton" type="Button" parent="Main/Col/FormWrap/Margin/Form/ModeRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "CAMPAÑA"
+
+[node name="OnlinePanel" type="VBoxContainer" parent="Main/Col/FormWrap/Margin/Form"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="NameLabel" type="Label" parent="Main/Col/FormWrap/Margin/Form/OnlinePanel"]
 layout_mode = 2
 text = "INDICATIVO"
 
-[node name="NameInput" type="LineEdit" parent="Main/Col/FormWrap/Margin/Form"]
+[node name="NameInput" type="LineEdit" parent="Main/Col/FormWrap/Margin/Form/OnlinePanel"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
 placeholder_text = "Tu nombre"
 alignment = 1
 
-[node name="AddrLabel" type="Label" parent="Main/Col/FormWrap/Margin/Form"]
+[node name="AddrLabel" type="Label" parent="Main/Col/FormWrap/Margin/Form/OnlinePanel"]
 layout_mode = 2
 text = "ENLACE AL SERVIDOR"
 
-[node name="AddressInput" type="LineEdit" parent="Main/Col/FormWrap/Margin/Form"]
+[node name="AddressInput" type="LineEdit" parent="Main/Col/FormWrap/Margin/Form/OnlinePanel"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
 placeholder_text = "wss://…"
 alignment = 1
 
-[node name="JoinButton" type="Button" parent="Main/Col/FormWrap/Margin/Form"]
+[node name="JoinButton" type="Button" parent="Main/Col/FormWrap/Margin/Form/OnlinePanel"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 64)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
-text = "ENTRAR A LA PARTIDA"
+text = "ENTRAR ONLINE"
 
-[node name="HostButton" type="Button" parent="Main/Col/FormWrap/Margin/Form"]
+[node name="HostButton" type="Button" parent="Main/Col/FormWrap/Margin/Form/OnlinePanel"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
-text = "Probar en local"
+text = "Sala local (LAN)"
+
+[node name="SoloPanel" type="VBoxContainer" parent="Main/Col/FormWrap/Margin/Form"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="SoloHint" type="Label" parent="Main/Col/FormWrap/Margin/Form/SoloPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 2
+horizontal_alignment = 1
+text = "Practica la campaña contra bots. Progresión y desbloqueos cuentan."
+
+[node name="SoloNameInput" type="LineEdit" parent="Main/Col/FormWrap/Margin/Form/SoloPanel"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+placeholder_text = "Tu nombre"
+alignment = 1
+
+[node name="SoloStartButton" type="Button" parent="Main/Col/FormWrap/Margin/Form/SoloPanel"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 64)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "EMPEZAR PRÁCTICA"
 
 [node name="StatusLabel" type="Label" parent="Main/Col/FormWrap/Margin/Form"]
 unique_name_in_owner = true

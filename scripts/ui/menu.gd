@@ -9,6 +9,13 @@ extends Control
 @onready var subtitle: Label = %Subtitle
 @onready var stage_root: Node3D = %StageRoot
 @onready var atmosphere: ColorRect = %Atmosphere
+@onready var online_mode_button: Button = %OnlineModeButton
+@onready var solo_mode_button: Button = %SoloModeButton
+@onready var online_panel: Control = %OnlinePanel
+@onready var solo_panel: Control = %SoloPanel
+@onready var solo_name_input: LineEdit = %SoloNameInput
+@onready var solo_start_button: Button = %SoloStartButton
+@onready var solo_hint: Label = %SoloHint
 
 const LOBBY_SCENE := "res://scenes/main/lobby.tscn"
 const CREW_SCRIPT := preload("res://scripts/player/crew_visual.gd")
@@ -19,6 +26,7 @@ var _hero: TextureRect
 var _chip_nodes: Array[Control] = []
 var _anim_t := 0.0
 var _mobile := false
+var _mode := "online"
 
 
 func _ready() -> void:
@@ -36,13 +44,18 @@ func _ready() -> void:
 
 	join_button.pressed.connect(_on_join_pressed)
 	host_button.pressed.connect(_on_host_pressed)
+	online_mode_button.pressed.connect(_set_mode.bind("online"))
+	solo_mode_button.pressed.connect(_set_mode.bind("solo"))
+	solo_start_button.pressed.connect(_on_solo_start_pressed)
 	NetworkManager.connection_succeeded.connect(_on_connected)
 	NetworkManager.connection_failed.connect(_on_connection_failed)
 	NetworkManager.server_started.connect(_on_server_started)
 
 	name_input.text = "Robot"
+	solo_name_input.text = "Practicante"
 	address_input.text = NetworkManager.get_default_server_url()
 	address_input.placeholder_text = "wss://botgame.renace.tech/ws"
+	_set_mode("online")
 
 
 func _is_mobile_layout() -> bool:
@@ -57,25 +70,54 @@ func _style_ui() -> void:
 	GameTheme.style_title(title_label, title_size)
 	GameTheme.style_muted(subtitle, 16 if _mobile else 17)
 	GameTheme.style_primary(join_button)
-	join_button.text = "▶  ENTRAR"
-	host_button.text = "Probar en local"
+	GameTheme.style_primary(solo_start_button)
+	join_button.text = "▶  ENTRAR ONLINE"
+	host_button.text = "Sala local (LAN)"
+	solo_start_button.text = "▶  EMPEZAR PRÁCTICA"
+	online_mode_button.text = "🌐  ONLINE"
+	solo_mode_button.text = "🎯  CAMPAÑA"
 	status_label.add_theme_color_override("font_color", GameTheme.C_AMBER)
 	join_button.custom_minimum_size = Vector2(0, 72 if _mobile else 52)
 	join_button.add_theme_font_size_override("font_size", 26 if _mobile else 22)
+	solo_start_button.custom_minimum_size = Vector2(0, 72 if _mobile else 52)
+	solo_start_button.add_theme_font_size_override("font_size", 26 if _mobile else 22)
 	name_input.custom_minimum_size = Vector2(0, 58 if _mobile else 44)
 	name_input.add_theme_font_size_override("font_size", 20 if _mobile else 16)
+	solo_name_input.custom_minimum_size = Vector2(0, 58 if _mobile else 44)
 	address_input.custom_minimum_size = Vector2(0, 52 if _mobile else 44)
+	GameTheme.style_muted(solo_hint, 15)
 	if _mobile:
 		host_button.visible = false
-		# En móvil: ocultar URL (usa la del servidor por defecto)
-		var addr_label := get_node_or_null("Main/Col/FormWrap/Margin/Form/AddrLabel") as Control
+		var addr_label := online_panel.get_node_or_null("AddrLabel") as Control
 		if addr_label:
 			addr_label.visible = false
 		address_input.visible = false
 
 
+func _set_mode(mode: String) -> void:
+	_mode = mode
+	var online := mode == "online"
+	online_panel.visible = online
+	solo_panel.visible = not online
+	if online:
+		GameTheme.style_primary(online_mode_button)
+		solo_mode_button.remove_theme_stylebox_override("normal")
+		solo_mode_button.remove_theme_stylebox_override("hover")
+		solo_mode_button.remove_theme_stylebox_override("pressed")
+		subtitle.text = "Multijugador · 1 Bestia vs 1–3 Robots · VPS o LAN"
+		status_label.text = ""
+	else:
+		GameTheme.style_primary(solo_mode_button)
+		online_mode_button.remove_theme_stylebox_override("normal")
+		online_mode_button.remove_theme_stylebox_override("hover")
+		online_mode_button.remove_theme_stylebox_override("pressed")
+		subtitle.text = "Campaña solitaria · bots · desbloqueos reales"
+		var lv := ProgressionManager.level_name()
+		status_label.text = "%s · victorias %d" % [lv, ProgressionManager.wins_total]
+		solo_hint.text = "Elige rol en el hangar y practica el nivel actual contra bots.\n%s · núcleos y tiempo del nivel." % lv
+
+
 func _setup_atmosphere() -> void:
-	# Fondo animado suave (shader simple, compatible Web)
 	var mat := ShaderMaterial.new()
 	mat.shader = BG_SHADER
 	atmosphere.material = mat
@@ -83,7 +125,6 @@ func _setup_atmosphere() -> void:
 
 func _spawn_showcase() -> void:
 	var stage_wrap := get_node_or_null("Main/Col/StageWrap") as Control
-	# Web siempre usa arte 2D (SubViewport 3D falla / se ve roto en GL Compatibility)
 	if OS.has_feature("web") or OS.get_name() == "Web" or stage_root == null:
 		if stage_wrap:
 			_fill_web_stage(stage_wrap)
@@ -133,7 +174,6 @@ func _fill_web_stage(stage_wrap: Control) -> void:
 	ken.tween_property(_hero, "scale", Vector2(1.05, 1.05), 3.2).set_trans(Tween.TRANS_SINE)
 	ken.tween_property(_hero, "scale", Vector2.ONE, 3.2).set_trans(Tween.TRANS_SINE)
 
-	# Móvil: rejilla 2×2 (chips grandes); desktop: fila
 	var grid := GridContainer.new() if _mobile else null
 	var row: Container
 	if _mobile:
@@ -162,7 +202,7 @@ func _fill_web_stage(stage_wrap: Control) -> void:
 		_chip_nodes.append(chip)
 
 	var tip := Label.new()
-	tip.text = "Táctil · DISPARO · sabotea núcleos\nElige rol y arsenal en la sala."
+	tip.text = "Online · o Campaña solitaria vs bots"
 	tip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	tip.add_theme_font_size_override("font_size", 16 if _mobile else 15)
@@ -214,7 +254,6 @@ func _process(delta: float) -> void:
 		var n := _spin_nodes[i]
 		if is_instance_valid(n):
 			n.rotate_y(delta * (0.55 if i == 0 else -0.4))
-	# Pulso de borde en chips (sin tocar position — rompe HBox)
 	for i in _chip_nodes.size():
 		var c := _chip_nodes[i]
 		if is_instance_valid(c):
@@ -263,6 +302,16 @@ func _on_host_pressed() -> void:
 	var err := NetworkManager.host_listen_server(player_name)
 	if err != OK:
 		status_label.text = "Error al crear servidor local"
+
+
+func _on_solo_start_pressed() -> void:
+	var player_name := solo_name_input.text.strip_edges()
+	if player_name.is_empty():
+		player_name = "Practicante"
+	status_label.text = "Preparando campaña solitaria…"
+	var err := NetworkManager.start_solo_practice(player_name)
+	if err != OK:
+		status_label.text = "No se pudo iniciar práctica"
 
 
 func _on_server_started() -> void:

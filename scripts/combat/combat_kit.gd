@@ -100,7 +100,7 @@ func _server_fire(weapon_id: int, origin: Vector3, dir: Vector3, peer: int, beas
 	var vs_explorers := beast
 	match data.get("type", ""):
 		"melee":
-			_replicate_melee.rpc(weapon_id)
+			CombatFx.replicate_melee(peer, weapon_id, beast)
 		"projectile":
 			CombatFx.replicate_shot(origin, dir, data, peer, vs_explorers)
 		"shotgun":
@@ -130,13 +130,12 @@ func _server_fire(weapon_id: int, origin: Vector3, dir: Vector3, peer: int, beas
 					float(data.get("damage", 30)) * damage_mult,
 					peer, vs_explorers, not vs_explorers
 				)
-			_replicate_melee.rpc(weapon_id)
+			CombatFx.replicate_melee(peer, weapon_id, beast)
 		"roar":
-			_replicate_roar.rpc(weapon_id)
+			CombatFx.replicate_roar(peer, weapon_id)
 
 
-@rpc("authority", "call_local", "reliable")
-func _replicate_melee(weapon_id: int) -> void:
+func apply_melee_hits(weapon_id: int) -> void:
 	var data: Dictionary = WeaponDefs.weapon_data(weapon_id)
 	if owner_player and owner_player.crew:
 		owner_player.crew.play_attack()
@@ -155,8 +154,7 @@ func _replicate_melee(weapon_id: int) -> void:
 			(body as BeastPlayer).apply_damage.rpc(dmg * 15.0, 0.0, 0.0, owner_player.peer_id)
 
 
-@rpc("authority", "call_local", "reliable")
-func _replicate_roar(weapon_id: int) -> void:
+func apply_roar_hits(weapon_id: int) -> void:
 	var data: Dictionary = WeaponDefs.weapon_data(weapon_id)
 	if owner_player and owner_player.crew:
 		owner_player.crew.play_attack()
@@ -185,11 +183,11 @@ func use_ability(index: int) -> bool:
 
 
 func execute_server_ability(ability_id: int) -> void:
-	_replicate_ability.rpc(ability_id)
+	if owner_player:
+		CombatFx.replicate_ability(owner_player.peer_id, ability_id)
 
 
-@rpc("authority", "call_local", "reliable")
-func _replicate_ability(ability_id: int) -> void:
+func apply_ability_effects(ability_id: int) -> void:
 	if owner_player == null:
 		return
 	var data: Dictionary = WeaponDefs.ability_data(ability_id)

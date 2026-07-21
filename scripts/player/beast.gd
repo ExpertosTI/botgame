@@ -12,6 +12,7 @@ func _ready() -> void:
 	super._ready()
 	move_speed = 7.0 if not GameManager.easy_beast_mode else 5.8
 	sprint_multiplier = 1.35
+	hp = MAX_HP * GameManager.level_beast_hp_mult
 	_apply_beast_visuals()
 	combat.setup(self, true, int(GameManager.beast_variant))
 
@@ -28,6 +29,8 @@ func _apply_beast_visuals() -> void:
 
 func _physics_process(delta: float) -> void:
 	super._physics_process(delta)
+	if has_meta("is_bot") and get_meta("is_bot"):
+		return
 	if not is_multiplayer_authority():
 		return
 	# Click = arma actual (garras / spit / slam / rugido)
@@ -68,4 +71,5 @@ func _on_defeated() -> void:
 
 
 func get_hp_ratio() -> float:
-	return hp / MAX_HP
+	var max_hp := MAX_HP * maxf(GameManager.level_beast_hp_mult, 0.1)
+	return hp / max_hp

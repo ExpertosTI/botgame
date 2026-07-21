@@ -113,6 +113,39 @@ grow_vertical = 0
 text = "Click dispara · Q arma · 1–4 habilidades · G dash · RMB bomba · Mantén en núcleo para sabotear"
 horizontal_alignment = 1
 
+[node name="SabotagePanel" type="PanelContainer" parent="HUD/MatchPanel"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -160.0
+offset_top = -78.0
+offset_right = 160.0
+offset_bottom = -42.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="SabotageCol" type="VBoxContainer" parent="HUD/MatchPanel/SabotagePanel"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="SabotageTitle" type="Label" parent="HUD/MatchPanel/SabotagePanel/SabotageCol"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "SABOTAJE"
+horizontal_alignment = 1
+
+[node name="SabotageBar" type="ProgressBar" parent="HUD/MatchPanel/SabotagePanel/SabotageCol"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 14)
+layout_mode = 2
+max_value = 1.0
+show_percentage = false
+
 [node name="ResultPanel" type="Control" parent="HUD"]
 visible = false
 layout_mode = 3
@@ -152,6 +185,20 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 36
 text = "Resultado"
 horizontal_alignment = 1
+
+[node name="UnlockLabel" type="Label" parent="HUD/ResultPanel/Center/ResultCard/ResultCol"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 2
+horizontal_alignment = 1
+text = ""
+
+[node name="LevelLabel" type="Label" parent="HUD/ResultPanel/Center/ResultCard/ResultCol"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 2
+horizontal_alignment = 1
+text = ""
 
 [node name="RematchButton" type="Button" parent="HUD/ResultPanel/Center/ResultCard/ResultCol"]
 custom_minimum_size = Vector2(0, 48)

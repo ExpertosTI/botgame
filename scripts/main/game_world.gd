@@ -10,6 +10,7 @@ const BEAST_SCENE := preload("res://scenes/player/beast.tscn")
 const EXPLORER_SCENE := preload("res://scenes/player/explorer.tscn")
 const OBJECTIVE_SCENE := preload("res://scenes/objectives/beast_objective.tscn")
 const MAP_BUILDER_SCRIPT := preload("res://scripts/maps/map_builder.gd")
+const PRACTICE_AI_SCRIPT := preload("res://scripts/ai/practice_ai.gd")
 
 var _builder: MapBuilder
 
@@ -32,7 +33,12 @@ func _ready() -> void:
 		var roles := _build_roles()
 		_sync_match_setup.rpc(roles, GameManager.beast_variant, NetworkManager.selected_map)
 		var packed: Array = []
-		for pos in _builder.objective_positions:
+		var need := GameManager.level_core_count if GameManager.level_core_count > 0 else GameManager.OBJECTIVES_TO_WIN
+		var positions: Array = _builder.objective_positions.duplicate()
+		while positions.size() < need and not positions.is_empty():
+			positions.append(positions[positions.size() % _builder.objective_positions.size()] + Vector3(randf_range(-2, 2), 0, randf_range(-2, 2)))
+		for i in mini(need, positions.size()):
+			var pos: Vector3 = positions[i]
 			packed.append([pos.x, pos.y, pos.z])
 		_spawn_objectives.rpc(packed)
 		_spawn_players()
@@ -46,9 +52,17 @@ func _spawn_player_custom(data: Variant) -> Node:
 	var role: int = info.get("role", GameManager.Role.EXPLORER)
 	var scene := BEAST_SCENE if role == GameManager.Role.BEAST else EXPLORER_SCENE
 	var player := scene.instantiate()
-	player.name = str(info.get("id", 0))
+	var pid := int(info.get("id", 0))
+	player.name = str(pid)
 	player.position = info.get("pos", Vector3.ZERO)
-	player.set_multiplayer_authority(int(info.get("id", 1)))
+	var is_bot := NetworkManager.is_bot_peer(pid)
+	if is_bot:
+		player.set_meta("is_bot", true)
+	# En práctica solitaria todos bajo autoridad local
+	if NetworkManager.is_solo_practice:
+		player.set_multiplayer_authority(1)
+	else:
+		player.set_multiplayer_authority(pid if pid > 0 else 1)
 	return player
 
 
@@ -100,8 +114,21 @@ func _spawn_players() -> void:
 		var role := GameManager.get_role(peer_id)
 		var pos := _get_spawn_position(role, peer_id)
 		var data := {"id": peer_id, "role": role, "pos": pos}
-		# spawn_function handles instantiation + replication
-		spawner.spawn(data)
+		var node: Node = spawner.spawn(data)
+		# Si el spawner no devolvió nodo (edge), buscar por nombre
+		if node == null:
+			node = players_root.get_node_or_null(str(peer_id))
+		if NetworkManager.is_solo_practice and NetworkManager.is_bot_peer(int(peer_id)):
+			call_deferred("_attach_practice_ai", node, role == GameManager.Role.BEAST)
+
+
+func _attach_practice_ai(player: Node, beast: bool) -> void:
+	if player == null or not is_instance_valid(player):
+		return
+	var ai: PracticeAI = PRACTICE_AI_SCRIPT.new() as PracticeAI
+	ai.name = "PracticeAI"
+	player.add_child(ai)
+	ai.setup(player as CharacterBody3D, beast)
 
 
 func _get_spawn_position(role: GameManager.Role, peer_id: int) -> Vector3:

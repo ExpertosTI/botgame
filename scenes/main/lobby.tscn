@@ -165,6 +165,17 @@ layout_mode = 2
 autowrap_mode = 2
 text = "…"
 
+[node name="CampaignCheck" type="CheckBox" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin/SetupCol"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Campaña · niveles (mapa forzado)"
+
+[node name="CampaignLabel" type="Label" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin/SetupCol"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 2
+text = "Nivel 1"
+
 [node name="MapTitle" type="Label" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin/SetupCol"]
 layout_mode = 2
 text = "🗺️  MAPA — toca la vista previa"

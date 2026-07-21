@@ -44,9 +44,11 @@ La bestia tiene barra de HP (disparos la debilitan; al llegar a 0 queda aturdida
 
 1. Instala [Godot 4.3+](https://godotengine.org/download)
 2. Abre esta carpeta en Godot
-3. Instancia A: **Probar en local (servidor en este PC)**
-4. Instancia B: URL `ws://127.0.0.1:7777` → **Entrar a la partida**
-5. En lobby: una persona elige Bestia, el resto Robot → Listo → Empezar
+3. En el menú elige modo:
+   - **ONLINE** → URL `wss://…` → Entrar · o **Sala local (LAN)** en PC
+   - **CAMPAÑA** → práctica solitaria vs bots (progresión real)
+4. Online: Instancia A sala local / Instancia B `ws://127.0.0.1:7777`
+5. Lobby: una Bestia, resto Robot → Listo → Empezar
 
 ## Flujo de deploy (Renace — sin rsync ni passwords)
 

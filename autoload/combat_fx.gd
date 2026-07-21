@@ -105,6 +105,48 @@ func _explosion_rpc(pos: Vector3, radius: float, damage: float, peer: int, vs_ex
 	_local_explosion(pos, radius, damage, peer, vs_explorers, vs_beast)
 
 
+func replicate_melee(peer: int, weapon_id: int, _beast: bool) -> void:
+	if multiplayer.has_multiplayer_peer() and multiplayer.is_server():
+		_melee_rpc.rpc(peer, weapon_id)
+	else:
+		_melee_rpc(peer, weapon_id)
+
+
+@rpc("authority", "call_local", "reliable")
+func _melee_rpc(peer: int, weapon_id: int) -> void:
+	var player := _find_player(peer)
+	if player and player.combat:
+		player.combat.apply_melee_hits(weapon_id)
+
+
+func replicate_roar(peer: int, weapon_id: int) -> void:
+	if multiplayer.has_multiplayer_peer() and multiplayer.is_server():
+		_roar_rpc.rpc(peer, weapon_id)
+	else:
+		_roar_rpc(peer, weapon_id)
+
+
+@rpc("authority", "call_local", "reliable")
+func _roar_rpc(peer: int, weapon_id: int) -> void:
+	var player := _find_player(peer)
+	if player and player.combat:
+		player.combat.apply_roar_hits(weapon_id)
+
+
+func replicate_ability(peer: int, ability_id: int) -> void:
+	if multiplayer.has_multiplayer_peer() and multiplayer.is_server():
+		_ability_fx_rpc.rpc(peer, ability_id)
+	else:
+		_ability_fx_rpc(peer, ability_id)
+
+
+@rpc("authority", "call_local", "reliable")
+func _ability_fx_rpc(peer: int, ability_id: int) -> void:
+	var player := _find_player(peer)
+	if player and player.combat:
+		player.combat.apply_ability_effects(ability_id)
+
+
 func spawn_explosion(pos: Vector3, radius: float, damage: float, peer: int, vs_explorers: bool, vs_beast: bool) -> void:
 	replicate_explosion(pos, radius, damage, peer, vs_explorers, vs_beast)
 

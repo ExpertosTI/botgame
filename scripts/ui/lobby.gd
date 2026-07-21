@@ -15,6 +15,8 @@ extends Control
 @onready var loadout_hint: Label = %LoadoutHint
 @onready var status_label: Label = %StatusLabel
 @onready var easy_check: CheckBox = %EasyBeastCheck
+@onready var campaign_check: CheckBox = %CampaignCheck
+@onready var campaign_label: Label = %CampaignLabel
 @onready var title: Label = %Title
 @onready var wait_label: Label = %WaitLabel
 @onready var atmosphere: ColorRect = %Atmosphere
@@ -37,6 +39,7 @@ var _loadout := 0
 var _map_idx := 0
 var _beast_variant := GameManager.BeastVariant.MECHA
 var _hangar: LobbyHangar
+var _syncing_checks := false
 
 
 func _ready() -> void:
@@ -49,18 +52,22 @@ func _ready() -> void:
 	role_beast_button.pressed.connect(_on_pick_beast)
 	role_robot_button.pressed.connect(_on_pick_robot)
 	easy_check.toggled.connect(_on_easy_toggled)
+	campaign_check.toggled.connect(_on_campaign_toggled)
 
 	NetworkManager.players_updated.connect(_refresh_player_list)
 	NetworkManager.player_connected.connect(func(_a, _b): _refresh_player_list())
 	NetworkManager.player_disconnected.connect(func(_a): _refresh_player_list())
 	NetworkManager.lobby_settings_changed.connect(_on_settings_changed)
 	NetworkManager.match_start_requested.connect(_on_match_start)
+	ProgressionManager.progress_changed.connect(_on_progress_changed)
 
 	_rebuild_all_pickers()
 	_setup_hangar()
 	_refresh_player_list()
 	_update_robot_sections_visibility()
 	_update_hangar_preview()
+	_update_campaign_ui()
+	_apply_solo_lobby()
 	call_deferred("_adapt_mobile_lobby")
 
 	if NetworkManager.is_dedicated_server:
@@ -70,6 +77,31 @@ func _ready() -> void:
 		role_robot_button.visible = false
 		skin_row.visible = false
 		loadout_row.visible = false
+
+
+func _apply_solo_lobby() -> void:
+	if not NetworkManager.is_solo_practice:
+		return
+	title.text = "PRÁCTICA · CAMPAÑA"
+	wait_label.text = "Solitario vs bots"
+	ready_button.visible = false
+	local_ready = true
+	campaign_check.button_pressed = true
+	campaign_check.disabled = true
+	ProgressionManager.campaign_mode = true
+	NetworkManager.selected_map = ProgressionManager.force_campaign_map()
+	var map_idx := NetworkManager.MAP_IDS.find(NetworkManager.selected_map)
+	if map_idx >= 0:
+		_map_idx = map_idx
+	start_button.text = "▶  JUGAR NIVEL"
+	GameTheme.style_primary(start_button)
+	_rebuild_maps()
+	_update_map_hint()
+	_update_campaign_ui()
+	# Rol por defecto robot
+	if _local_role() == "":
+		NetworkManager.submit_role("explorer")
+	_check_can_start()
 
 
 func _style_ui() -> void:
@@ -92,6 +124,7 @@ func _style_ui() -> void:
 	role_robot_button.custom_minimum_size = Vector2(0, 56)
 	map_hint.add_theme_color_override("font_color", GameTheme.C_MUTED)
 	loadout_hint.add_theme_color_override("font_color", GameTheme.C_MUTED)
+	campaign_label.add_theme_color_override("font_color", GameTheme.C_CYAN)
 
 
 func _setup_atmosphere() -> void:
@@ -107,6 +140,10 @@ func _notification(what: int) -> void:
 
 func _process(delta: float) -> void:
 	_pulse_t += delta
+	if NetworkManager.is_solo_practice:
+		wait_label.modulate.a = 0.75 + 0.25 * sin(_pulse_t * 2.0)
+		wait_label.text = "Práctica · elige rol y JUGAR NIVEL"
+		return
 	wait_label.modulate.a = 0.65 + 0.35 * sin(_pulse_t * 2.4)
 	wait_label.text = "Esperando tripulación" + ".".repeat(int(_pulse_t * 2.0) % 4)
 
@@ -128,7 +165,6 @@ func _adapt_mobile_lobby() -> void:
 		start_button.custom_minimum_size = Vector2(0, 56)
 		role_beast_button.custom_minimum_size = Vector2(0, 72)
 		role_robot_button.custom_minimum_size = Vector2(0, 72)
-		# Filas de selección: chips más altos en móvil
 		skin_row.add_theme_constant_override("separation", 6)
 		loadout_row.add_theme_constant_override("separation", 6)
 		map_row.add_theme_constant_override("separation", 6)
@@ -144,12 +180,10 @@ func _adapt_mobile_lobby() -> void:
 func _setup_hangar() -> void:
 	if hangar_slot == null:
 		return
-	# Limpiar hijos previos del PanelContainer slot
 	for c in hangar_slot.get_children():
 		c.queue_free()
 	_hangar = HANGAR_SCRIPT.new() as LobbyHangar
 	hangar_slot.add_child(_hangar)
-	# El hangar ya se estiliza a sí mismo; slot transparente
 	hangar_slot.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 
 
@@ -183,9 +217,13 @@ func _rebuild_all_pickers() -> void:
 	_rebuild_loadouts()
 	_rebuild_maps()
 	_rebuild_beasts()
+	_syncing_checks = true
 	easy_check.button_pressed = GameManager.easy_beast_mode
+	campaign_check.button_pressed = ProgressionManager.campaign_mode
+	_syncing_checks = false
 	_update_map_hint()
 	_update_loadout_hint()
+	_update_campaign_ui()
 
 
 func _clear_row(row: HBoxContainer) -> void:
@@ -195,6 +233,8 @@ func _clear_row(row: HBoxContainer) -> void:
 
 func _wire_card(card: PanelContainer, cb: Callable) -> void:
 	card.gui_input.connect(func(ev: InputEvent):
+		if card.get_meta("locked", false):
+			return
 		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
 			cb.call()
 		elif ev is InputEventScreenTouch and ev.pressed:
@@ -214,7 +254,8 @@ func _rebuild_skins() -> void:
 func _rebuild_loadouts() -> void:
 	_clear_row(loadout_row)
 	for i in 4:
-		var card := VisualPicker.make_loadout_card(i, i == _loadout)
+		var locked := not ProgressionManager.is_loadout_unlocked(i)
+		var card := VisualPicker.make_loadout_card(i, i == _loadout, locked)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_wire_card(card, _on_loadout_picked.bind(i))
 		loadout_row.add_child(card)
@@ -224,7 +265,10 @@ func _rebuild_maps() -> void:
 	_clear_row(map_row)
 	for i in NetworkManager.MAP_IDS.size():
 		var mid: String = NetworkManager.MAP_IDS[i]
-		var card := VisualPicker.make_map_card(mid, i == _map_idx)
+		var locked := not ProgressionManager.is_map_unlocked(mid)
+		if ProgressionManager.campaign_mode:
+			locked = mid != NetworkManager.selected_map
+		var card := VisualPicker.make_map_card(mid, i == _map_idx, locked)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_wire_card(card, _on_map_picked.bind(i))
 		map_row.add_child(card)
@@ -238,7 +282,8 @@ func _rebuild_beasts() -> void:
 		GameManager.BeastVariant.SHADOW,
 	]
 	for v in variants:
-		var card := VisualPicker.make_beast_card(v, v == _beast_variant)
+		var locked := not ProgressionManager.is_beast_unlocked(v)
+		var card := VisualPicker.make_beast_card(v, v == _beast_variant, locked)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_wire_card(card, _on_beast_picked.bind(v))
 		beast_row.add_child(card)
@@ -252,6 +297,9 @@ func _on_skin_picked(skin: int) -> void:
 
 
 func _on_loadout_picked(loadout: int) -> void:
+	if not ProgressionManager.is_loadout_unlocked(loadout):
+		status_label.text = "Arsenal bloqueado — gana partidas para desbloquear"
+		return
 	_loadout = loadout
 	_rebuild_loadouts()
 	_update_loadout_hint()
@@ -259,13 +307,23 @@ func _on_loadout_picked(loadout: int) -> void:
 
 
 func _on_map_picked(index: int) -> void:
+	if ProgressionManager.campaign_mode:
+		status_label.text = "Campaña activa — mapa del nivel actual"
+		return
+	var mid: String = NetworkManager.MAP_IDS[index]
+	if not ProgressionManager.is_map_unlocked(mid):
+		status_label.text = "Mapa bloqueado — gana con robots para desbloquear"
+		return
 	_map_idx = index
 	_rebuild_maps()
-	NetworkManager.submit_map(NetworkManager.MAP_IDS[index])
+	NetworkManager.submit_map(mid)
 	_update_map_hint()
 
 
 func _on_beast_picked(variant: int) -> void:
+	if not ProgressionManager.is_beast_unlocked(variant):
+		status_label.text = "Bestia bloqueada — gana 2 partidas como robots"
+		return
 	_beast_variant = variant
 	_rebuild_beasts()
 	NetworkManager.submit_beast_variant(variant)
@@ -281,11 +339,35 @@ func _update_map_hint() -> void:
 			map_hint.text = "Ruinas — plataforma alta y combate vertical."
 		_:
 			map_hint.text = "Laboratorio neon — arena abierta y luces frías."
+	if ProgressionManager.campaign_mode:
+		var lv := ProgressionManager.current_level()
+		map_hint.text = "%s · %ds · %d núcleos" % [
+			map_hint.text,
+			int(lv.get("time", 240)),
+			int(lv.get("cores", 5)),
+		]
 
 
 func _update_loadout_hint() -> void:
 	if _loadout >= 0 and _loadout < LOADOUT_HINTS.size():
 		loadout_hint.text = LOADOUT_HINTS[_loadout]
+
+
+func _update_campaign_ui() -> void:
+	campaign_label.text = "%s · victorias %d · mapas %d/3" % [
+		ProgressionManager.level_name(),
+		ProgressionManager.wins_total,
+		ProgressionManager.unlocked_maps.size(),
+	]
+	if NetworkManager.is_solo_practice:
+		campaign_label.text += " · SOLITARIO"
+		map_row.modulate = Color(0.75, 0.75, 0.8)
+		return
+	if ProgressionManager.campaign_mode:
+		campaign_label.text += " · CAMPAÑA ON"
+		map_row.modulate = Color(0.75, 0.75, 0.8)
+	else:
+		map_row.modulate = Color.WHITE
 
 
 func _update_robot_sections_visibility() -> void:
@@ -303,9 +385,22 @@ func _update_robot_sections_visibility() -> void:
 
 
 func _on_easy_toggled(on: bool) -> void:
-	GameManager.easy_beast_mode = on
-	if NetworkManager.config:
-		NetworkManager.config.easy_beast_mode = on
+	if _syncing_checks:
+		return
+	NetworkManager.submit_easy_beast(on)
+
+
+func _on_campaign_toggled(on: bool) -> void:
+	if _syncing_checks:
+		return
+	NetworkManager.submit_campaign_mode(on)
+
+
+func _on_progress_changed() -> void:
+	_rebuild_loadouts()
+	_rebuild_maps()
+	_rebuild_beasts()
+	_update_campaign_ui()
 
 
 func _on_pick_beast() -> void:
@@ -328,6 +423,12 @@ func _on_ready_pressed() -> void:
 
 
 func _on_start_pressed() -> void:
+	if NetworkManager.is_solo_practice:
+		if _local_role() == "":
+			status_label.text = "Elige Bestia o Robot"
+			return
+		NetworkManager.request_start_match()
+		return
 	if NetworkManager.get_player_count() < 2:
 		status_label.text = "Se necesitan al menos 2 jugadores"
 		return
@@ -349,9 +450,15 @@ func _on_settings_changed() -> void:
 	if map_idx >= 0:
 		_map_idx = map_idx
 	_beast_variant = GameManager.beast_variant
+	_syncing_checks = true
+	easy_check.button_pressed = GameManager.easy_beast_mode
+	campaign_check.button_pressed = ProgressionManager.campaign_mode
+	_syncing_checks = false
 	_rebuild_maps()
 	_rebuild_beasts()
+	_rebuild_loadouts()
 	_update_map_hint()
+	_update_campaign_ui()
 	_refresh_player_list()
 	_update_robot_sections_visibility()
 
@@ -391,13 +498,29 @@ func _refresh_player_list() -> void:
 func _check_can_start() -> void:
 	if NetworkManager.is_dedicated_server:
 		return
+	if NetworkManager.is_solo_practice:
+		var role := _local_role()
+		var ok := role == "beast" or role == "explorer"
+		start_button.disabled = not ok
+		status_label.text = "Práctica · %s · rol: %s · mapa: %s" % [
+			ProgressionManager.level_name(),
+			"Bestia" if role == "beast" else ("Robot" if role == "explorer" else "—"),
+			NetworkManager.MAP_NAMES.get(NetworkManager.selected_map, "?"),
+		]
+		status_label.add_theme_color_override(
+			"font_color", GameTheme.C_CYAN if ok else GameTheme.C_AMBER
+		)
+		if ok:
+			status_label.text += "  ·  listo para jugar"
+		return
 	var count := NetworkManager.get_player_count()
 	var ok := count >= 2 and NetworkManager.all_players_ready() and NetworkManager.has_exactly_one_beast()
 	start_button.disabled = not ok
 	var ready_n := _count_ready()
-	status_label.text = "%d / %d en sala  ·  %d listos  ·  mapa: %s" % [
+	var mode := "campaña" if ProgressionManager.campaign_mode else "libre"
+	status_label.text = "%d / %d en sala  ·  %d listos  ·  %s  ·  mapa: %s" % [
 		count, NetworkManager.config.max_players if NetworkManager.config else 5,
-		ready_n, NetworkManager.MAP_NAMES.get(NetworkManager.selected_map, "?")
+		ready_n, mode, NetworkManager.MAP_NAMES.get(NetworkManager.selected_map, "?")
 	]
 	if ok:
 		status_label.add_theme_color_override("font_color", GameTheme.C_CYAN)

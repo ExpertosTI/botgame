@@ -25,6 +25,12 @@ var explorer_variants: Dictionary = {}  # peer_id -> ExplorerVariant (color)
 var explorer_loadouts: Dictionary = {}  # peer_id -> loadout id (armas)
 var easy_beast_mode := false
 var current_map: String = "lab_neon"
+## Overrides de campaña (ProgressionManager.apply_level_rules)
+var level_core_count := OBJECTIVES_TO_WIN
+var level_match_time := -1.0
+var level_beast_hp_mult := 1.0
+## Si el host envió reglas de nivel en el start match
+var level_rules_locked := false
 
 var _explorer_variant_list := [
 	ExplorerVariant.ROBOT_BLUE,
@@ -57,18 +63,23 @@ func _sync_timer(remaining: float) -> void:
 
 
 func setup_match(roles: Dictionary) -> void:
+	if not level_rules_locked:
+		ProgressionManager.apply_level_rules()
 	player_roles = roles
 	explorer_lives.clear()
 	explorer_variants.clear()
 	explorer_loadouts.clear()
-	objectives_remaining = OBJECTIVES_TO_WIN
+	objectives_remaining = level_core_count if level_core_count > 0 else OBJECTIVES_TO_WIN
 	var match_time := 240.0
 	if NetworkManager.config:
 		match_time = float(NetworkManager.config.match_time_seconds)
-		easy_beast_mode = NetworkManager.config.easy_beast_mode
+	# easy_beast_mode ya viene sincronizado desde el lobby
+	if level_match_time > 0.0:
+		match_time = level_match_time
 	match_timer = match_time
 	match_active = false
 	_timer_sync_accum = 0.0
+	level_rules_locked = false
 
 	var variant_idx := 0
 	for peer_id in roles:
@@ -158,6 +169,7 @@ func _apply_end_match(winner: String) -> void:
 	if not match_active:
 		return
 	match_active = false
+	ProgressionManager.on_match_ended(winner, current_map)
 	match_ended.emit(winner)
 
 

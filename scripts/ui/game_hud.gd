@@ -6,13 +6,18 @@ extends CanvasLayer
 @onready var objectives_label: Label = $MatchPanel/TopBar/ObjChip/ObjectivesLabel
 @onready var lives_container: VBoxContainer = $MatchPanel/LivesPanel/LivesMargin/LivesContainer
 @onready var result_label: Label = $ResultPanel/Center/ResultCard/ResultCol/ResultLabel
+@onready var unlock_label: Label = %UnlockLabel
+@onready var level_label: Label = %LevelLabel
 @onready var back_button: Button = $ResultPanel/Center/ResultCard/ResultCol/BackButton
 @onready var rematch_button: Button = $ResultPanel/Center/ResultCard/ResultCol/RematchButton
 @onready var combat_label: Label = $MatchPanel/CombatPanel/CombatMargin/CombatLabel
 @onready var controls_hint: Label = $MatchPanel/ControlsHint
+@onready var sabotage_panel: Control = %SabotagePanel
+@onready var sabotage_bar: ProgressBar = %SabotageBar
 
 var _timer_active := false
 var _local_combat: CombatKit = null
+var _local_explorer: ExplorerPlayer = null
 
 
 func _ready() -> void:
@@ -20,6 +25,8 @@ func _ready() -> void:
 	GameTheme.apply(result_panel)
 	match_panel.visible = false
 	result_panel.visible = false
+	if sabotage_panel:
+		sabotage_panel.visible = false
 	back_button.pressed.connect(_on_back_pressed)
 	rematch_button.pressed.connect(_on_rematch_pressed)
 	GameTheme.style_primary(rematch_button)
@@ -29,6 +36,10 @@ func _ready() -> void:
 		timer_label.add_theme_color_override("font_color", GameTheme.C_CYAN)
 	if controls_hint:
 		GameTheme.style_muted(controls_hint, 13)
+	if unlock_label:
+		unlock_label.add_theme_color_override("font_color", GameTheme.C_AMBER)
+	if level_label:
+		GameTheme.style_muted(level_label, 14)
 
 
 func _process(_delta: float) -> void:
@@ -39,6 +50,7 @@ func _process(_delta: float) -> void:
 	var secs := int(time_left) % 60
 	timer_label.text = "%02d:%02d" % [mins, secs]
 	_update_combat_hud()
+	_update_sabotage_hud()
 
 
 func _update_combat_hud() -> void:
@@ -54,11 +66,33 @@ func _update_combat_hud() -> void:
 		combat_label.text = _local_combat.get_hud_text() + extra
 
 
+func _update_sabotage_hud() -> void:
+	if sabotage_panel == null or sabotage_bar == null:
+		return
+	if _local_explorer == null:
+		_find_local_explorer()
+	if _local_explorer == null or not _local_explorer.is_sabotaging:
+		sabotage_panel.visible = false
+		return
+	sabotage_panel.visible = true
+	sabotage_bar.value = _local_explorer.get_sabotage_progress()
+
+
 func _find_local_combat() -> void:
 	var my_id := multiplayer.get_unique_id()
 	for node in get_tree().get_nodes_in_group("player_characters"):
 		if node is PlayerBase and (node as PlayerBase).peer_id == my_id:
 			_local_combat = (node as PlayerBase).combat
+			if node is ExplorerPlayer:
+				_local_explorer = node as ExplorerPlayer
+			return
+
+
+func _find_local_explorer() -> void:
+	var my_id := multiplayer.get_unique_id()
+	for node in get_tree().get_nodes_in_group("player_characters"):
+		if node is ExplorerPlayer and (node as ExplorerPlayer).peer_id == my_id:
+			_local_explorer = node as ExplorerPlayer
 			return
 
 
@@ -92,6 +126,8 @@ func update_lives(peer_id: int, lives: int) -> void:
 
 func show_result(winner: String) -> void:
 	_timer_active = false
+	if sabotage_panel:
+		sabotage_panel.visible = false
 	result_panel.visible = true
 	match winner:
 		"explorers":
@@ -103,6 +139,26 @@ func show_result(winner: String) -> void:
 	if GameTheme.font_title():
 		result_label.add_theme_font_override("font", GameTheme.font_title())
 		result_label.add_theme_font_size_override("font_size", 36)
+	if unlock_label:
+		var msg := ProgressionManager.last_unlock_message
+		unlock_label.text = msg
+		unlock_label.visible = not msg.is_empty()
+	if level_label:
+		if NetworkManager.is_solo_practice or ProgressionManager.campaign_mode:
+			level_label.text = "Campaña · %s · wins %d%s" % [
+				ProgressionManager.level_name(),
+				ProgressionManager.wins_total,
+				" · práctica" if NetworkManager.is_solo_practice else "",
+			]
+		else:
+			level_label.text = "Partidas %d · victorias robots %d" % [
+				ProgressionManager.matches_played,
+				ProgressionManager.wins_total,
+			]
+	if NetworkManager.is_solo_practice:
+		rematch_button.text = "Otro intento"
+	else:
+		rematch_button.text = "Jugar otra"
 
 
 func _build_lives_display() -> void:
@@ -126,6 +182,4 @@ func _on_back_pressed() -> void:
 
 
 func _on_rematch_pressed() -> void:
-	for pid in NetworkManager.players:
-		NetworkManager.players[pid]["ready"] = false
-	get_tree().change_scene_to_file("res://scenes/main/lobby.tscn")
+	NetworkManager.request_return_to_lobby()

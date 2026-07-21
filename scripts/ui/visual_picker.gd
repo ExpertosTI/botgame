@@ -12,16 +12,21 @@ static func make_card(
 	icon: Texture2D = null,
 	emoji: String = "",
 	min_size: Vector2 = Vector2(96, 118),
-	icon_h: float = 72.0
+	icon_h: float = 72.0,
+	locked: bool = false
 ) -> PanelContainer:
 	var card := PanelContainer.new()
 	card.custom_minimum_size = min_size
-	card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	card.mouse_default_cursor_shape = Control.CURSOR_FORBIDDEN if locked else Control.CURSOR_POINTING_HAND
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
+	card.set_meta("locked", locked)
 	var edge := Color.WHITE if selected else accent.darkened(0.1)
 	var bg := Color(0.05, 0.07, 0.09, 0.95)
 	if selected:
 		bg = accent.darkened(0.55).lerp(Color(0.08, 0.1, 0.12), 0.4)
+	if locked:
+		bg = Color(0.06, 0.06, 0.07, 0.92)
+		edge = Color(0.25, 0.25, 0.28)
 	card.add_theme_stylebox_override("panel", GameTheme.panel_style(bg, edge, 12, 3 if selected else 1))
 
 	var col := VBoxContainer.new()
@@ -86,15 +91,18 @@ static func make_card(
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title_row.add_child(t)
 
-	if not subtitle.is_empty():
+	if not subtitle.is_empty() or locked:
 		var s := Label.new()
-		s.text = subtitle
+		s.text = "🔒 BLOQUEADO" if locked else subtitle
 		s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		s.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		s.add_theme_font_size_override("font_size", 11)
-		s.add_theme_color_override("font_color", GameTheme.C_MUTED)
+		s.add_theme_color_override("font_color", Color(0.75, 0.45, 0.35) if locked else GameTheme.C_MUTED)
 		s.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		col.add_child(s)
+
+	if locked:
+		card.modulate = Color(0.55, 0.55, 0.58, 1.0)
 
 	return card
 
@@ -127,7 +135,7 @@ static func _is_narrow() -> bool:
 	return tre.root.get_visible_rect().size.x < 780
 
 
-static func make_loadout_card(loadout: int, selected: bool) -> PanelContainer:
+static func make_loadout_card(loadout: int, selected: bool, locked: bool = false) -> PanelContainer:
 	var accents := [
 		Color(0.25, 0.85, 0.9),
 		Color(1.0, 0.75, 0.2),
@@ -144,11 +152,12 @@ static func make_loadout_card(loadout: int, selected: bool) -> PanelContainer:
 		UiIcons.loadout_tex(i),
 		UiIcons.LOADOUT_EMOJI[i],
 		Vector2(104, 128),
-		72.0
+		72.0,
+		locked
 	)
 
 
-static func make_map_card(map_id: String, selected: bool) -> PanelContainer:
+static func make_map_card(map_id: String, selected: bool, locked: bool = false) -> PanelContainer:
 	var accent := Color(0.2, 0.7, 0.85)
 	var sub := "Neon"
 	match map_id:
@@ -170,11 +179,12 @@ static func make_map_card(map_id: String, selected: bool) -> PanelContainer:
 		UiIcons.map_tex(map_id),
 		emoji,
 		Vector2(128, 132),
-		70.0
+		70.0,
+		locked
 	)
 
 
-static func make_beast_card(variant: int, selected: bool) -> PanelContainer:
+static func make_beast_card(variant: int, selected: bool, locked: bool = false) -> PanelContainer:
 	var accent := Color(0.85, 0.15, 0.2)
 	var title := "Clásica"
 	var sub := "Garras"
@@ -199,5 +209,6 @@ static func make_beast_card(variant: int, selected: bool) -> PanelContainer:
 		UiIcons.beast_tex(variant),
 		UiIcons.beast_emoji(variant),
 		Vector2(110, 128),
-		78.0
+		78.0,
+		locked
 	)
