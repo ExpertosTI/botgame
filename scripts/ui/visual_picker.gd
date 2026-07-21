@@ -107,6 +107,7 @@ static func make_skin_card(skin: int, selected: bool) -> PanelContainer:
 		Color(1.0, 0.85, 0.2),
 	]
 	var i := clampi(skin, 0, 3)
+	var mobile := _is_narrow()
 	return make_card(
 		WeaponDefs.explorer_skin_name(skin),
 		"ROBOT",
@@ -114,9 +115,16 @@ static func make_skin_card(skin: int, selected: bool) -> PanelContainer:
 		selected,
 		UiIcons.skin_tex(i),
 		UiIcons.ROBOT_EMOJI[i],
-		Vector2(88, 128),
-		78.0
+		Vector2(96 if mobile else 88, 136 if mobile else 128),
+		92.0 if mobile else 78.0
 	)
+
+
+static func _is_narrow() -> bool:
+	var tre := Engine.get_main_loop() as SceneTree
+	if tre == null or tre.root == null:
+		return false
+	return tre.root.get_visible_rect().size.x < 780
 
 
 static func make_loadout_card(loadout: int, selected: bool) -> PanelContainer:
