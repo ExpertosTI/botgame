@@ -72,10 +72,18 @@ func _style_ui() -> void:
 	GameTheme.style_danger(role_beast_button)
 	GameTheme.style_primary(role_robot_button)
 	GameTheme.style_primary(start_button)
-	role_beast_button.text = "SOY LA BESTIA"
-	role_robot_button.text = "SOY ROBOT"
-	ready_button.text = "MARCAR LISTO"
-	start_button.text = "EMPEZAR PARTIDA"
+	role_beast_button.text = "👹  SOY LA BESTIA"
+	role_robot_button.text = "🤖  SOY ROBOT"
+	ready_button.text = "✅  MARCAR LISTO"
+	start_button.text = "🚀  EMPEZAR PARTIDA"
+	role_beast_button.icon = UiIcons.beast_tex(GameManager.BeastVariant.CLASSIC)
+	role_robot_button.icon = UiIcons.skin_tex(0)
+	role_beast_button.expand_icon = true
+	role_robot_button.expand_icon = true
+	role_beast_button.add_theme_constant_override("icon_max_width", 40)
+	role_robot_button.add_theme_constant_override("icon_max_width", 40)
+	role_beast_button.custom_minimum_size = Vector2(0, 56)
+	role_robot_button.custom_minimum_size = Vector2(0, 56)
 	map_hint.add_theme_color_override("font_color", GameTheme.C_MUTED)
 	loadout_hint.add_theme_color_override("font_color", GameTheme.C_MUTED)
 
@@ -237,7 +245,7 @@ func _on_pick_robot() -> void:
 
 func _on_ready_pressed() -> void:
 	local_ready = not local_ready
-	ready_button.text = "¡LISTO!" if local_ready else "MARCAR LISTO"
+	ready_button.text = "✅  ¡LISTO!" if local_ready else "✅  MARCAR LISTO"
 	if local_ready:
 		GameTheme.style_primary(ready_button)
 	else:
@@ -294,7 +302,8 @@ func _refresh_player_list() -> void:
 		var card := GameTheme.make_player_card(
 			str(info.get("name", "?")) + extra,
 			role,
-			bool(info.get("ready", false))
+			bool(info.get("ready", false)),
+			int(info.get("skin", 0))
 		)
 		player_list.add_child(card)
 	_check_can_start()

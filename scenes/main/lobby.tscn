@@ -78,7 +78,7 @@ theme_override_constants/separation = 8
 
 [node name="CrewTitle" type="Label" parent="Margin/Root/Body/CrewPanel/CrewMargin/CrewCol"]
 layout_mode = 2
-text = "TRIPULACIÓN"
+text = "👥  TRIPULACIÓN"
 
 [node name="Scroll" type="ScrollContainer" parent="Margin/Root/Body/CrewPanel/CrewMargin/CrewCol"]
 layout_mode = 2
@@ -114,7 +114,7 @@ theme_override_constants/separation = 8
 
 [node name="RoleTitle" type="Label" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin/SetupCol"]
 layout_mode = 2
-text = "ELIGE TU ROL"
+text = "🎭  ELIGE TU ROL"
 
 [node name="RoleRow" type="HBoxContainer" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin/SetupCol"]
 layout_mode = 2
@@ -137,7 +137,7 @@ text = "SOY ROBOT"
 [node name="SkinTitle" type="Label" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin/SetupCol"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "COLOR ROBOT — toca para elegir"
+text = "🤖  COLOR ROBOT — toca el retrato"
 
 [node name="SkinRow" type="HBoxContainer" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin/SetupCol"]
 unique_name_in_owner = true
@@ -147,7 +147,7 @@ theme_override_constants/separation = 8
 [node name="LoadoutTitle" type="Label" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin/SetupCol"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "ARSENAL — toca para elegir"
+text = "🔫  ARSENAL — toca el arma"
 
 [node name="LoadoutRow" type="HBoxContainer" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin/SetupCol"]
 unique_name_in_owner = true
@@ -162,7 +162,7 @@ text = "…"
 
 [node name="MapTitle" type="Label" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin/SetupCol"]
 layout_mode = 2
-text = "MAPA — toca para elegir"
+text = "🗺️  MAPA — toca la vista previa"
 
 [node name="MapRow" type="HBoxContainer" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin/SetupCol"]
 unique_name_in_owner = true
@@ -178,7 +178,7 @@ text = "…"
 [node name="VariantTitle" type="Label" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin/SetupCol"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "VARIANTE BESTIA — toca para elegir"
+text = "👹  VARIANTE BESTIA — toca el retrato"
 
 [node name="BeastRow" type="HBoxContainer" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin/SetupCol"]
 unique_name_in_owner = true

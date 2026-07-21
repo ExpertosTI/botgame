@@ -168,7 +168,7 @@ static func panel_style(bg: Color, border: Color, radius: float = 10, border_w: 
 	return _panel(bg, border, radius, border_w)
 
 
-static func make_player_card(name_text: String, role: String, ready: bool) -> PanelContainer:
+static func make_player_card(name_text: String, role: String, ready: bool, skin: int = 0) -> PanelContainer:
 	var card := PanelContainer.new()
 	var is_beast := role == "beast"
 	var edge := C_CRIMSON if is_beast else (C_CYAN if role == "explorer" else Color(0.4, 0.45, 0.5))
@@ -178,29 +178,35 @@ static func make_player_card(name_text: String, role: String, ready: bool) -> Pa
 	card.add_theme_stylebox_override("panel", _panel(bg, edge, 10, 2 if ready else 1))
 
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
+	row.add_theme_constant_override("separation", 10)
 	card.add_child(row)
 
-	var badge := ColorRect.new()
-	badge.custom_minimum_size = Vector2(8, 36)
-	badge.color = edge
-	row.add_child(badge)
+	var portrait := TextureRect.new()
+	portrait.custom_minimum_size = Vector2(44, 44)
+	portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	if is_beast:
+		portrait.texture = UiIcons.beast_tex(GameManager.beast_variant)
+	elif role == "explorer":
+		portrait.texture = UiIcons.skin_tex(skin)
+	row.add_child(portrait)
 
 	var col := VBoxContainer.new()
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(col)
 
 	var name_l := Label.new()
-	name_l.text = name_text
+	var role_emoji := "👹" if is_beast else ("🤖" if role == "explorer" else "⏳")
+	name_l.text = "%s  %s" % [role_emoji, name_text]
 	if _font_ui_bold:
 		name_l.add_theme_font_override("font", _font_ui_bold)
-	name_l.add_theme_font_size_override("font_size", 20)
+	name_l.add_theme_font_size_override("font_size", 18)
 	col.add_child(name_l)
 
 	var role_l := Label.new()
 	var role_txt := "BESTIA" if is_beast else ("ROBOT" if role == "explorer" else "SIN ROL")
-	role_l.text = role_txt + ("  ·  LISTO" if ready else "  ·  esperando…")
-	role_l.add_theme_font_size_override("font_size", 14)
+	role_l.text = role_txt + ("  ·  LISTO ✅" if ready else "  ·  esperando…")
+	role_l.add_theme_font_size_override("font_size", 13)
 	role_l.add_theme_color_override("font_color", edge if ready else C_MUTED)
 	col.add_child(role_l)
 

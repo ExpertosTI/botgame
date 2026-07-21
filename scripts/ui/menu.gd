@@ -64,22 +64,7 @@ func _spawn_showcase() -> void:
 	var stage_wrap := get_node_or_null("Main/StageWrap") as Control
 	if OS.has_feature("web") or OS.get_name() == "Web":
 		if stage_wrap:
-			# Mensaje en vez de viewport vacío
-			var cap := stage_wrap.get_node_or_null("VBox/StageCaption") as Label
-			if cap:
-				cap.text = "BESTIA VS ROBOTS  ·  1 caza a 1–3 robots"
-			var view := stage_wrap.get_node_or_null("VBox/StageView") as Control
-			if view:
-				view.visible = false
-			var tip := Label.new()
-			tip.text = "Entra a la partida → elige rol, color y arsenal en la sala.\nWASD / táctil para mover · DISPARO para combatir · mantén en núcleo para sabotear."
-			tip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			tip.add_theme_font_size_override("font_size", 16)
-			tip.add_theme_color_override("font_color", GameTheme.C_MUTED)
-			var vbox := stage_wrap.get_node_or_null("VBox") as VBoxContainer
-			if vbox:
-				vbox.add_child(tip)
+			_fill_web_stage(stage_wrap)
 		return
 
 	var robot: Node3D = CREW_SCRIPT.new()
@@ -113,6 +98,70 @@ func _spawn_showcase() -> void:
 	pad_mat.emission_energy_multiplier = 0.35
 	pad.material_override = pad_mat
 	stage_root.add_child(pad)
+
+
+func _fill_web_stage(stage_wrap: Control) -> void:
+	var cap := stage_wrap.get_node_or_null("VBox/StageCaption") as Label
+	if cap:
+		cap.text = "⚔️  BESTIA VS ROBOTS  ·  1 caza a 1–3 robots"
+	var view := stage_wrap.get_node_or_null("VBox/StageView") as Control
+	if view:
+		view.visible = false
+	var vbox := stage_wrap.get_node_or_null("VBox") as VBoxContainer
+	if vbox == null:
+		return
+
+	var hero := TextureRect.new()
+	hero.texture = UiIcons.tex(UiIcons.MENU_HERO)
+	hero.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	hero.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	hero.custom_minimum_size = Vector2(0, 220)
+	hero.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hero.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vbox.add_child(hero)
+
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 10)
+	vbox.add_child(row)
+
+	for item in [
+		[UiIcons.skin_tex(0), "Robot"],
+		[UiIcons.beast_tex(GameManager.BeastVariant.CLASSIC), "Bestia"],
+		[UiIcons.loadout_tex(0), "Arsenal"],
+		[UiIcons.map_tex("lab_neon"), "Mapas"],
+	]:
+		var chip := PanelContainer.new()
+		chip.custom_minimum_size = Vector2(88, 96)
+		chip.add_theme_stylebox_override(
+			"panel",
+			GameTheme.panel_style(Color(0.06, 0.1, 0.12, 0.9), GameTheme.C_CYAN.darkened(0.3), 8, 1)
+		)
+		var chip_col := VBoxContainer.new()
+		chip_col.alignment = BoxContainer.ALIGNMENT_CENTER
+		chip.add_child(chip_col)
+		var tr := TextureRect.new()
+		tr.texture = item[0]
+		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		tr.custom_minimum_size = Vector2(64, 52)
+		tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		chip_col.add_child(tr)
+		var lb := Label.new()
+		lb.text = item[1]
+		lb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		lb.add_theme_font_size_override("font_size", 12)
+		lb.add_theme_color_override("font_color", GameTheme.C_MUTED)
+		chip_col.add_child(lb)
+		row.add_child(chip)
+
+	var tip := Label.new()
+	tip.text = "Entra → elige rol, color y arsenal en la sala.\nWASD / táctil · DISPARO · mantén en núcleo para sabotear."
+	tip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tip.add_theme_font_size_override("font_size", 15)
+	tip.add_theme_color_override("font_color", GameTheme.C_MUTED)
+	vbox.add_child(tip)
 
 
 func _process(delta: float) -> void:
