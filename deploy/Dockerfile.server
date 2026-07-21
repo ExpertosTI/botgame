@@ -1,25 +1,32 @@
-# Servidor dedicado Godot (headless) — requiere export Linux en export/server/
+# Servidor dedicado Godot (headless) — export Linux en export/server/
 FROM ubuntu:22.04
 
+ENV DEBIAN_FRONTEND=noninteractive \
+    GODOT_SILENCE_ROOT_WARNING=1
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates libx11-6 libxcursor1 libxinerama1 libxrandr2 libxi6 libgl1 \
+    ca-certificates \
+    libx11-6 libxcursor1 libxinerama1 libxrandr2 libxi6 \
+    libxext6 libxrender1 libxkbcommon0 libxcb1 \
+    libgl1 libglu1-mesa \
+    libfontconfig1 libfreetype6 \
+    libasound2 libpulse0 \
+    libdbus-1-3 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Binario esperado tras export Godot Linux:
-#   export/server/BestiaVsRobots.x86_64
-#   export/server/BestiaVsRobots.pck
 COPY export/server/ /app/
+COPY deploy/server-entrypoint.sh /app/server-entrypoint.sh
 
-RUN chmod +x /app/BestiaVsRobots.x86_64 2>/dev/null || true \
+RUN chmod +x /app/server-entrypoint.sh \
+ && chmod +x /app/BestiaVsRobots.x86_64 2>/dev/null || true \
  && if [ ! -x /app/BestiaVsRobots.x86_64 ]; then \
       printf '%s\n' '#!/bin/sh' \
         'echo "[botgame] Falta export Linux: export/server/BestiaVsRobots.x86_64"' \
-        'echo "Exporta desde Godot (Linux/X11 headless) y vuelve a desplegar."' \
         'sleep 3600' > /app/BestiaVsRobots.x86_64 \
       && chmod +x /app/BestiaVsRobots.x86_64; \
     fi
 
 EXPOSE 7777
-CMD ["./BestiaVsRobots.x86_64", "--headless", "--", "--server"]
+ENTRYPOINT ["/app/server-entrypoint.sh"]

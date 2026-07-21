@@ -133,9 +133,9 @@ run_export() {
   "$GODOT_BIN" --headless --path "$ROOT" --editor --quit-after 3 >/tmp/botgame-godot-editor.log 2>&1 || true
 
   if grep -qiE 'SCRIPT ERROR|Parse Error|Compile Error' /tmp/botgame-godot-editor.log /tmp/botgame-godot-import.log 2>/dev/null; then
-    warn_scripts=1
-    log "AVISO: hay errores de script en import — dump:"
-    grep -iE 'SCRIPT ERROR|Parse Error|Compile Error' /tmp/botgame-godot-editor.log /tmp/botgame-godot-import.log 2>/dev/null | head -20 || true
+    log "ERROR: scripts rotos — abortando export:"
+    grep -iE 'SCRIPT ERROR|Parse Error|Compile Error' /tmp/botgame-godot-editor.log /tmp/botgame-godot-import.log 2>/dev/null | head -40 || true
+    die "Corrige los Parse/Script Error antes de desplegar"
   fi
 
   # Godot 4.3: for_mobile=true + sin import_etc2_astc → error vacío en Web.
