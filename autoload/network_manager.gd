@@ -8,11 +8,12 @@ signal players_updated
 signal server_started
 signal connection_failed
 signal connection_succeeded
+signal join_rejected(reason: String)
 signal lobby_settings_changed
 signal match_start_requested(map_id: String)
 
 const CONFIG_PATH := "res://config/server_config.tres"
-const MAX_PLAYERS_DEFAULT := 4
+const MAX_PLAYERS_DEFAULT := 5
 
 var peer: WebSocketMultiplayerPeer = null
 var players: Dictionary = {}  # peer_id -> { name, role, ready }
@@ -20,6 +21,8 @@ var local_player_name := "Jugador"
 var selected_map: String = "lab_neon"
 var is_dedicated_server := false
 var config: ServerConfig = null
+var last_reject_reason := ""
+var _join_confirmed := false
 
 const MAP_IDS := ["lab_neon", "containers", "ruins"]
 const MAP_NAMES := {
@@ -82,6 +85,8 @@ func host_listen_server(player_name: String = "Anfitrión", port: int = -1) -> E
 
 func join_game(address: String = "", player_name: String = "Jugador") -> Error:
 	is_dedicated_server = false
+	_join_confirmed = false
+	last_reject_reason = ""
 	local_player_name = player_name
 	if address.is_empty():
 		address = config.server_url
@@ -105,6 +110,7 @@ func disconnect_from_game() -> void:
 		peer.close()
 		peer = null
 	players.clear()
+	_join_confirmed = false
 	multiplayer.multiplayer_peer = null
 
 
@@ -149,15 +155,32 @@ func _sync_full_state(remote_players: Dictionary, map_id: String, beast_variant:
 	GameManager.beast_variant = beast_variant as GameManager.BeastVariant
 	players_updated.emit()
 	lobby_settings_changed.emit()
+	var my_id := multiplayer.get_unique_id()
+	if not is_dedicated_server and players.has(my_id) and not _join_confirmed:
+		_join_confirmed = true
+		connection_succeeded.emit()
 
 
-@rpc("any_peer", "call_local", "reliable")
+@rpc("any_peer", "reliable")
 func register_player(id: int, player_name: String) -> void:
-	if multiplayer.is_server() and players.size() >= config.max_players:
+	if not multiplayer.is_server():
+		return
+	var cap: int = config.max_players if config else MAX_PLAYERS_DEFAULT
+	if players.size() >= cap:
+		_reject_join.rpc_id(id, "Sala llena (máximo %d jugadores)" % cap)
+		if peer:
+			peer.disconnect_peer(id)
 		return
 	_add_player(id, player_name)
-	if multiplayer.is_server():
-		_sync_full_state.rpc(players, selected_map, GameManager.beast_variant)
+	_sync_full_state.rpc(players, selected_map, GameManager.beast_variant)
+
+
+@rpc("authority", "reliable")
+func _reject_join(reason: String) -> void:
+	last_reject_reason = reason
+	join_rejected.emit(reason)
+	disconnect_from_game()
+	connection_failed.emit()
 
 
 func _on_peer_disconnected(id: int) -> void:
@@ -171,7 +194,7 @@ func _on_peer_disconnected(id: int) -> void:
 func _on_connected_to_server() -> void:
 	var my_id := multiplayer.get_unique_id()
 	register_player.rpc_id(1, my_id, local_player_name)
-	connection_succeeded.emit()
+	# connection_succeeded se emite al recibir sync con nuestro id
 
 
 func _on_connection_failed() -> void:

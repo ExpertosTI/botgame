@@ -27,33 +27,41 @@ func _apply_visual() -> void:
 	mat.emission_energy_multiplier = 2.4
 	mesh.material_override = mat
 
-	# Anillo luminoso en el suelo
+	var lite := OS.has_feature("web") or OS.get_name() == "Web"
+
+	# Anillo luminoso (sin OmniLight en web: 5 núcleos × light = freeze)
 	var ring := MeshInstance3D.new()
 	var torus := TorusMesh.new()
 	torus.inner_radius = 0.55
 	torus.outer_radius = 0.72
+	# Menos segmentos en web
+	if lite:
+		torus.rings = 8
+		torus.ring_segments = 12
 	ring.mesh = torus
 	ring.position = Vector3(0, 0.05, 0)
 	var ring_mat := StandardMaterial3D.new()
 	ring_mat.albedo_color = Color(1.0, 0.4, 0.15)
 	ring_mat.emission_enabled = true
 	ring_mat.emission = Color(1.0, 0.45, 0.1)
-	ring_mat.emission_energy_multiplier = 3.0
+	ring_mat.emission_energy_multiplier = 2.5 if lite else 3.0
 	ring.material_override = ring_mat
 	add_child(ring)
 
-	var light := OmniLight3D.new()
-	light.light_color = Color(1.0, 0.4, 0.2)
-	light.light_energy = 2.8
-	light.omni_range = 5.0
-	light.position = Vector3(0, 1.2, 0)
-	add_child(light)
+	if not lite:
+		var light := OmniLight3D.new()
+		light.light_color = Color(1.0, 0.4, 0.2)
+		light.light_energy = 2.2
+		light.omni_range = 4.5
+		light.position = Vector3(0, 1.2, 0)
+		add_child(light)
 
 	var tween := create_tween().set_loops()
-	tween.tween_property(mat, "emission_energy_multiplier", 4.2, 0.85)
-	tween.parallel().tween_property(ring, "scale", Vector3(1.12, 1.0, 1.12), 0.85)
+	tween.tween_property(mat, "emission_energy_multiplier", 3.6 if lite else 4.2, 0.85)
+	tween.parallel().tween_property(ring, "scale", Vector3(1.1, 1.0, 1.1), 0.85)
 	tween.tween_property(mat, "emission_energy_multiplier", 2.0, 0.85)
 	tween.parallel().tween_property(ring, "scale", Vector3.ONE, 0.85)
+
 
 
 @rpc("any_peer", "call_local", "reliable")

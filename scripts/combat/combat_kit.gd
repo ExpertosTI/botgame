@@ -111,6 +111,9 @@ func _server_fire(weapon_id: int, origin: Vector3, dir: Vector3, peer: int, beas
 			CombatFx.replicate_shot(origin, dir, data, peer, vs_explorers)
 		"shotgun":
 			var pellets: int = int(data.get("pellets", 5))
+			# En web/multi: menos pellets = menos RPC/proyectiles
+			if OS.has_feature("web") or NetworkManager.get_player_count() >= 4:
+				pellets = mini(pellets, 3)
 			var spread: float = float(data.get("spread", 0.15))
 			for i in pellets:
 				var offset := Vector3(

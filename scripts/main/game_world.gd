@@ -113,7 +113,16 @@ func _get_spawn_position(role: GameManager.Role, peer_id: int) -> Vector3:
 	var spawns := get_tree().get_nodes_in_group("explorer_spawns")
 	if spawns.is_empty():
 		return Vector3(randf_range(-5, 5), 1.0, 15)
-	return spawns[peer_id % spawns.size()].global_position
+	# Índice estable entre exploradores (no peer_id crudo)
+	var explorers: Array = []
+	for pid in NetworkManager.players:
+		if GameManager.get_role(int(pid)) != GameManager.Role.BEAST:
+			explorers.append(int(pid))
+	explorers.sort()
+	var idx := explorers.find(peer_id)
+	if idx < 0:
+		idx = peer_id % spawns.size()
+	return spawns[idx % spawns.size()].global_position
 
 
 func _on_match_started() -> void:

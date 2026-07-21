@@ -16,6 +16,13 @@ var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var peer_id: int = 1
 var combat: CombatKit
 
+## Sync de red (WebSocket): ~15 Hz, unreliable_ordered
+const SYNC_HZ := 15.0
+var _sync_accum := 0.0
+var _remote_pos := Vector3.ZERO
+var _remote_yaw := 0.0
+var _has_remote := false
+
 
 func _ready() -> void:
 	peer_id = name.to_int() if name.is_valid_int() else multiplayer.get_unique_id()
@@ -26,6 +33,7 @@ func _ready() -> void:
 	if not is_multiplayer_authority():
 		camera.current = false
 		set_process_input(false)
+		# Remotos: interpolar, no simular input
 	else:
 		if not DisplayServer.is_touchscreen_available() and not OS.has_feature("mobile"):
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -70,9 +78,14 @@ func _apply_look(rel: Vector2) -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if not is_multiplayer_authority():
-		return
+	if is_multiplayer_authority():
+		_authority_move(delta)
+		_maybe_sync(delta)
+	else:
+		_apply_remote_pose(delta)
 
+
+func _authority_move(delta: float) -> void:
 	_handle_combat_input()
 
 	if not is_on_floor():
@@ -99,6 +112,41 @@ func _physics_process(delta: float) -> void:
 		crew.set_moving(direction.length() > 0.1)
 
 	move_and_slide()
+
+
+func _maybe_sync(delta: float) -> void:
+	if not multiplayer.has_multiplayer_peer():
+		return
+	_sync_accum += delta
+	if _sync_accum < 1.0 / SYNC_HZ:
+		return
+	_sync_accum = 0.0
+	var moving := crew != null and crew.is_moving()
+	_recv_state.rpc(global_position, rotation.y, velocity, moving)
+
+
+@rpc("any_peer", "unreliable_ordered", "call_remote")
+func _recv_state(pos: Vector3, yaw: float, vel: Vector3, moving: bool) -> void:
+	# Incluye servidor dedicado (para melee/hits) + otros clientes
+	_remote_pos = pos
+	_remote_yaw = yaw
+	velocity = vel
+	_has_remote = true
+	if crew:
+		crew.set_moving(moving)
+
+
+func _apply_remote_pose(delta: float) -> void:
+	if not _has_remote:
+		return
+	# Servidor headless: snap (preciso para combate). Clientes: lerp suave.
+	var snap := NetworkManager.is_dedicated_server or OS.has_feature("dedicated_server")
+	if snap:
+		global_position = _remote_pos
+		rotation.y = _remote_yaw
+	else:
+		global_position = global_position.lerp(_remote_pos, clampf(delta * 18.0, 0.0, 1.0))
+		rotation.y = lerp_angle(rotation.y, _remote_yaw, clampf(delta * 18.0, 0.0, 1.0))
 
 
 func _handle_combat_input() -> void:

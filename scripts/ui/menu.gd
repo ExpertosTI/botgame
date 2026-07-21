@@ -48,6 +48,10 @@ func _style_ui() -> void:
 
 
 func _setup_atmosphere() -> void:
+	# Shader full-screen es caro en móviles; en web usamos color sólido
+	if OS.has_feature("web") or OS.get_name() == "Web":
+		atmosphere.color = Color(0.04, 0.07, 0.1, 1)
+		return
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://shaders/ui_atmosphere.gdshader")
 	atmosphere.material = mat
@@ -56,7 +60,13 @@ func _setup_atmosphere() -> void:
 func _spawn_showcase() -> void:
 	if stage_root == null:
 		return
-	# Robot + Bestia girando en el hangar
+	# En Web: no SubViewport 3D (ralentiza la carga inicial ~mucho)
+	var stage_wrap := get_node_or_null("Main/StageWrap") as Control
+	if OS.has_feature("web") or OS.get_name() == "Web":
+		if stage_wrap:
+			stage_wrap.visible = false
+		return
+
 	var robot: Node3D = CREW_SCRIPT.new()
 	robot.is_beast = false
 	robot.position = Vector3(-1.15, 0, 0)
@@ -74,7 +84,6 @@ func _spawn_showcase() -> void:
 
 	_spin_nodes = [robot, beast]
 
-	# Plataforma
 	var pad := MeshInstance3D.new()
 	var cyl := CylinderMesh.new()
 	cyl.top_radius = 2.4
@@ -140,4 +149,7 @@ func _on_connected() -> void:
 
 
 func _on_connection_failed() -> void:
-	status_label.text = "Sin señal al VPS. Revisa la URL."
+	if last_reject_reason != "":
+		status_label.text = last_reject_reason
+	else:
+		status_label.text = "No se pudo conectar al VPS. Revisa la URL."

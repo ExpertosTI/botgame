@@ -60,6 +60,9 @@ func _style_ui() -> void:
 
 
 func _setup_atmosphere() -> void:
+	if OS.has_feature("web") or OS.get_name() == "Web":
+		atmosphere.color = Color(0.04, 0.07, 0.1, 1)
+		return
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://shaders/ui_atmosphere.gdshader")
 	atmosphere.material = mat
@@ -181,8 +184,9 @@ func _check_can_start() -> void:
 	var ok := count >= 2 and NetworkManager.all_players_ready() and NetworkManager.has_exactly_one_beast()
 	start_button.disabled = not ok
 	var ready_n := _count_ready()
-	status_label.text = "%d en sala  ·  %d listos  ·  mapa: %s" % [
-		count, ready_n, NetworkManager.MAP_NAMES.get(NetworkManager.selected_map, "?")
+	status_label.text = "%d / %d en sala  ·  %d listos  ·  mapa: %s" % [
+		count, NetworkManager.config.max_players if NetworkManager.config else 5,
+		ready_n, NetworkManager.MAP_NAMES.get(NetworkManager.selected_map, "?")
 	]
 	if ok:
 		status_label.add_theme_color_override("font_color", GameTheme.C_CYAN)

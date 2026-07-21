@@ -159,6 +159,10 @@ func set_moving(moving: bool) -> void:
 	_moving = moving
 
 
+func is_moving() -> bool:
+	return _moving
+
+
 func _process(delta: float) -> void:
 	if not _moving:
 		leg_l.rotation.x = move_toward(leg_l.rotation.x, 0.0, delta * 8.0)
