@@ -167,6 +167,8 @@ static func style_muted(label: Label, size: int = 16) -> void:
 static func panel_style(bg: Color, border: Color, radius: float = 10, border_w: float = 2) -> StyleBoxFlat:
 	return _panel(bg, border, radius, border_w)
 
+
+static func make_player_card(name_text: String, role: String, ready: bool) -> PanelContainer:
 	var card := PanelContainer.new()
 	var is_beast := role == "beast"
 	var edge := C_CRIMSON if is_beast else (C_CYAN if role == "explorer" else Color(0.4, 0.45, 0.5))
