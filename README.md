@@ -62,6 +62,8 @@ cd /opt/botgame && ./deploy.sh update
 
 `deploy.sh update` hace: `git pull` → **export Godot en el VPS** (Web + Linux) → Docker build → Swarm/Traefik.
 
+Cada deploy genera `version.json` + `?v=SHA` en `.js/.wasm/.pck`. Al abrir el juego, un script limpia Service Workers/caches y **recarga** si el servidor tiene otra build.
+
 No subas binarios por SSH. Los exports se generan en el servidor.
 
 
