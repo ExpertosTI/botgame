@@ -22,6 +22,10 @@ extends Control
 @onready var atmosphere: ColorRect = %Atmosphere
 @onready var map_hint: Label = %MapHint
 @onready var hangar_slot: Control = %HangarSlot
+@onready var main_scroll: ScrollContainer = %MainScroll
+@onready var content: VBoxContainer = %Content
+@onready var crew_panel: Control = %CrewPanel
+@onready var setup_panel: Control = %SetupPanel
 
 const GAME_SCENE := "res://scenes/main/game.tscn"
 const HANGAR_SCRIPT := preload("res://scripts/ui/lobby_hangar.gd")
@@ -68,6 +72,7 @@ func _ready() -> void:
 	_update_hangar_preview()
 	_update_campaign_ui()
 	_apply_solo_lobby()
+	call_deferred("_fit_content_width")
 	call_deferred("_adapt_mobile_lobby")
 
 	if NetworkManager.is_dedicated_server:
@@ -77,23 +82,27 @@ func _ready() -> void:
 		role_robot_button.visible = false
 		skin_row.visible = false
 		loadout_row.visible = false
+		setup_panel.visible = false
 
 
 func _apply_solo_lobby() -> void:
 	if not NetworkManager.is_solo_practice:
 		return
 	title.text = "PRÁCTICA · CAMPAÑA"
-	wait_label.text = "Solitario vs bots"
+	wait_label.text = "Elige rol, arsenal y pulsa JUGAR NIVEL"
 	ready_button.visible = false
 	local_ready = true
+	_syncing_checks = true
 	campaign_check.button_pressed = true
 	campaign_check.disabled = true
+	_syncing_checks = false
 	ProgressionManager.campaign_mode = true
 	NetworkManager.selected_map = ProgressionManager.force_campaign_map()
 	var map_idx := NetworkManager.MAP_IDS.find(NetworkManager.selected_map)
 	if map_idx >= 0:
 		_map_idx = map_idx
 	start_button.text = "▶  JUGAR NIVEL"
+	start_button.disabled = false
 	GameTheme.style_primary(start_button)
 	_rebuild_maps()
 	_update_map_hint()
@@ -101,7 +110,15 @@ func _apply_solo_lobby() -> void:
 	# Rol por defecto robot
 	if _local_role() == "":
 		NetworkManager.submit_role("explorer")
+	_update_robot_sections_visibility()
 	_check_can_start()
+	# Asegurar que el setup quede a la vista
+	call_deferred("_scroll_to_setup")
+
+
+func _scroll_to_setup() -> void:
+	if main_scroll and setup_panel:
+		main_scroll.ensure_control_visible(setup_panel)
 
 
 func _style_ui() -> void:
@@ -135,6 +152,7 @@ func _setup_atmosphere() -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED:
+		_fit_content_width()
 		_adapt_mobile_lobby()
 
 
@@ -142,39 +160,42 @@ func _process(delta: float) -> void:
 	_pulse_t += delta
 	if NetworkManager.is_solo_practice:
 		wait_label.modulate.a = 0.75 + 0.25 * sin(_pulse_t * 2.0)
-		wait_label.text = "Práctica · elige rol y JUGAR NIVEL"
+		wait_label.text = "Práctica · elige rol abajo · JUGAR NIVEL siempre visible"
 		return
 	wait_label.modulate.a = 0.65 + 0.35 * sin(_pulse_t * 2.4)
 	wait_label.text = "Esperando tripulación" + ".".repeat(int(_pulse_t * 2.0) % 4)
 
 
+func _fit_content_width() -> void:
+	if content == null or main_scroll == null:
+		return
+	var w := main_scroll.size.x
+	if w < 8.0:
+		w = size.x - 24.0
+	content.custom_minimum_size = Vector2(maxi(int(w), 280), 0)
+
+
 func _adapt_mobile_lobby() -> void:
 	var narrow := size.x < 780
-	var body := get_node_or_null("Margin/Root/Body") as VBoxContainer
-	if body == null:
-		return
-	var crew := body.get_node_or_null("CrewPanel") as Control
-	var setup := body.get_node_or_null("SetupScroll") as Control
-	if narrow and crew and setup:
-		if body.get_child(0) != setup:
-			body.move_child(setup, 0)
-		if hangar_slot:
-			hangar_slot.custom_minimum_size = Vector2(0, 150)
-		ready_button.custom_minimum_size = Vector2(0, 68)
-		ready_button.add_theme_font_size_override("font_size", 22)
-		start_button.custom_minimum_size = Vector2(0, 56)
+	if hangar_slot:
+		hangar_slot.custom_minimum_size = Vector2(0, 120 if narrow else 160)
+	if narrow:
+		ready_button.custom_minimum_size = Vector2(0, 56)
+		start_button.custom_minimum_size = Vector2(0, 64)
+		start_button.add_theme_font_size_override("font_size", 22)
 		role_beast_button.custom_minimum_size = Vector2(0, 72)
 		role_robot_button.custom_minimum_size = Vector2(0, 72)
 		skin_row.add_theme_constant_override("separation", 6)
 		loadout_row.add_theme_constant_override("separation", 6)
 		map_row.add_theme_constant_override("separation", 6)
 		beast_row.add_theme_constant_override("separation", 6)
-		GameTheme.style_title(title, 28)
-	elif crew and setup:
-		if body.get_child(0) != crew:
-			body.move_child(crew, 0)
-		if hangar_slot:
-			hangar_slot.custom_minimum_size = Vector2(0, 188)
+		GameTheme.style_title(title, 26)
+		# En práctica, hangar más compacto para ver pickers antes
+		if NetworkManager.is_solo_practice and hangar_slot:
+			hangar_slot.custom_minimum_size = Vector2(0, 96)
+	else:
+		GameTheme.style_title(title, 34)
+		start_button.remove_theme_font_size_override("font_size")
 
 
 func _setup_hangar() -> void:
@@ -266,7 +287,7 @@ func _rebuild_maps() -> void:
 	for i in NetworkManager.MAP_IDS.size():
 		var mid: String = NetworkManager.MAP_IDS[i]
 		var locked := not ProgressionManager.is_map_unlocked(mid)
-		if ProgressionManager.campaign_mode:
+		if ProgressionManager.campaign_mode or NetworkManager.is_solo_practice:
 			locked = mid != NetworkManager.selected_map
 		var card := VisualPicker.make_map_card(mid, i == _map_idx, locked)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -307,7 +328,7 @@ func _on_loadout_picked(loadout: int) -> void:
 
 
 func _on_map_picked(index: int) -> void:
-	if ProgressionManager.campaign_mode:
+	if ProgressionManager.campaign_mode or NetworkManager.is_solo_practice:
 		status_label.text = "Campaña activa — mapa del nivel actual"
 		return
 	var mid: String = NetworkManager.MAP_IDS[index]
@@ -339,7 +360,7 @@ func _update_map_hint() -> void:
 			map_hint.text = "Ruinas — plataforma alta y combate vertical."
 		_:
 			map_hint.text = "Laboratorio neon — arena abierta y luces frías."
-	if ProgressionManager.campaign_mode:
+	if ProgressionManager.campaign_mode or NetworkManager.is_solo_practice:
 		var lv := ProgressionManager.current_level()
 		map_hint.text = "%s · %ds · %d núcleos" % [
 			map_hint.text,
@@ -393,6 +414,8 @@ func _on_easy_toggled(on: bool) -> void:
 func _on_campaign_toggled(on: bool) -> void:
 	if _syncing_checks:
 		return
+	if NetworkManager.is_solo_practice:
+		return
 	NetworkManager.submit_campaign_mode(on)
 
 
@@ -407,12 +430,14 @@ func _on_pick_beast() -> void:
 	NetworkManager.submit_role("beast")
 	_update_robot_sections_visibility()
 	_update_hangar_preview()
+	_check_can_start()
 
 
 func _on_pick_robot() -> void:
 	NetworkManager.submit_role("explorer")
 	_update_robot_sections_visibility()
 	_update_hangar_preview()
+	_check_can_start()
 
 
 func _on_ready_pressed() -> void:
@@ -427,6 +452,8 @@ func _on_start_pressed() -> void:
 		if _local_role() == "":
 			status_label.text = "Elige Bestia o Robot"
 			return
+		# Asegurar ready + bots
+		NetworkManager.players[1]["ready"] = true
 		NetworkManager.request_start_match()
 		return
 	if NetworkManager.get_player_count() < 2:
@@ -468,6 +495,8 @@ func _refresh_player_list() -> void:
 		child.queue_free()
 	var my_id := multiplayer.get_unique_id()
 	for peer_id in NetworkManager.players:
+		if NetworkManager.is_bot_peer(int(peer_id)):
+			continue  # bots solo en partida
 		var info: Dictionary = NetworkManager.players[peer_id]
 		var role := str(info.get("role", ""))
 		var extra := ""
@@ -489,7 +518,8 @@ func _refresh_player_list() -> void:
 			local_ready = bool(info.get("ready", false))
 			_skin = int(info.get("skin", _skin))
 			_loadout = int(info.get("loadout", _loadout))
-			_apply_ready_button_style()
+			if not NetworkManager.is_solo_practice:
+				_apply_ready_button_style()
 	_check_can_start()
 	_update_robot_sections_visibility()
 	_update_hangar_preview()
@@ -511,7 +541,7 @@ func _check_can_start() -> void:
 			"font_color", GameTheme.C_CYAN if ok else GameTheme.C_AMBER
 		)
 		if ok:
-			status_label.text += "  ·  listo para jugar"
+			status_label.text += "  ·  listo — pulsa JUGAR NIVEL"
 		return
 	var count := NetworkManager.get_player_count()
 	var ok := count >= 2 and NetworkManager.all_players_ready() and NetworkManager.has_exactly_one_beast()

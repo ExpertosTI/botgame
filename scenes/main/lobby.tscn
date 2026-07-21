@@ -27,16 +27,18 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 16.0
-offset_top = 12.0
-offset_right = -16.0
-offset_bottom = -12.0
+offset_left = 12.0
+offset_top = 8.0
+offset_right = -12.0
+offset_bottom = -8.0
 grow_horizontal = 2
 grow_vertical = 2
 
 [node name="Root" type="VBoxContainer" parent="Margin"]
 layout_mode = 2
-theme_override_constants/separation = 10
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 8
 
 [node name="Header" type="VBoxContainer" parent="Margin/Root"]
 layout_mode = 2
@@ -55,170 +57,175 @@ layout_mode = 2
 text = "Esperando tripulación…"
 horizontal_alignment = 1
 
-[node name="Body" type="VBoxContainer" parent="Margin/Root"]
-layout_mode = 2
-size_flags_vertical = 3
-theme_override_constants/separation = 12
-
-[node name="CrewPanel" type="PanelContainer" parent="Margin/Root/Body"]
+[node name="MainScroll" type="ScrollContainer" parent="Margin/Root"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-size_flags_stretch_ratio = 0.85
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+vertical_scroll_mode = 1
 
-[node name="CrewMargin" type="MarginContainer" parent="Margin/Root/Body/CrewPanel"]
+[node name="Content" type="VBoxContainer" parent="Margin/Root/MainScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 12
+
+[node name="CrewPanel" type="PanelContainer" parent="Margin/Root/MainScroll/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="CrewMargin" type="MarginContainer" parent="Margin/Root/MainScroll/Content/CrewPanel"]
 layout_mode = 2
 theme_override_constants/margin_left = 12
 theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 12
 theme_override_constants/margin_bottom = 10
 
-[node name="CrewCol" type="VBoxContainer" parent="Margin/Root/Body/CrewPanel/CrewMargin"]
+[node name="CrewCol" type="VBoxContainer" parent="Margin/Root/MainScroll/Content/CrewPanel/CrewMargin"]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="CrewTitle" type="Label" parent="Margin/Root/Body/CrewPanel/CrewMargin/CrewCol"]
+[node name="CrewTitle" type="Label" parent="Margin/Root/MainScroll/Content/CrewPanel/CrewMargin/CrewCol"]
 layout_mode = 2
 text = "👥  TRIPULACIÓN EN HANGAR"
 
-[node name="HangarSlot" type="PanelContainer" parent="Margin/Root/Body/CrewPanel/CrewMargin/CrewCol"]
+[node name="HangarSlot" type="PanelContainer" parent="Margin/Root/MainScroll/Content/CrewPanel/CrewMargin/CrewCol"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 188)
+custom_minimum_size = Vector2(0, 160)
 layout_mode = 2
 
-[node name="Scroll" type="ScrollContainer" parent="Margin/Root/Body/CrewPanel/CrewMargin/CrewCol"]
-layout_mode = 2
-size_flags_vertical = 3
-horizontal_scroll_mode = 0
-
-[node name="PlayerList" type="VBoxContainer" parent="Margin/Root/Body/CrewPanel/CrewMargin/CrewCol/Scroll"]
+[node name="PlayerList" type="VBoxContainer" parent="Margin/Root/MainScroll/Content/CrewPanel/CrewMargin/CrewCol"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 8
 
-[node name="SetupScroll" type="ScrollContainer" parent="Margin/Root/Body"]
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_stretch_ratio = 1.25
-horizontal_scroll_mode = 0
-
-[node name="SetupPanel" type="PanelContainer" parent="Margin/Root/Body/SetupScroll"]
+[node name="SetupPanel" type="PanelContainer" parent="Margin/Root/MainScroll/Content"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="SetupMargin" type="MarginContainer" parent="Margin/Root/Body/SetupScroll/SetupPanel"]
+[node name="SetupMargin" type="MarginContainer" parent="Margin/Root/MainScroll/Content/SetupPanel"]
 layout_mode = 2
 theme_override_constants/margin_left = 12
 theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 12
-theme_override_constants/margin_bottom = 10
+theme_override_constants/margin_bottom = 14
 
-[node name="SetupCol" type="VBoxContainer" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin"]
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="RoleTitle" type="Label" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin/SetupCol"]
-layout_mode = 2
-text = "🎭  ELIGE TU ROL"
-
-[node name="RoleRow" type="HBoxContainer" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin/SetupCol"]
+[node name="SetupCol" type="VBoxContainer" parent="Margin/Root/MainScroll/Content/SetupPanel/SetupMargin"]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="BeastRoleButton" type="Button" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin/SetupCol/RoleRow"]
+[node name="RoleTitle" type="Label" parent="Margin/Root/MainScroll/Content/SetupPanel/SetupMargin/SetupCol"]
+layout_mode = 2
+text = "🎭  ELIGE TU ROL"
+
+[node name="RoleRow" type="HBoxContainer" parent="Margin/Root/MainScroll/Content/SetupPanel/SetupMargin/SetupCol"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="BeastRoleButton" type="Button" parent="Margin/Root/MainScroll/Content/SetupPanel/SetupMargin/SetupCol/RoleRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 52)
+custom_minimum_size = Vector2(0, 56)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "SOY LA BESTIA"
 
-[node name="RobotRoleButton" type="Button" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin/SetupCol/RoleRow"]
+[node name="RobotRoleButton" type="Button" parent="Margin/Root/MainScroll/Content/SetupPanel/SetupMargin/SetupCol/RoleRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 52)
+custom_minimum_size = Vector2(0, 56)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "SOY ROBOT"
 
-[node name="SkinTitle" type="Label" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin/SetupCol"]
+[node name="SkinTitle" type="Label" parent="Margin/Root/MainScroll/Content/SetupPanel/SetupMargin/SetupCol"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "🤖  COLOR ROBOT — toca el retrato"
 
-[node name="SkinRow" type="HBoxContainer" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin/SetupCol"]
+[node name="SkinRow" type="HBoxContainer" parent="Margin/Root/MainScroll/Content/SetupPanel/SetupMargin/SetupCol"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="LoadoutTitle" type="Label" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin/SetupCol"]
+[node name="LoadoutTitle" type="Label" parent="Margin/Root/MainScroll/Content/SetupPanel/SetupMargin/SetupCol"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "🔫  ARSENAL — toca el arma"
 
-[node name="LoadoutRow" type="HBoxContainer" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin/SetupCol"]
+[node name="LoadoutRow" type="HBoxContainer" parent="Margin/Root/MainScroll/Content/SetupPanel/SetupMargin/SetupCol"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="LoadoutHint" type="Label" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin/SetupCol"]
+[node name="LoadoutHint" type="Label" parent="Margin/Root/MainScroll/Content/SetupPanel/SetupMargin/SetupCol"]
 unique_name_in_owner = true
 layout_mode = 2
 autowrap_mode = 2
 text = "…"
 
-[node name="CampaignCheck" type="CheckBox" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin/SetupCol"]
+[node name="CampaignCheck" type="CheckBox" parent="Margin/Root/MainScroll/Content/SetupPanel/SetupMargin/SetupCol"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Campaña · niveles (mapa forzado)"
 
-[node name="CampaignLabel" type="Label" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin/SetupCol"]
+[node name="CampaignLabel" type="Label" parent="Margin/Root/MainScroll/Content/SetupPanel/SetupMargin/SetupCol"]
 unique_name_in_owner = true
 layout_mode = 2
 autowrap_mode = 2
 text = "Nivel 1"
 
-[node name="MapTitle" type="Label" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin/SetupCol"]
+[node name="MapTitle" type="Label" parent="Margin/Root/MainScroll/Content/SetupPanel/SetupMargin/SetupCol"]
+unique_name_in_owner = true
 layout_mode = 2
 text = "🗺️  MAPA — toca la vista previa"
 
-[node name="MapRow" type="HBoxContainer" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin/SetupCol"]
+[node name="MapRow" type="HBoxContainer" parent="Margin/Root/MainScroll/Content/SetupPanel/SetupMargin/SetupCol"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="MapHint" type="Label" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin/SetupCol"]
+[node name="MapHint" type="Label" parent="Margin/Root/MainScroll/Content/SetupPanel/SetupMargin/SetupCol"]
 unique_name_in_owner = true
 layout_mode = 2
 autowrap_mode = 2
 text = "…"
 
-[node name="VariantTitle" type="Label" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin/SetupCol"]
+[node name="VariantTitle" type="Label" parent="Margin/Root/MainScroll/Content/SetupPanel/SetupMargin/SetupCol"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "👹  VARIANTE BESTIA — toca el retrato"
 
-[node name="BeastRow" type="HBoxContainer" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin/SetupCol"]
+[node name="BeastRow" type="HBoxContainer" parent="Margin/Root/MainScroll/Content/SetupPanel/SetupMargin/SetupCol"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="EasyBeastCheck" type="CheckBox" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin/SetupCol"]
+[node name="EasyBeastCheck" type="CheckBox" parent="Margin/Root/MainScroll/Content/SetupPanel/SetupMargin/SetupCol"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Modo fácil Bestia (más lenta)"
 
-[node name="ReadyButton" type="Button" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin/SetupCol"]
+[node name="Footer" type="VBoxContainer" parent="Margin/Root"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 46)
 layout_mode = 2
-text = "MARCAR LISTO"
+theme_override_constants/separation = 8
 
-[node name="StartButton" type="Button" parent="Margin/Root/Body/SetupScroll/SetupPanel/SetupMargin/SetupCol"]
+[node name="ReadyButton" type="Button" parent="Margin/Root/Footer"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
+text = "MARCAR LISTO"
+
+[node name="StartButton" type="Button" parent="Margin/Root/Footer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 58)
+layout_mode = 2
 text = "EMPEZAR PARTIDA"
 
-[node name="StatusLabel" type="Label" parent="Margin/Root"]
+[node name="StatusLabel" type="Label" parent="Margin/Root/Footer"]
 unique_name_in_owner = true
 layout_mode = 2
 horizontal_alignment = 1

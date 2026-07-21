@@ -34,16 +34,19 @@ func _build_ui() -> void:
 	var root := Control.new()
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.name = "InviteRoot"
 	add_child(root)
 
 	_panel = PanelContainer.new()
 	_panel.visible = false
-	_panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_panel.offset_left = -200.0
-	_panel.offset_right = 200.0
-	_panel.offset_top = 24.0
-	_panel.offset_bottom = 200.0
 	_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	_panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_panel.anchor_left = 0.5
+	_panel.anchor_right = 0.5
+	_panel.offset_left = -210.0
+	_panel.offset_right = 210.0
+	_panel.offset_top = 16.0
+	_panel.offset_bottom = 210.0
 	root.add_child(_panel)
 
 	var margin := MarginContainer.new()
