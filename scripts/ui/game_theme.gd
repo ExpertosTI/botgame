@@ -164,7 +164,9 @@ static func style_muted(label: Label, size: int = 16) -> void:
 	label.add_theme_color_override("font_color", C_MUTED)
 
 
-static func make_player_card(name_text: String, role: String, ready: bool) -> PanelContainer:
+static func panel_style(bg: Color, border: Color, radius: float = 10, border_w: float = 2) -> StyleBoxFlat:
+	return _panel(bg, border, radius, border_w)
+
 	var card := PanelContainer.new()
 	var is_beast := role == "beast"
 	var edge := C_CRIMSON if is_beast else (C_CYAN if role == "explorer" else Color(0.4, 0.45, 0.5))

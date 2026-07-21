@@ -5,10 +5,13 @@ extends Control
 @onready var start_button: Button = %StartButton
 @onready var role_beast_button: Button = %BeastRoleButton
 @onready var role_robot_button: Button = %RobotRoleButton
-@onready var beast_variant_option: OptionButton = %BeastVariantOption
-@onready var map_option: OptionButton = %MapOption
-@onready var skin_option: OptionButton = %SkinOption
-@onready var loadout_option: OptionButton = %LoadoutOption
+@onready var skin_row: HBoxContainer = %SkinRow
+@onready var loadout_row: HBoxContainer = %LoadoutRow
+@onready var map_row: HBoxContainer = %MapRow
+@onready var beast_row: HBoxContainer = %BeastRow
+@onready var skin_title: Label = %SkinTitle
+@onready var loadout_title: Label = %LoadoutTitle
+@onready var variant_title: Label = %VariantTitle
 @onready var loadout_hint: Label = %LoadoutHint
 @onready var status_label: Label = %StatusLabel
 @onready var easy_check: CheckBox = %EasyBeastCheck
@@ -27,6 +30,10 @@ const LOADOUT_HINTS := [
 
 var local_ready := false
 var _pulse_t := 0.0
+var _skin := 0
+var _loadout := 0
+var _map_idx := 0
+var _beast_variant := GameManager.BeastVariant.MECHA
 
 
 func _ready() -> void:
@@ -46,19 +53,21 @@ func _ready() -> void:
 	NetworkManager.lobby_settings_changed.connect(_on_settings_changed)
 	NetworkManager.match_start_requested.connect(_on_match_start)
 
-	_setup_options()
+	_rebuild_all_pickers()
 	_refresh_player_list()
+	_update_robot_sections_visibility()
+
 	if NetworkManager.is_dedicated_server:
 		status_label.text = "Servidor dedicado — esperando tripulación"
 		ready_button.visible = false
 		role_beast_button.visible = false
 		role_robot_button.visible = false
-		skin_option.visible = false
-		loadout_option.visible = false
+		skin_row.visible = false
+		loadout_row.visible = false
 
 
 func _style_ui() -> void:
-	GameTheme.style_title(title, 36)
+	GameTheme.style_title(title, 34)
 	GameTheme.style_muted(wait_label, 15)
 	GameTheme.style_danger(role_beast_button)
 	GameTheme.style_primary(role_robot_button)
@@ -82,71 +91,132 @@ func _setup_atmosphere() -> void:
 
 func _process(delta: float) -> void:
 	_pulse_t += delta
-	var pulse := 0.65 + 0.35 * sin(_pulse_t * 2.4)
-	wait_label.modulate.a = pulse
-	var dots := int(_pulse_t * 2.0) % 4
-	wait_label.text = "Esperando tripulación" + ".".repeat(dots)
+	wait_label.modulate.a = 0.65 + 0.35 * sin(_pulse_t * 2.4)
+	wait_label.text = "Esperando tripulación" + ".".repeat(int(_pulse_t * 2.0) % 4)
 
 
-func _setup_options() -> void:
-	beast_variant_option.clear()
-	beast_variant_option.add_item("Mecha Destructor", GameManager.BeastVariant.MECHA)
-	beast_variant_option.add_item("Bestia Clásica", GameManager.BeastVariant.CLASSIC)
-	beast_variant_option.add_item("Sombra Digital", GameManager.BeastVariant.SHADOW)
-	beast_variant_option.item_selected.connect(_on_beast_variant_selected)
-
-	skin_option.clear()
-	for i in 4:
-		skin_option.add_item("Robot " + WeaponDefs.explorer_skin_name(i), i)
-	skin_option.item_selected.connect(_on_skin_selected)
-
-	loadout_option.clear()
-	for i in 4:
-		loadout_option.add_item(WeaponDefs.explorer_loadout_name(i), i)
-	loadout_option.item_selected.connect(_on_loadout_selected)
-	_update_loadout_hint()
-
-	map_option.clear()
-	for map_id in NetworkManager.MAP_IDS:
-		map_option.add_item(NetworkManager.MAP_NAMES[map_id])
-	map_option.item_selected.connect(_on_map_selected)
+func _rebuild_all_pickers() -> void:
+	_rebuild_skins()
+	_rebuild_loadouts()
+	_rebuild_maps()
+	_rebuild_beasts()
 	easy_check.button_pressed = GameManager.easy_beast_mode
 	_update_map_hint()
+	_update_loadout_hint()
+
+
+func _clear_row(row: HBoxContainer) -> void:
+	for c in row.get_children():
+		c.queue_free()
+
+
+func _wire_card(card: PanelContainer, cb: Callable) -> void:
+	card.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+			cb.call()
+		elif ev is InputEventScreenTouch and ev.pressed:
+			cb.call()
+	)
+
+
+func _rebuild_skins() -> void:
+	_clear_row(skin_row)
+	for i in 4:
+		var card := VisualPicker.make_skin_card(i, i == _skin)
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_wire_card(card, _on_skin_picked.bind(i))
+		skin_row.add_child(card)
+
+
+func _rebuild_loadouts() -> void:
+	_clear_row(loadout_row)
+	for i in 4:
+		var card := VisualPicker.make_loadout_card(i, i == _loadout)
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_wire_card(card, _on_loadout_picked.bind(i))
+		loadout_row.add_child(card)
+
+
+func _rebuild_maps() -> void:
+	_clear_row(map_row)
+	for i in NetworkManager.MAP_IDS.size():
+		var mid: String = NetworkManager.MAP_IDS[i]
+		var card := VisualPicker.make_map_card(mid, i == _map_idx)
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_wire_card(card, _on_map_picked.bind(i))
+		map_row.add_child(card)
+
+
+func _rebuild_beasts() -> void:
+	_clear_row(beast_row)
+	var variants := [
+		GameManager.BeastVariant.MECHA,
+		GameManager.BeastVariant.CLASSIC,
+		GameManager.BeastVariant.SHADOW,
+	]
+	for v in variants:
+		var card := VisualPicker.make_beast_card(v, v == _beast_variant)
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_wire_card(card, _on_beast_picked.bind(v))
+		beast_row.add_child(card)
+
+
+func _on_skin_picked(skin: int) -> void:
+	_skin = skin
+	_rebuild_skins()
+	NetworkManager.set_player_skin.rpc(multiplayer.get_unique_id(), skin)
+
+
+func _on_loadout_picked(loadout: int) -> void:
+	_loadout = loadout
+	_rebuild_loadouts()
+	_update_loadout_hint()
+	NetworkManager.set_player_loadout.rpc(multiplayer.get_unique_id(), loadout)
+
+
+func _on_map_picked(index: int) -> void:
+	_map_idx = index
+	_rebuild_maps()
+	NetworkManager.set_selected_map.rpc(NetworkManager.MAP_IDS[index])
+	_update_map_hint()
+
+
+func _on_beast_picked(variant: int) -> void:
+	_beast_variant = variant
+	_rebuild_beasts()
+	NetworkManager.set_beast_variant.rpc(variant)
 
 
 func _update_map_hint() -> void:
 	var mid: String = NetworkManager.selected_map
 	match mid:
 		"containers":
-			map_hint.text = "Ciudad de contenedores — pasillos estrechos, emboscadas."
+			map_hint.text = "Pasillos de contenedores — emboscadas cercanas."
 		"ruins":
-			map_hint.text = "Ruinas del núcleo — plataforma elevada, combate vertical."
+			map_hint.text = "Ruinas — plataforma alta y combate vertical."
 		_:
-			map_hint.text = "Laboratorio neon — arena abierta, luces frías."
+			map_hint.text = "Laboratorio neon — arena abierta y luces frías."
 
 
 func _update_loadout_hint() -> void:
-	var idx := loadout_option.selected
-	if idx >= 0 and idx < LOADOUT_HINTS.size():
-		loadout_hint.text = LOADOUT_HINTS[idx]
+	if _loadout >= 0 and _loadout < LOADOUT_HINTS.size():
+		loadout_hint.text = LOADOUT_HINTS[_loadout]
 
 
-func _on_beast_variant_selected(index: int) -> void:
-	NetworkManager.set_beast_variant.rpc(beast_variant_option.get_item_id(index))
-
-
-func _on_skin_selected(index: int) -> void:
-	NetworkManager.set_player_skin.rpc(multiplayer.get_unique_id(), skin_option.get_item_id(index))
-
-
-func _on_loadout_selected(index: int) -> void:
-	NetworkManager.set_player_loadout.rpc(multiplayer.get_unique_id(), loadout_option.get_item_id(index))
-	_update_loadout_hint()
-
-
-func _on_map_selected(index: int) -> void:
-	NetworkManager.set_selected_map.rpc(NetworkManager.MAP_IDS[index])
-	_update_map_hint()
+func _update_robot_sections_visibility() -> void:
+	var my_id := multiplayer.get_unique_id()
+	var role := ""
+	if NetworkManager.players.has(my_id):
+		role = str(NetworkManager.players[my_id].get("role", ""))
+	var is_robot := role == "explorer" or role == ""
+	var is_beast := role == "beast"
+	skin_row.visible = is_robot
+	skin_title.visible = is_robot
+	loadout_row.visible = is_robot
+	loadout_title.visible = is_robot
+	loadout_hint.visible = is_robot
+	beast_row.visible = is_beast or role == ""
+	variant_title.visible = is_beast or role == ""
 
 
 func _on_easy_toggled(on: bool) -> void:
@@ -157,10 +227,12 @@ func _on_easy_toggled(on: bool) -> void:
 
 func _on_pick_beast() -> void:
 	NetworkManager.set_player_role.rpc(multiplayer.get_unique_id(), "beast")
+	_update_robot_sections_visibility()
 
 
 func _on_pick_robot() -> void:
 	NetworkManager.set_player_role.rpc(multiplayer.get_unique_id(), "explorer")
+	_update_robot_sections_visibility()
 
 
 func _on_ready_pressed() -> void:
@@ -195,10 +267,14 @@ func _on_match_start(_map_id: String) -> void:
 
 func _on_settings_changed() -> void:
 	var map_idx := NetworkManager.MAP_IDS.find(NetworkManager.selected_map)
-	if map_idx >= 0 and map_option.selected != map_idx:
-		map_option.select(map_idx)
+	if map_idx >= 0:
+		_map_idx = map_idx
+	_beast_variant = GameManager.beast_variant
+	_rebuild_maps()
+	_rebuild_beasts()
 	_update_map_hint()
 	_refresh_player_list()
+	_update_robot_sections_visibility()
 
 
 func _refresh_player_list() -> void:
@@ -222,6 +298,7 @@ func _refresh_player_list() -> void:
 		)
 		player_list.add_child(card)
 	_check_can_start()
+	_update_robot_sections_visibility()
 
 
 func _check_can_start() -> void:
