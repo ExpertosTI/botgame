@@ -173,6 +173,24 @@ layout_mode = 2
 horizontal_alignment = 1
 autowrap_mode = 2
 
+[node name="MuteCheck" type="CheckBox" parent="Main/Col/FormWrap/Margin/Form"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Silenciar audio"
+
+[node name="CreditsButton" type="Button" parent="Main/Col/FormWrap/Margin/Form"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+text = "Créditos y legal"
+
+[node name="LegalLabel" type="Label" parent="Main/Col/FormWrap/Margin/Form"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 2
+horizontal_alignment = 1
+text = "© Renace Tech"
+
 [node name="StageWrap" type="PanelContainer" parent="Main/Col"]
 layout_mode = 2
 size_flags_horizontal = 3

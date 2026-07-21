@@ -6,7 +6,9 @@ config_version=5
 [application]
 
 config/name="Bestia vs Robots"
-config/description="Juego multijugador asimétrico: robots exploradores vs bestia mecánica"
+config/description="Asimétrico · 1 Bestia vs Robots · campaña y online. © Renace Tech."
+config/version="1.0.0"
+config/author="Renace Tech / Expertos TI"
 run/main_scene="res://scenes/main/menu.tscn"
 config/features=PackedStringArray("4.3", "GL Compatibility")
 config/icon="res://icon.svg"
@@ -18,6 +20,7 @@ GameManager="*res://autoload/game_manager.gd"
 InputManager="*res://autoload/input_manager.gd"
 CombatFx="*res://autoload/combat_fx.gd"
 ProgressionManager="*res://autoload/progression_manager.gd"
+SettingsManager="*res://autoload/settings_manager.gd"
 PresenceHttp="*res://autoload/presence_http.gd"
 OnlineInvite="*res://autoload/online_invite.gd"
 

@@ -51,7 +51,8 @@ func _input(event: InputEvent) -> void:
 	if not is_multiplayer_authority():
 		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		_apply_look(event.relative * mouse_sensitivity)
+		var sens := mouse_sensitivity * SettingsManager.look_sensitivity
+		_apply_look(event.relative * sens)
 	if event.is_action_pressed("ui_cancel"):
 		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -70,7 +71,7 @@ func _input(event: InputEvent) -> void:
 
 func _on_touch_look(delta: Vector2) -> void:
 	if is_multiplayer_authority():
-		_apply_look(delta * touch_look_sensitivity)
+		_apply_look(delta * touch_look_sensitivity * SettingsManager.look_sensitivity)
 
 
 func _apply_look(rel: Vector2) -> void:

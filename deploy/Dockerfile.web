@@ -7,6 +7,9 @@ COPY deploy/nginx-web.conf /etc/nginx/conf.d/default.conf
 RUN rm -rf /usr/share/nginx/html/*
 
 COPY export/web/ /usr/share/nginx/html/
+COPY deploy/privacy.html /usr/share/nginx/html/privacy.html
+COPY LEGAL.md /usr/share/nginx/html/LEGAL.md
+COPY PRIVACY.md /usr/share/nginx/html/PRIVACY.md
 
 # Fallar el build si aún no hay export real (evita servir el placeholder)
 RUN set -e; \

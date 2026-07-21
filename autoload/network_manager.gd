@@ -11,6 +11,7 @@ signal connection_succeeded
 signal join_rejected(reason: String)
 signal lobby_settings_changed
 signal match_start_requested(map_id: String)
+signal server_lost  # cliente: se cayó el servidor mid-session
 
 const CONFIG_PATH := "res://config/server_config.tres"
 const MAX_PLAYERS_DEFAULT := 5
@@ -335,7 +336,11 @@ func _on_connection_failed() -> void:
 func _on_server_disconnected() -> void:
 	players.clear()
 	peer = null
+	multiplayer.multiplayer_peer = null
+	_join_confirmed = false
+	is_solo_practice = false
 	players_updated.emit()
+	server_lost.emit()
 
 
 func submit_role(role: String) -> void:

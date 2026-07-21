@@ -17,6 +17,8 @@ extends Control
 @onready var easy_check: CheckBox = %EasyBeastCheck
 @onready var campaign_check: CheckBox = %CampaignCheck
 @onready var campaign_label: Label = %CampaignLabel
+@onready var level_row: HBoxContainer = %LevelRow
+@onready var level_title: Label = %LevelTitle
 @onready var title: Label = %Title
 @onready var wait_label: Label = %WaitLabel
 @onready var atmosphere: ColorRect = %Atmosphere
@@ -67,6 +69,7 @@ func _ready() -> void:
 
 	_rebuild_all_pickers()
 	_setup_hangar()
+	_rebuild_levels()
 	_refresh_player_list()
 	_update_robot_sections_visibility()
 	_update_hangar_preview()
@@ -107,12 +110,12 @@ func _apply_solo_lobby() -> void:
 	_rebuild_maps()
 	_update_map_hint()
 	_update_campaign_ui()
+	_rebuild_levels()
 	# Rol por defecto robot
 	if _local_role() == "":
 		NetworkManager.submit_role("explorer")
 	_update_robot_sections_visibility()
 	_check_can_start()
-	# Asegurar que el setup quede a la vista
 	call_deferred("_scroll_to_setup")
 
 
@@ -375,20 +378,71 @@ func _update_loadout_hint() -> void:
 
 
 func _update_campaign_ui() -> void:
-	campaign_label.text = "%s · victorias %d · mapas %d/3" % [
+	campaign_label.text = "%s · %d/%d · victorias %d · mapas %d/3" % [
 		ProgressionManager.level_name(),
+		ProgressionManager.selected_level + 1,
+		ProgressionManager.total_levels(),
 		ProgressionManager.wins_total,
 		ProgressionManager.unlocked_maps.size(),
 	]
+	if ProgressionManager.campaign_complete:
+		campaign_label.text += " · ¡CAMPAÑA COMPLETA!"
 	if NetworkManager.is_solo_practice:
 		campaign_label.text += " · SOLITARIO"
 		map_row.modulate = Color(0.75, 0.75, 0.8)
+		if level_title:
+			level_title.visible = true
+		if level_row:
+			level_row.visible = true
 		return
 	if ProgressionManager.campaign_mode:
 		campaign_label.text += " · CAMPAÑA ON"
 		map_row.modulate = Color(0.75, 0.75, 0.8)
+		if level_title:
+			level_title.visible = true
+		if level_row:
+			level_row.visible = true
 	else:
 		map_row.modulate = Color.WHITE
+		if level_title:
+			level_title.visible = false
+		if level_row:
+			level_row.visible = false
+
+
+func _rebuild_levels() -> void:
+	if level_row == null:
+		return
+	for c in level_row.get_children():
+		c.queue_free()
+	for i in ProgressionManager.total_levels():
+		var unlocked := ProgressionManager.is_level_unlocked(i)
+		var btn := Button.new()
+		btn.text = str(i + 1)
+		btn.custom_minimum_size = Vector2(40, 40)
+		btn.disabled = not unlocked
+		btn.toggle_mode = true
+		btn.button_pressed = i == ProgressionManager.selected_level
+		if unlocked:
+			btn.pressed.connect(_on_level_picked.bind(i))
+		else:
+			btn.tooltip_text = "Bloqueado"
+		level_row.add_child(btn)
+		if unlocked and i == ProgressionManager.selected_level:
+			GameTheme.style_primary(btn)
+
+
+func _on_level_picked(idx: int) -> void:
+	if ProgressionManager.select_level(idx):
+		NetworkManager.selected_map = ProgressionManager.force_campaign_map()
+		var map_idx := NetworkManager.MAP_IDS.find(NetworkManager.selected_map)
+		if map_idx >= 0:
+			_map_idx = map_idx
+		_rebuild_levels()
+		_rebuild_maps()
+		_update_map_hint()
+		_update_campaign_ui()
+		_check_can_start()
 
 
 func _update_robot_sections_visibility() -> void:
@@ -423,6 +477,7 @@ func _on_progress_changed() -> void:
 	_rebuild_loadouts()
 	_rebuild_maps()
 	_rebuild_beasts()
+	_rebuild_levels()
 	_update_campaign_ui()
 
 

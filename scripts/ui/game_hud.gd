@@ -1,5 +1,7 @@
 extends CanvasLayer
 
+const PAUSE_SCRIPT := preload("res://scripts/ui/pause_menu.gd")
+
 @onready var match_panel: Control = $MatchPanel
 @onready var result_panel: Control = $ResultPanel
 @onready var timer_label: Label = $MatchPanel/TopBar/TimerChip/TimerLabel
@@ -18,9 +20,14 @@ extends CanvasLayer
 var _timer_active := false
 var _local_combat: CombatKit = null
 var _local_explorer: ExplorerPlayer = null
+var _pause: Node
+var _pause_btn: Button
+var _tip_label: Label
+var _disconnect_shown := false
 
 
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	GameTheme.apply(match_panel)
 	GameTheme.apply(result_panel)
 	match_panel.visible = false
@@ -36,14 +43,68 @@ func _ready() -> void:
 		timer_label.add_theme_color_override("font_color", GameTheme.C_CYAN)
 	if controls_hint:
 		GameTheme.style_muted(controls_hint, 13)
+		if OS.has_feature("mobile") or DisplayServer.is_touchscreen_available():
+			controls_hint.text = "Joystick · DISPARO · mantén en núcleo para sabotear · ⏸ pausa"
+		else:
+			controls_hint.text = "WASD · Click · Q arma · G dash · Esc pausa · Mantén en núcleo"
 	if unlock_label:
 		unlock_label.add_theme_color_override("font_color", GameTheme.C_AMBER)
 	if level_label:
 		GameTheme.style_muted(level_label, 14)
 
+	_pause = PAUSE_SCRIPT.new()
+	add_child(_pause)
+	_pause.quit_requested.connect(_on_back_pressed)
+
+	_make_pause_button()
+	_make_tip()
+	NetworkManager.server_lost.connect(_on_server_lost)
+
+
+func _make_pause_button() -> void:
+	_pause_btn = Button.new()
+	_pause_btn.text = "⏸"
+	_pause_btn.custom_minimum_size = Vector2(52, 52)
+	_pause_btn.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_pause_btn.offset_left = -68
+	_pause_btn.offset_top = 10
+	_pause_btn.offset_right = -12
+	_pause_btn.offset_bottom = 62
+	_pause_btn.pressed.connect(_toggle_pause)
+	match_panel.add_child(_pause_btn)
+
+
+func _make_tip() -> void:
+	_tip_label = Label.new()
+	_tip_label.visible = false
+	_tip_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_tip_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_tip_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_tip_label.offset_left = -220
+	_tip_label.offset_right = 220
+	_tip_label.offset_top = 70
+	_tip_label.offset_bottom = 130
+	_tip_label.add_theme_font_size_override("font_size", 15)
+	match_panel.add_child(_tip_label)
+
+
+func _toggle_pause() -> void:
+	if result_panel.visible:
+		return
+	if _pause and _pause.has_method("toggle_pause"):
+		_pause.toggle_pause()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel"):
+		if result_panel.visible:
+			return
+		_toggle_pause()
+		get_viewport().set_input_as_handled()
+
 
 func _process(_delta: float) -> void:
-	if not _timer_active:
+	if not _timer_active or get_tree().paused:
 		return
 	var time_left := GameManager.get_remaining_time()
 	var mins := int(time_left) / 60
@@ -109,6 +170,28 @@ func show_match_hud() -> void:
 	_timer_active = true
 	objectives_label.text = "NÚCLEOS  %d" % GameManager.objectives_remaining
 	_build_lives_display()
+	_show_level_tip()
+
+
+func _show_level_tip() -> void:
+	if _tip_label == null:
+		return
+	var tip := ""
+	if ProgressionManager.campaign_mode or NetworkManager.is_solo_practice:
+		tip = ProgressionManager.level_tip()
+	if tip.is_empty() and not SettingsManager.tutorial_seen:
+		tip = "Robots: sabotea núcleos. Bestia: elimina robots. Esc/⏸ = pausa."
+	if tip.is_empty():
+		_tip_label.visible = false
+		return
+	_tip_label.text = "💡 " + tip
+	_tip_label.visible = true
+	_tip_label.modulate.a = 1.0
+	var tw := create_tween()
+	tw.tween_interval(5.0)
+	tw.tween_property(_tip_label, "modulate:a", 0.0, 1.2)
+	tw.tween_callback(func(): _tip_label.visible = false)
+	SettingsManager.mark_tutorial_seen()
 
 
 func update_objectives(remaining: int) -> void:
@@ -126,6 +209,8 @@ func update_lives(peer_id: int, lives: int) -> void:
 
 func show_result(winner: String) -> void:
 	_timer_active = false
+	if _pause and _pause.has_method("close_pause"):
+		_pause.close_pause()
 	if sabotage_panel:
 		sabotage_panel.visible = false
 	result_panel.visible = true
@@ -141,19 +226,22 @@ func show_result(winner: String) -> void:
 		result_label.add_theme_font_size_override("font_size", 36)
 	if unlock_label:
 		var msg := ProgressionManager.last_unlock_message
+		if ProgressionManager.campaign_complete and msg.is_empty():
+			msg = "¡Campaña completada!"
 		unlock_label.text = msg
 		unlock_label.visible = not msg.is_empty()
 	if level_label:
 		if NetworkManager.is_solo_practice or ProgressionManager.campaign_mode:
-			level_label.text = "Campaña · %s · wins %d%s" % [
+			level_label.text = "%s · v%s · wins %d" % [
 				ProgressionManager.level_name(),
+				GameBrand.VERSION,
 				ProgressionManager.wins_total,
-				" · práctica" if NetworkManager.is_solo_practice else "",
 			]
 		else:
-			level_label.text = "Partidas %d · victorias robots %d" % [
+			level_label.text = "Partidas %d · victorias %d · v%s" % [
 				ProgressionManager.matches_played,
 				ProgressionManager.wins_total,
+				GameBrand.VERSION,
 			]
 	if NetworkManager.is_solo_practice:
 		rematch_button.text = "Otro intento"
@@ -176,10 +264,30 @@ func _build_lives_display() -> void:
 		lives_container.add_child(label)
 
 
+func _on_server_lost() -> void:
+	if _disconnect_shown or NetworkManager.is_solo_practice:
+		return
+	_disconnect_shown = true
+	_timer_active = false
+	if _pause and _pause.has_method("close_pause"):
+		_pause.close_pause()
+	result_panel.visible = true
+	result_label.text = "Conexión perdida"
+	result_label.add_theme_color_override("font_color", GameTheme.C_AMBER)
+	if unlock_label:
+		unlock_label.text = "El servidor se desconectó. Vuelve al menú e inténtalo de nuevo."
+		unlock_label.visible = true
+	rematch_button.visible = false
+
+
 func _on_back_pressed() -> void:
+	if _pause and _pause.has_method("close_pause"):
+		_pause.close_pause()
+	get_tree().paused = false
 	NetworkManager.disconnect_from_game()
 	get_tree().change_scene_to_file("res://scenes/main/menu.tscn")
 
 
 func _on_rematch_pressed() -> void:
+	get_tree().paused = false
 	NetworkManager.request_return_to_lobby()

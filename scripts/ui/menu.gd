@@ -16,6 +16,9 @@ extends Control
 @onready var solo_name_input: LineEdit = %SoloNameInput
 @onready var solo_start_button: Button = %SoloStartButton
 @onready var solo_hint: Label = %SoloHint
+@onready var mute_check: CheckBox = %MuteCheck
+@onready var credits_button: Button = %CreditsButton
+@onready var legal_label: Label = %LegalLabel
 
 const LOBBY_SCENE := "res://scenes/main/lobby.tscn"
 const CREW_SCRIPT := preload("res://scripts/player/crew_visual.gd")
@@ -47,14 +50,19 @@ func _ready() -> void:
 	online_mode_button.pressed.connect(_set_mode.bind("online"))
 	solo_mode_button.pressed.connect(_set_mode.bind("solo"))
 	solo_start_button.pressed.connect(_on_solo_start_pressed)
+	mute_check.toggled.connect(_on_mute_toggled)
+	credits_button.pressed.connect(_on_credits_pressed)
 	NetworkManager.connection_succeeded.connect(_on_connected)
 	NetworkManager.connection_failed.connect(_on_connection_failed)
 	NetworkManager.server_started.connect(_on_server_started)
 
-	name_input.text = "Robot"
-	solo_name_input.text = "Practicante"
+	name_input.text = SettingsManager.preferred_name if SettingsManager.preferred_name else "Robot"
+	solo_name_input.text = name_input.text
 	address_input.text = NetworkManager.get_default_server_url()
 	address_input.placeholder_text = "wss://botgame.renace.tech/ws"
+	mute_check.button_pressed = SettingsManager.muted
+	legal_label.text = "%s · v%s" % [GameBrand.copyright_line(), GameBrand.VERSION]
+	title_label.text = GameBrand.GAME_TITLE
 	_set_mode("online")
 
 
@@ -86,6 +94,8 @@ func _style_ui() -> void:
 	solo_name_input.custom_minimum_size = Vector2(0, 58 if _mobile else 44)
 	address_input.custom_minimum_size = Vector2(0, 52 if _mobile else 44)
 	GameTheme.style_muted(solo_hint, 15)
+	GameTheme.style_muted(legal_label, 12)
+	credits_button.text = "ℹ  Créditos · legal · privacidad"
 	if _mobile:
 		host_button.visible = false
 		var addr_label := online_panel.get_node_or_null("AddrLabel") as Control
@@ -287,6 +297,8 @@ func _on_join_pressed() -> void:
 	var player_name := name_input.text.strip_edges()
 	if player_name.is_empty():
 		player_name = "Jugador"
+	SettingsManager.preferred_name = player_name
+	SettingsManager.save_settings()
 	var address := address_input.text.strip_edges()
 	status_label.text = "Conectando al hangar…"
 	var err: Error = NetworkManager.join_game(address, player_name)
@@ -308,10 +320,38 @@ func _on_solo_start_pressed() -> void:
 	var player_name := solo_name_input.text.strip_edges()
 	if player_name.is_empty():
 		player_name = "Practicante"
+	SettingsManager.preferred_name = player_name
+	SettingsManager.save_settings()
 	status_label.text = "Preparando campaña solitaria…"
 	var err: Error = NetworkManager.start_solo_practice(player_name)
 	if err != OK:
 		status_label.text = "No se pudo iniciar práctica"
+
+
+func _on_mute_toggled(on: bool) -> void:
+	SettingsManager.set_muted(on)
+
+
+func _on_credits_pressed() -> void:
+	var dlg := AcceptDialog.new()
+	dlg.title = "Créditos y legal"
+	dlg.dialog_text = (
+		"%s v%s\n%s\n\n%s\n\n%s\n\nFuentes: ver assets/fonts/LICENSE.txt (SIL OFL).\nPrivacidad: %s\nSoporte: %s"
+		% [
+			GameBrand.GAME_TITLE,
+			GameBrand.VERSION,
+			GameBrand.copyright_line(),
+			GameBrand.DISCLAIMER,
+			GameBrand.store_subtitle(),
+			GameBrand.PRIVACY_URL,
+			GameBrand.SUPPORT_URL,
+		]
+	)
+	dlg.ok_button_text = "Cerrar"
+	add_child(dlg)
+	dlg.popup_centered(Vector2i(420, 360))
+	dlg.confirmed.connect(dlg.queue_free)
+	dlg.close_requested.connect(dlg.queue_free)
 
 
 func _on_server_started() -> void:

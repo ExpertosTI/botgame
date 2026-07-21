@@ -1,94 +1,53 @@
 # Bestia vs Robots
 
-Juego multijugador asimétrico 3D (Godot 4) — estilo cápsula cute, pensado para jugar en familia por **WebApp + APK** contra un **VPS**.
+Juego multijugador asimétrico 3D (Godot 4) — estilo cápsula original, pensado para **Web + tiendas** (APK) contra un **VPS**.
+
+**Versión:** 1.0.0 · **Editor:** Renace Tech · **Dev:** Expertos TI / Renace  
+**Legal:** [LEGAL.md](LEGAL.md) · **Privacidad:** [PRIVACY.md](PRIVACY.md) / https://botgame.renace.tech/privacy
 
 ## Cómo se juega
 
 | Rol | Meta |
 |-----|------|
 | **Bestia** (1) | Eliminar robots (2 vidas cada uno) |
-| **Robots** (1–3) | Sabotear 5 núcleos antes de que los cacen |
+| **Robots** (1–3) | Sabotear núcleos antes de que los cacen |
 
-- Tiempo típico: **4 minutos**
-- 3 mapas: Laboratorio Neon, Ciudad de Contenedores, Ruinas del Núcleo
-- Personajes originales estilo cápsula (inspiración visual tipo Among Us, **sin assets oficiales**)
+- **Online** (VPS) o **Campaña solitaria** (8 niveles vs bots)
+- 3 mapas · arsenales desbloqueables · pausa / ajustes
+- Controles táctiles en móvil/Web
 
 ## Controles
 
-**PC**
+**PC:** WASD · Click · Q arma · 1–4 habilidades · G dash · Esc pausa  
+**Móvil:** joystick + DISPARO / BOMBA / ARMA / DASH / HAB · ⏸
 
-| Tecla | Acción |
-|-------|--------|
-| WASD | Mover |
-| Click izq. | Disparar / garras / sabotear (cerca de núcleo) |
-| Click der. | Bomba / slam rápido |
-| Q / E / rueda | Cambiar arma |
-| 1 2 3 4 | Habilidades |
-| G | Dash |
-| Shift | Correr |
-| Esc | Liberar ratón |
-
-**Móvil:** joystick + DISPARO / BOMBA / ARMA / DASH / HAB 2-4
-
-### Armamento
-
-- **Robots:** Bláster, Escopeta, Granada, Plasma, Rayo Hielo
-- **Bestia:** Garras, Escupitajo, Bomba Slam, Rugido
-- **Habilidades robots:** Dash, Escudo, EMP, Turbo
-- **Habilidades bestia:** Dash, Salto, Furia, Camuflaje o Púas
-
-La bestia tiene barra de HP (disparos la debilitan; al llegar a 0 queda aturdida un momento).
-
-
-## Probar en local (sin VPS)
+## Probar en local
 
 1. Instala [Godot 4.3+](https://godotengine.org/download)
-2. Abre esta carpeta en Godot
-3. En el menú elige modo:
-   - **ONLINE** → URL `wss://…` → Entrar · o **Sala local (LAN)** en PC
-   - **CAMPAÑA** → práctica solitaria vs bots (progresión real)
-4. Online: Instancia A sala local / Instancia B `ws://127.0.0.1:7777`
-5. Lobby: una Bestia, resto Robot → Listo → Empezar
+2. Abre esta carpeta
+3. Menú: **ONLINE** (LAN/VPS) o **CAMPAÑA** (práctica)
 
-## Flujo de deploy (Renace — sin rsync ni passwords)
+## Deploy (Renace)
 
 ```bash
-# Mac / CI
-git add -A && git commit -m "..." && git push origin main
-
-# VPS (ya logueado, o CI con deploy key)
-cd /opt/botgame && ./deploy.sh update
+git push origin main
+# VPS:
+cd /opt/botgame && FORCE_GODOT_EXPORT=1 ./deploy.sh update
 ```
 
-`deploy.sh update` hace: `git pull` → **export Godot en el VPS** (Web + Linux) → Docker build → Swarm/Traefik.
+Cada deploy publica `version.json` y fuerza build fresca en el cliente.
 
-Cada deploy genera `version.json` + `?v=SHA` en `.js/.wasm/.pck`. Al abrir el juego, un script limpia Service Workers/caches y **recarga** si el servidor tiene otra build.
+## Tiendas (checklist MVP)
 
-No subas binarios por SSH. Los exports se generan en el servidor.
-
-
-## Estructura
-
-```
-autoload/          NetworkManager (WebSocket), GameManager, InputManager
-config/            server_config.tres (URL VPS)
-scenes/            menú, lobby, game, players, touch UI
-scripts/maps/      3 arenas procedurales
-deploy/            docker-compose, nginx, Dockerfile
-assets/            UI/SFX (Kenney si disponibles) + personajes propios
-```
-
-## Checklist partida lista
-
-- [x] WebSocket + lobby con roles / mapa / variante
-- [x] Personajes cápsula (robots de colores + bestia con cuernos)
-- [x] 3 mapas
-- [x] Controles táctiles
-- [x] Rematch / menú
-- [x] Docker + Nginx WSS path `/ws`
-- [ ] Export Web/APK/Linux (hacer en Godot en tu máquina)
-- [ ] Dominio + HTTPS en el VPS
+- [x] Nombre, versión, autor en `project.godot`
+- [x] Créditos + disclaimer in-game
+- [x] Privacidad pública (`/privacy`)
+- [x] Pausa + mute + sensibilidad
+- [x] Campaña 8 niveles + tip de nivel
+- [x] Desconexión con mensaje claro
+- [ ] Export Android/iOS (keystore / Apple team — configurar en Godot)
+- [ ] Audio SFX/música definitivos
 
 ## Notas legales
 
-Los personajes son **originales**. La silueta “cápsula con visor” es solo inspiración estética; no uses assets ni marcas de Among Us / Innersloth.
+Personajes **originales**. Silueta cápsula = inspiración estética; sin assets ni marcas de Among Us / Innersloth.
