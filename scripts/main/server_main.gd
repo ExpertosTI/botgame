@@ -9,7 +9,7 @@ extends Node
 func _ready() -> void:
 	# Asegurar servidor aunque el autoload no haya pillado --server
 	if not NetworkManager.is_dedicated_server:
-		var err := NetworkManager.start_dedicated_server()
+		var err: Error = NetworkManager.start_dedicated_server()
 		if err != OK:
 			push_error("[ServerMain] No se pudo abrir WebSocket: %s" % error_string(err))
 			if status:

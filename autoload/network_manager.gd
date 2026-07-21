@@ -58,12 +58,13 @@ func start_dedicated_server(port: int = -1) -> Error:
 	is_dedicated_server = true
 	if port < 0:
 		port = config.websocket_port
-	peer = WebSocketMultiplayerPeer.new()
-	var err := peer.create_server(port)
+	var ws := WebSocketMultiplayerPeer.new()
+	var err: Error = ws.create_server(port)
 	if err != OK:
 		push_error("No se pudo crear servidor WebSocket en puerto %d: %s" % [port, error_string(err)])
 		return err
-	multiplayer.multiplayer_peer = peer
+	peer = ws
+	multiplayer.multiplayer_peer = ws
 	print("[Server] WebSocket escuchando en puerto ", port)
 	server_started.emit()
 	return OK
@@ -76,11 +77,12 @@ func host_listen_server(player_name: String = "Anfitrión", port: int = -1) -> E
 	local_player_name = player_name
 	if port < 0:
 		port = config.websocket_port
-	peer = WebSocketMultiplayerPeer.new()
-	var err := peer.create_server(port)
+	var ws := WebSocketMultiplayerPeer.new()
+	var err: Error = ws.create_server(port)
 	if err != OK:
 		return err
-	multiplayer.multiplayer_peer = peer
+	peer = ws
+	multiplayer.multiplayer_peer = ws
 	_add_player(1, player_name)
 	server_started.emit()
 	return OK
@@ -93,8 +95,8 @@ func start_solo_practice(player_name: String = "Practicante") -> Error:
 	is_solo_practice = true
 	local_player_name = player_name
 	var offline := OfflineMultiplayerPeer.new()
+	peer = offline
 	multiplayer.multiplayer_peer = offline
-	peer = null  # no WebSocket
 	ProgressionManager.campaign_mode = true
 	selected_map = ProgressionManager.force_campaign_map()
 	_add_player(1, player_name)
@@ -172,11 +174,12 @@ func join_game(address: String = "", player_name: String = "Jugador") -> Error:
 		else:
 			address = "ws://%s:%d" % [address, config.websocket_port]
 
-	peer = WebSocketMultiplayerPeer.new()
-	var err := peer.create_client(address)
+	var ws := WebSocketMultiplayerPeer.new()
+	var err: Error = ws.create_client(address)
 	if err != OK:
 		return err
-	multiplayer.multiplayer_peer = peer
+	peer = ws
+	multiplayer.multiplayer_peer = ws
 	return OK
 
 

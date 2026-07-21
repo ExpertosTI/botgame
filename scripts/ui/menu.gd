@@ -289,7 +289,7 @@ func _on_join_pressed() -> void:
 		player_name = "Jugador"
 	var address := address_input.text.strip_edges()
 	status_label.text = "Conectando al hangar…"
-	var err := NetworkManager.join_game(address, player_name)
+	var err: Error = NetworkManager.join_game(address, player_name)
 	if err != OK:
 		status_label.text = "Error al conectar (%s)" % error_string(err)
 
@@ -299,7 +299,7 @@ func _on_host_pressed() -> void:
 	if player_name.is_empty():
 		player_name = "Anfitrión"
 	status_label.text = "Abriendo sala local…"
-	var err := NetworkManager.host_listen_server(player_name)
+	var err: Error = NetworkManager.host_listen_server(player_name)
 	if err != OK:
 		status_label.text = "Error al crear servidor local"
 
@@ -309,7 +309,7 @@ func _on_solo_start_pressed() -> void:
 	if player_name.is_empty():
 		player_name = "Practicante"
 	status_label.text = "Preparando campaña solitaria…"
-	var err := NetworkManager.start_solo_practice(player_name)
+	var err: Error = NetworkManager.start_solo_practice(player_name)
 	if err != OK:
 		status_label.text = "No se pudo iniciar práctica"
 
