@@ -18,6 +18,8 @@ GameManager="*res://autoload/game_manager.gd"
 InputManager="*res://autoload/input_manager.gd"
 CombatFx="*res://autoload/combat_fx.gd"
 ProgressionManager="*res://autoload/progression_manager.gd"
+PresenceHttp="*res://autoload/presence_http.gd"
+OnlineInvite="*res://autoload/online_invite.gd"
 
 [display]
 

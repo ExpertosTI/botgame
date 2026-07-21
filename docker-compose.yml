@@ -55,14 +55,26 @@ services:
       labels:
         - "traefik.enable=true"
         - "traefik.docker.network=RenaceNet"
+        # WebSocket multijugador
         - "traefik.http.routers.botgame-ws.rule=Host(`botgame.renace.tech`) && PathPrefix(`/ws`)"
         - "traefik.http.routers.botgame-ws.entrypoints=websecure"
         - "traefik.http.routers.botgame-ws.tls=true"
         - "traefik.http.routers.botgame-ws.tls.certresolver=letsencryptresolver"
         - "traefik.http.routers.botgame-ws.priority=100"
         - "traefik.http.routers.botgame-ws.middlewares=botgame-ws-strip"
+        - "traefik.http.routers.botgame-ws.service=botgame-ws"
         - "traefik.http.middlewares.botgame-ws-strip.stripprefix.prefixes=/ws"
         - "traefik.http.services.botgame-ws.loadbalancer.server.port=7777"
+        # Presence JSON (práctica → invitación online)
+        - "traefik.http.routers.botgame-presence.rule=Host(`botgame.renace.tech`) && PathPrefix(`/api/presence`)"
+        - "traefik.http.routers.botgame-presence.entrypoints=websecure"
+        - "traefik.http.routers.botgame-presence.tls=true"
+        - "traefik.http.routers.botgame-presence.tls.certresolver=letsencryptresolver"
+        - "traefik.http.routers.botgame-presence.priority=110"
+        - "traefik.http.routers.botgame-presence.middlewares=botgame-presence-strip"
+        - "traefik.http.routers.botgame-presence.service=botgame-presence"
+        - "traefik.http.middlewares.botgame-presence-strip.stripprefix.prefixes=/api/presence"
+        - "traefik.http.services.botgame-presence.loadbalancer.server.port=8081"
 
 networks:
   RenaceNet:

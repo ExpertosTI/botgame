@@ -28,5 +28,5 @@ RUN chmod +x /app/server-entrypoint.sh \
       && chmod +x /app/BestiaVsRobots.x86_64; \
     fi
 
-EXPOSE 7777
+EXPOSE 7777 8081
 ENTRYPOINT ["/app/server-entrypoint.sh"]
