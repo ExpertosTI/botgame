@@ -17,7 +17,6 @@ var _builder: MapBuilder
 
 func _ready() -> void:
 	spawner.spawn_function = Callable(self, "_spawn_player_custom")
-	# Con spawn_function custom no hace falta lista de escenas spawnable
 
 	GameManager.match_started.connect(_on_match_started)
 	GameManager.match_ended.connect(_on_match_ended)
@@ -29,25 +28,54 @@ func _ready() -> void:
 	await _builder.build(NetworkManager.selected_map, objectives_root)
 	GameManager.current_map = NetworkManager.selected_map
 
+	# Esperar un frame tras construir el mapa (Web GL Compatibility)
+	await get_tree().process_frame
+
+	if not multiplayer.has_multiplayer_peer():
+		push_error("[GameWorld] Sin multiplayer peer — abortando partida")
+		return
+
 	if multiplayer.is_server():
 		var roles := _build_roles()
-		_sync_match_setup.rpc(roles, GameManager.beast_variant, NetworkManager.selected_map)
-		var packed: Array = []
-		var need := GameManager.level_core_count if GameManager.level_core_count > 0 else GameManager.OBJECTIVES_TO_WIN
-		var positions: Array = _builder.objective_positions.duplicate()
-		while positions.size() < need and not positions.is_empty():
-			positions.append(positions[positions.size() % _builder.objective_positions.size()] + Vector3(randf_range(-2, 2), 0, randf_range(-2, 2)))
-		for i in mini(need, positions.size()):
-			var pos: Vector3 = positions[i]
-			packed.append([pos.x, pos.y, pos.z])
-		_spawn_objectives.rpc(packed)
-		_spawn_players()
-		GameManager.start_match()
-		_notify_match_started.rpc()
+		if NetworkManager.is_solo_practice:
+			# Offline: sin RPC/Spawner (evita freeze con peers fantasma 9001+)
+			_apply_match_setup(roles, GameManager.beast_variant, NetworkManager.selected_map)
+			_spawn_objectives_local(_pack_objective_positions())
+			_spawn_players_local()
+			await get_tree().process_frame
+			GameManager.start_match()
+			if hud:
+				hud.show_match_hud()
+		else:
+			_sync_match_setup.rpc(roles, GameManager.beast_variant, NetworkManager.selected_map)
+			_spawn_objectives.rpc(_pack_objective_positions())
+			_spawn_players_network()
+			GameManager.start_match()
+			_notify_match_started.rpc()
+
+
+func _pack_objective_positions() -> Array:
+	var packed: Array = []
+	var need := GameManager.level_core_count if GameManager.level_core_count > 0 else GameManager.OBJECTIVES_TO_WIN
+	var positions: Array = _builder.objective_positions.duplicate()
+	var guard := 0
+	while positions.size() < need and not positions.is_empty() and guard < 32:
+		guard += 1
+		positions.append(
+			positions[positions.size() % _builder.objective_positions.size()]
+			+ Vector3(randf_range(-2, 2), 0, randf_range(-2, 2))
+		)
+	for i in mini(need, positions.size()):
+		var pos: Vector3 = positions[i]
+		packed.append([pos.x, pos.y, pos.z])
+	return packed
 
 
 func _spawn_player_custom(data: Variant) -> Node:
-	## data: { id, role }
+	return _make_player(data)
+
+
+func _make_player(data: Variant) -> Node:
 	var info: Dictionary = data
 	var role: int = info.get("role", GameManager.Role.EXPLORER)
 	var scene := BEAST_SCENE if role == GameManager.Role.BEAST else EXPLORER_SCENE
@@ -58,7 +86,6 @@ func _spawn_player_custom(data: Variant) -> Node:
 	var is_bot := NetworkManager.is_bot_peer(pid)
 	if is_bot:
 		player.set_meta("is_bot", true)
-	# En práctica solitaria todos bajo autoridad local
 	if NetworkManager.is_solo_practice:
 		player.set_multiplayer_authority(1)
 	else:
@@ -66,11 +93,9 @@ func _spawn_player_custom(data: Variant) -> Node:
 	return player
 
 
-@rpc("authority", "call_local", "reliable")
-func _sync_match_setup(roles: Dictionary, beast_variant: int, map_id: String) -> void:
+func _apply_match_setup(roles: Dictionary, beast_variant: int, map_id: String) -> void:
 	GameManager.beast_variant = beast_variant as GameManager.BeastVariant
 	GameManager.current_map = map_id
-	# Convert keys to int (RPC may stringify)
 	var normalized: Dictionary = {}
 	for k in roles:
 		normalized[int(k)] = int(roles[k]) as GameManager.Role
@@ -78,20 +103,30 @@ func _sync_match_setup(roles: Dictionary, beast_variant: int, map_id: String) ->
 
 
 @rpc("authority", "call_local", "reliable")
-func _spawn_objectives(positions: Array) -> void:
+func _sync_match_setup(roles: Dictionary, beast_variant: int, map_id: String) -> void:
+	_apply_match_setup(roles, beast_variant, map_id)
+
+
+func _spawn_objectives_local(positions: Array) -> void:
 	for child in objectives_root.get_children():
 		child.queue_free()
 	for pos in positions:
 		var obj := OBJECTIVE_SCENE.instantiate()
 		obj.position = pos if pos is Vector3 else Vector3(pos[0], pos[1], pos[2])
-		objectives_root.add_child(obj, true)
+		objectives_root.add_child(obj)
+
+
+@rpc("authority", "call_local", "reliable")
+func _spawn_objectives(positions: Array) -> void:
+	_spawn_objectives_local(positions)
 
 
 @rpc("authority", "call_local", "reliable")
 func _notify_match_started() -> void:
 	if not GameManager.match_active:
 		GameManager.start_match()
-	hud.show_match_hud()
+	if hud:
+		hud.show_match_hud()
 
 
 func _build_roles() -> Dictionary:
@@ -99,27 +134,35 @@ func _build_roles() -> Dictionary:
 	for peer_id in NetworkManager.players:
 		var role_str: String = NetworkManager.players[peer_id].get("role", "explorer")
 		if role_str == "beast":
-			roles[peer_id] = GameManager.Role.BEAST
+			roles[int(peer_id)] = GameManager.Role.BEAST
 		else:
-			roles[peer_id] = GameManager.Role.EXPLORER
+			roles[int(peer_id)] = GameManager.Role.EXPLORER
 	if not roles.values().has(GameManager.Role.BEAST) and not roles.is_empty():
-		var ids := roles.keys()
+		var ids: Array = roles.keys()
 		ids.sort()
-		roles[ids[0]] = GameManager.Role.BEAST
+		roles[int(ids[0])] = GameManager.Role.BEAST
 	return roles
 
 
-func _spawn_players() -> void:
+func _spawn_players_network() -> void:
 	for peer_id in NetworkManager.players:
-		var role := GameManager.get_role(peer_id)
-		var pos := _get_spawn_position(role, peer_id)
-		var data := {"id": peer_id, "role": role, "pos": pos}
-		var node: Node = spawner.spawn(data)
-		# Si el spawner no devolvió nodo (edge), buscar por nombre
-		if node == null:
-			node = players_root.get_node_or_null(str(peer_id))
-		if NetworkManager.is_solo_practice and NetworkManager.is_bot_peer(int(peer_id)):
-			call_deferred("_attach_practice_ai", node, role == GameManager.Role.BEAST)
+		var role := GameManager.get_role(int(peer_id))
+		var pos := _get_spawn_position(role, int(peer_id))
+		var data := {"id": int(peer_id), "role": role, "pos": pos}
+		spawner.spawn(data)
+
+
+func _spawn_players_local() -> void:
+	## Práctica: instancia directa (sin MultiplayerSpawner).
+	for peer_id in NetworkManager.players:
+		var pid := int(peer_id)
+		var role := GameManager.get_role(pid)
+		var pos := _get_spawn_position(role, pid)
+		var data := {"id": pid, "role": role, "pos": pos}
+		var node := _make_player(data)
+		players_root.add_child(node, true)
+		if NetworkManager.is_bot_peer(pid):
+			_attach_practice_ai(node, role == GameManager.Role.BEAST)
 
 
 func _attach_practice_ai(player: Node, beast: bool) -> void:
@@ -140,7 +183,6 @@ func _get_spawn_position(role: GameManager.Role, peer_id: int) -> Vector3:
 	var spawns := get_tree().get_nodes_in_group("explorer_spawns")
 	if spawns.is_empty():
 		return Vector3(randf_range(-5, 5), 1.0, 15)
-	# Índice estable entre exploradores (no peer_id crudo)
 	var explorers: Array = []
 	for pid in NetworkManager.players:
 		if GameManager.get_role(int(pid)) != GameManager.Role.BEAST:
@@ -148,21 +190,25 @@ func _get_spawn_position(role: GameManager.Role, peer_id: int) -> Vector3:
 	explorers.sort()
 	var idx := explorers.find(peer_id)
 	if idx < 0:
-		idx = peer_id % spawns.size()
+		idx = abs(peer_id) % spawns.size()
 	return spawns[idx % spawns.size()].global_position
 
 
 func _on_match_started() -> void:
-	hud.show_match_hud()
+	if hud:
+		hud.show_match_hud()
 
 
 func _on_match_ended(winner: String) -> void:
-	hud.show_result(winner)
+	if hud:
+		hud.show_result(winner)
 
 
 func _on_objective_destroyed(remaining: int) -> void:
-	hud.update_objectives(remaining)
+	if hud:
+		hud.update_objectives(remaining)
 
 
 func _on_lives_changed(peer_id: int, lives: int) -> void:
-	hud.update_lives(peer_id, lives)
+	if hud:
+		hud.update_lives(peer_id, lives)

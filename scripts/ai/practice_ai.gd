@@ -130,9 +130,14 @@ func _aim_interact_ray() -> void:
 
 func _face_toward(world_pos: Vector3) -> void:
 	var flat := Vector3(world_pos.x, body.global_position.y, world_pos.z)
-	if flat.distance_to(body.global_position) < 0.05:
+	if flat.distance_to(body.global_position) < 0.15:
 		return
-	body.look_at(flat, Vector3.UP)
+	var from := body.global_position
+	var dir := flat - from
+	dir.y = 0.0
+	if dir.length_squared() < 0.001:
+		return
+	body.rotation.y = atan2(-dir.x, -dir.z)
 	if body is PlayerBase:
 		var pivot: Node3D = (body as PlayerBase).camera_pivot
 		if pivot:

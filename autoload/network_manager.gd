@@ -129,29 +129,19 @@ func prepare_solo_bots() -> void:
 	players[1]["ready"] = true
 
 	if human_role == "beast":
-		# Tú eres bestia → 2 robots bot
-		for i in 2:
-			var bid := BOT_PEER_BASE + i
-			_add_player(bid, "Bot Robot %d" % (i + 1))
-			players[bid]["role"] = "explorer"
-			players[bid]["ready"] = true
-			players[bid]["skin"] = (i + 1) % 4
-			players[bid]["loadout"] = clampi(i, 0, 3)
-			if not ProgressionManager.is_loadout_unlocked(players[bid]["loadout"]):
-				players[bid]["loadout"] = 0
+		# Tú eres bestia → 1 robot bot (Web: menos carga)
+		var bid := BOT_PEER_BASE
+		_add_player(bid, "Bot Robot")
+		players[bid]["role"] = "explorer"
+		players[bid]["ready"] = true
+		players[bid]["skin"] = 1
+		players[bid]["loadout"] = 0
 	else:
-		# Tú eres robot → 1 bestia bot (+ opcional aliado robot bot en niveles altos)
+		# Tú eres robot → 1 bestia bot
 		var bid := BOT_PEER_BASE
 		_add_player(bid, "Bot Bestia")
 		players[bid]["role"] = "beast"
 		players[bid]["ready"] = true
-		if ProgressionManager.campaign_index >= 2:
-			var ally := BOT_PEER_BASE + 1
-			_add_player(ally, "Bot Aliado")
-			players[ally]["role"] = "explorer"
-			players[ally]["ready"] = true
-			players[ally]["skin"] = 2
-			players[ally]["loadout"] = 0
 
 	GameManager.easy_beast_mode = true
 	if config:
@@ -596,7 +586,11 @@ func request_start_match() -> void:
 		cores = int(lv.get("cores", 5))
 		match_time = float(lv.get("time", 240))
 		beast_hp = float(lv.get("beast_hp", 1.0))
-	_do_start_match.rpc(selected_map, cores, match_time, beast_hp)
+	# Offline: llamada directa (RPC + OfflineMultiplayerPeer puede colgar en Web)
+	if is_solo_practice:
+		_do_start_match(selected_map, cores, match_time, beast_hp)
+	else:
+		_do_start_match.rpc(selected_map, cores, match_time, beast_hp)
 
 
 @rpc("authority", "call_local", "reliable")
