@@ -36,7 +36,10 @@ extract_zip() {
 }
 
 need_export() {
+  # Placeholder del repo / HTML sin motor Godot → hay que exportar
   if [ ! -f export/web/index.html ]; then return 0; fi
+  if grep -q 'Falta el export Web' export/web/index.html 2>/dev/null; then return 0; fi
+  if ! grep -qiE 'godot|Godot|engine\.js|loadPromise' export/web/index.html 2>/dev/null; then return 0; fi
   if ! ls export/web/*.wasm >/dev/null 2>&1; then return 0; fi
   if [ ! -f export/server/BestiaVsRobots.x86_64 ]; then return 0; fi
   if head -1 export/server/BestiaVsRobots.x86_64 2>/dev/null | grep -q '^#!'; then return 0; fi
