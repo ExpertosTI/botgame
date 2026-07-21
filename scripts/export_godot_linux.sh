@@ -102,23 +102,22 @@ run_export() {
   fi
 
   log "Importando proyecto (.godot)..."
+  rm -rf "$ROOT/.godot"
   "$GODOT_BIN" --headless --path "$ROOT" --import >/tmp/botgame-godot-import.log 2>&1 || true
-  # Segunda pasada: asegura que los scripts compilan
   "$GODOT_BIN" --headless --path "$ROOT" --editor --quit-after 3 >/tmp/botgame-godot-editor.log 2>&1 || true
 
   if grep -qiE 'SCRIPT ERROR|Parse Error|Compile Error' /tmp/botgame-godot-editor.log /tmp/botgame-godot-import.log 2>/dev/null; then
-    warn_scripts=1
-    log "AVISO: hay errores de script en import — dump:"
-    grep -iE 'SCRIPT ERROR|Parse Error|Compile Error' /tmp/botgame-godot-editor.log /tmp/botgame-godot-import.log 2>/dev/null | head -20 || true
+    log "AVISO: errores de script en import:"
+    grep -iE 'SCRIPT ERROR|Parse Error|Compile Error' /tmp/botgame-godot-editor.log /tmp/botgame-godot-import.log 2>/dev/null | head -30 || true
   fi
 
-  log "Export Web → export/web/index.html"
-  if ! "$GODOT_BIN" --headless --path "$ROOT" --export-release "Web" "$ROOT/export/web/index.html" \
+  log "Export Web → export/web/index.html (renderer=gl_compatibility)"
+  if ! "$GODOT_BIN" --headless --verbose --path "$ROOT" --export-release "Web" "$ROOT/export/web/index.html" \
       >/tmp/botgame-export-web.log 2>&1; then
     echo "----- /tmp/botgame-export-web.log -----" >&2
     cat /tmp/botgame-export-web.log >&2
-    echo "----- templates dir -----" >&2
-    ls -la "$TPL_DEST" >&2 || true
+    echo "----- project rendering -----" >&2
+    grep -E 'rendering_method|features' "$ROOT/project.godot" >&2 || true
     die "Export Web falló"
   fi
 
