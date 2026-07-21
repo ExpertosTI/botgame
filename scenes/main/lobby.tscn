@@ -55,10 +55,10 @@ layout_mode = 2
 text = "Esperando tripulación…"
 horizontal_alignment = 1
 
-[node name="Body" type="HBoxContainer" parent="Margin/Root"]
+[node name="Body" type="VBoxContainer" parent="Margin/Root"]
 layout_mode = 2
 size_flags_vertical = 3
-theme_override_constants/separation = 16
+theme_override_constants/separation = 12
 
 [node name="CrewPanel" type="PanelContainer" parent="Margin/Root/Body"]
 layout_mode = 2

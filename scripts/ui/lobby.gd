@@ -61,6 +61,7 @@ func _ready() -> void:
 	_refresh_player_list()
 	_update_robot_sections_visibility()
 	_update_hangar_preview()
+	call_deferred("_adapt_mobile_lobby")
 
 	if NetworkManager.is_dedicated_server:
 		status_label.text = "Servidor dedicado — esperando tripulación"
@@ -94,18 +95,44 @@ func _style_ui() -> void:
 
 
 func _setup_atmosphere() -> void:
-	if OS.has_feature("web") or OS.get_name() == "Web":
-		atmosphere.color = Color(0.04, 0.07, 0.1, 1)
-		return
 	var mat := ShaderMaterial.new()
-	mat.shader = load("res://shaders/ui_atmosphere.gdshader")
+	mat.shader = load("res://shaders/ui_mobile_bg.gdshader")
 	atmosphere.material = mat
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_RESIZED:
+		_adapt_mobile_lobby()
 
 
 func _process(delta: float) -> void:
 	_pulse_t += delta
 	wait_label.modulate.a = 0.65 + 0.35 * sin(_pulse_t * 2.4)
 	wait_label.text = "Esperando tripulación" + ".".repeat(int(_pulse_t * 2.0) % 4)
+
+
+func _adapt_mobile_lobby() -> void:
+	var narrow := size.x < 780
+	var body := get_node_or_null("Margin/Root/Body") as VBoxContainer
+	if body == null:
+		return
+	var crew := body.get_node_or_null("CrewPanel") as Control
+	var setup := body.get_node_or_null("SetupScroll") as Control
+	# Móvil: roles/listo primero; escritorio: hangar primero
+	if narrow and crew and setup:
+		if body.get_child(0) != setup:
+			body.move_child(setup, 0)
+		if hangar_slot:
+			hangar_slot.custom_minimum_size = Vector2(0, 130)
+		ready_button.custom_minimum_size = Vector2(0, 60)
+		start_button.custom_minimum_size = Vector2(0, 52)
+		role_beast_button.custom_minimum_size = Vector2(0, 64)
+		role_robot_button.custom_minimum_size = Vector2(0, 64)
+	elif crew and setup:
+		if body.get_child(0) != crew:
+			body.move_child(crew, 0)
+		if hangar_slot:
+			hangar_slot.custom_minimum_size = Vector2(0, 188)
 
 
 func _setup_hangar() -> void:
