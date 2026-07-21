@@ -19,8 +19,10 @@ extends Control
 @onready var wait_label: Label = %WaitLabel
 @onready var atmosphere: ColorRect = %Atmosphere
 @onready var map_hint: Label = %MapHint
+@onready var hangar_slot: Control = %HangarSlot
 
 const GAME_SCENE := "res://scenes/main/game.tscn"
+const HANGAR_SCRIPT := preload("res://scripts/ui/lobby_hangar.gd")
 const LOADOUT_HINTS := [
 	"Bláster · Granada · Rayo Hielo · Plasma",
 	"Escopeta · Granada · Bláster · Plasma",
@@ -34,6 +36,7 @@ var _skin := 0
 var _loadout := 0
 var _map_idx := 0
 var _beast_variant := GameManager.BeastVariant.MECHA
+var _hangar: LobbyHangar
 
 
 func _ready() -> void:
@@ -54,8 +57,10 @@ func _ready() -> void:
 	NetworkManager.match_start_requested.connect(_on_match_start)
 
 	_rebuild_all_pickers()
+	_setup_hangar()
 	_refresh_player_list()
 	_update_robot_sections_visibility()
+	_update_hangar_preview()
 
 	if NetworkManager.is_dedicated_server:
 		status_label.text = "Servidor dedicado — esperando tripulación"
@@ -101,6 +106,42 @@ func _process(delta: float) -> void:
 	_pulse_t += delta
 	wait_label.modulate.a = 0.65 + 0.35 * sin(_pulse_t * 2.4)
 	wait_label.text = "Esperando tripulación" + ".".repeat(int(_pulse_t * 2.0) % 4)
+
+
+func _setup_hangar() -> void:
+	if hangar_slot == null:
+		return
+	hangar_slot.add_theme_stylebox_override(
+		"panel",
+		GameTheme.panel_style(Color(0.03, 0.06, 0.08, 0.95), GameTheme.C_CYAN.darkened(0.35), 12, 2)
+	)
+	_hangar = HANGAR_SCRIPT.new() as LobbyHangar
+	hangar_slot.add_child(_hangar)
+
+
+func _update_hangar_preview() -> void:
+	if _hangar == null:
+		return
+	var role := _local_role()
+	if role == "":
+		role = "explorer"
+	_hangar.show_selection(role, _skin)
+
+
+func _local_role() -> String:
+	var info := NetworkManager.get_player(multiplayer.get_unique_id())
+	return str(info.get("role", ""))
+
+
+func _apply_ready_button_style() -> void:
+	if local_ready:
+		ready_button.text = "✅  ¡LISTO!"
+		GameTheme.style_primary(ready_button)
+	else:
+		ready_button.text = "✅  MARCAR LISTO"
+		ready_button.remove_theme_stylebox_override("normal")
+		ready_button.remove_theme_stylebox_override("hover")
+		ready_button.remove_theme_stylebox_override("pressed")
 
 
 func _rebuild_all_pickers() -> void:
@@ -172,27 +213,29 @@ func _rebuild_beasts() -> void:
 func _on_skin_picked(skin: int) -> void:
 	_skin = skin
 	_rebuild_skins()
-	NetworkManager.set_player_skin.rpc(multiplayer.get_unique_id(), skin)
+	NetworkManager.submit_skin(skin)
+	_update_hangar_preview()
 
 
 func _on_loadout_picked(loadout: int) -> void:
 	_loadout = loadout
 	_rebuild_loadouts()
 	_update_loadout_hint()
-	NetworkManager.set_player_loadout.rpc(multiplayer.get_unique_id(), loadout)
+	NetworkManager.submit_loadout(loadout)
 
 
 func _on_map_picked(index: int) -> void:
 	_map_idx = index
 	_rebuild_maps()
-	NetworkManager.set_selected_map.rpc(NetworkManager.MAP_IDS[index])
+	NetworkManager.submit_map(NetworkManager.MAP_IDS[index])
 	_update_map_hint()
 
 
 func _on_beast_picked(variant: int) -> void:
 	_beast_variant = variant
 	_rebuild_beasts()
-	NetworkManager.set_beast_variant.rpc(variant)
+	NetworkManager.submit_beast_variant(variant)
+	_update_hangar_preview()
 
 
 func _update_map_hint() -> void:
@@ -212,11 +255,8 @@ func _update_loadout_hint() -> void:
 
 
 func _update_robot_sections_visibility() -> void:
-	var my_id := multiplayer.get_unique_id()
-	var role := ""
-	if NetworkManager.players.has(my_id):
-		role = str(NetworkManager.players[my_id].get("role", ""))
-	var is_robot := role == "explorer" or role == ""
+	var role := _local_role()
+	var is_robot := role == "explorer"
 	var is_beast := role == "beast"
 	skin_row.visible = is_robot
 	skin_title.visible = is_robot
@@ -225,6 +265,7 @@ func _update_robot_sections_visibility() -> void:
 	loadout_hint.visible = is_robot
 	beast_row.visible = is_beast or role == ""
 	variant_title.visible = is_beast or role == ""
+	easy_check.visible = is_beast or role == ""
 
 
 func _on_easy_toggled(on: bool) -> void:
@@ -234,25 +275,21 @@ func _on_easy_toggled(on: bool) -> void:
 
 
 func _on_pick_beast() -> void:
-	NetworkManager.set_player_role.rpc(multiplayer.get_unique_id(), "beast")
+	NetworkManager.submit_role("beast")
 	_update_robot_sections_visibility()
+	_update_hangar_preview()
 
 
 func _on_pick_robot() -> void:
-	NetworkManager.set_player_role.rpc(multiplayer.get_unique_id(), "explorer")
+	NetworkManager.submit_role("explorer")
 	_update_robot_sections_visibility()
+	_update_hangar_preview()
 
 
 func _on_ready_pressed() -> void:
 	local_ready = not local_ready
-	ready_button.text = "✅  ¡LISTO!" if local_ready else "✅  MARCAR LISTO"
-	if local_ready:
-		GameTheme.style_primary(ready_button)
-	else:
-		ready_button.remove_theme_stylebox_override("normal")
-		ready_button.remove_theme_stylebox_override("hover")
-		ready_button.remove_theme_stylebox_override("pressed")
-	NetworkManager.set_player_ready.rpc(multiplayer.get_unique_id(), local_ready)
+	_apply_ready_button_style()
+	NetworkManager.submit_ready(local_ready)
 	_check_can_start()
 
 
@@ -288,6 +325,7 @@ func _on_settings_changed() -> void:
 func _refresh_player_list() -> void:
 	for child in player_list.get_children():
 		child.queue_free()
+	var my_id := multiplayer.get_unique_id()
 	for peer_id in NetworkManager.players:
 		var info: Dictionary = NetworkManager.players[peer_id]
 		var role := str(info.get("role", ""))
@@ -306,8 +344,14 @@ func _refresh_player_list() -> void:
 			int(info.get("skin", 0))
 		)
 		player_list.add_child(card)
+		if int(peer_id) == my_id:
+			local_ready = bool(info.get("ready", false))
+			_skin = int(info.get("skin", _skin))
+			_loadout = int(info.get("loadout", _loadout))
+			_apply_ready_button_style()
 	_check_can_start()
 	_update_robot_sections_visibility()
+	_update_hangar_preview()
 
 
 func _check_can_start() -> void:

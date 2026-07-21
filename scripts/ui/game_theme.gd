@@ -172,24 +172,37 @@ static func make_player_card(name_text: String, role: String, ready: bool, skin:
 	var card := PanelContainer.new()
 	var is_beast := role == "beast"
 	var edge := C_CRIMSON if is_beast else (C_CYAN if role == "explorer" else Color(0.4, 0.45, 0.5))
-	var bg := Color(0.12, 0.05, 0.06, 0.9) if is_beast else Color(0.05, 0.1, 0.12, 0.9)
 	if ready:
-		bg = bg.lightened(0.08)
-	card.add_theme_stylebox_override("panel", _panel(bg, edge, 10, 2 if ready else 1))
+		edge = Color(0.25, 0.95, 0.55)
+	var bg := Color(0.12, 0.05, 0.06, 0.92) if is_beast else Color(0.05, 0.1, 0.12, 0.92)
+	if ready:
+		bg = Color(0.04, 0.14, 0.1, 0.95)
+	card.add_theme_stylebox_override("panel", _panel(bg, edge, 12, 3 if ready else 1))
 
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
+	row.add_theme_constant_override("separation", 12)
 	card.add_child(row)
 
+	var portrait_wrap := PanelContainer.new()
+	portrait_wrap.custom_minimum_size = Vector2(56, 56)
+	portrait_wrap.add_theme_stylebox_override(
+		"panel",
+		_panel(Color(0.02, 0.04, 0.06, 0.9), edge.darkened(0.2), 8, 1)
+	)
+	row.add_child(portrait_wrap)
+
 	var portrait := TextureRect.new()
-	portrait.custom_minimum_size = Vector2(44, 44)
+	portrait.custom_minimum_size = Vector2(52, 52)
 	portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	if is_beast:
 		portrait.texture = UiIcons.beast_tex(GameManager.beast_variant)
 	elif role == "explorer":
 		portrait.texture = UiIcons.skin_tex(skin)
-	row.add_child(portrait)
+	else:
+		portrait.modulate = Color(0.5, 0.5, 0.55)
+		portrait.texture = UiIcons.skin_tex(0)
+	portrait_wrap.add_child(portrait)
 
 	var col := VBoxContainer.new()
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -200,7 +213,7 @@ static func make_player_card(name_text: String, role: String, ready: bool, skin:
 	name_l.text = "%s  %s" % [role_emoji, name_text]
 	if _font_ui_bold:
 		name_l.add_theme_font_override("font", _font_ui_bold)
-	name_l.add_theme_font_size_override("font_size", 18)
+	name_l.add_theme_font_size_override("font_size", 17)
 	col.add_child(name_l)
 
 	var role_l := Label.new()
@@ -209,5 +222,13 @@ static func make_player_card(name_text: String, role: String, ready: bool, skin:
 	role_l.add_theme_font_size_override("font_size", 13)
 	role_l.add_theme_color_override("font_color", edge if ready else C_MUTED)
 	col.add_child(role_l)
+
+	if ready:
+		var badge := Label.new()
+		badge.text = "✓"
+		badge.add_theme_font_size_override("font_size", 28)
+		badge.add_theme_color_override("font_color", Color(0.3, 1.0, 0.55))
+		badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		row.add_child(badge)
 
 	return card

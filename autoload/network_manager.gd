@@ -144,15 +144,49 @@ func _add_player(id: int, player_name: String) -> void:
 	players_updated.emit()
 
 
+## Tras RPC, Godot a veces convierte claves int→String; normalizamos siempre.
+func _normalize_players(raw: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	for k in raw:
+		var pid := int(k)
+		var info: Variant = raw[k]
+		if typeof(info) != TYPE_DICTIONARY:
+			continue
+		var d: Dictionary = (info as Dictionary).duplicate(true)
+		d["ready"] = bool(d.get("ready", false))
+		d["skin"] = int(d.get("skin", 0))
+		d["loadout"] = int(d.get("loadout", 0))
+		d["role"] = str(d.get("role", ""))
+		d["name"] = str(d.get("name", "?"))
+		out[pid] = d
+	return out
+
+
+func get_player(peer_id: int) -> Dictionary:
+	if players.has(peer_id):
+		return players[peer_id]
+	var as_str := str(peer_id)
+	if players.has(as_str):
+		return players[as_str]
+	return {}
+
+
+func _broadcast_lobby() -> void:
+	if not multiplayer.is_server():
+		return
+	# call_local en _sync_full_state actualiza también al servidor
+	_sync_full_state.rpc(players, selected_map, GameManager.beast_variant)
+
+
 func _on_peer_connected(id: int) -> void:
 	if multiplayer.is_server():
 		# Sync lista y settings al nuevo peer
 		_sync_full_state.rpc_id(id, players, selected_map, GameManager.beast_variant)
 
 
-@rpc("authority", "reliable")
+@rpc("authority", "call_local", "reliable")
 func _sync_full_state(remote_players: Dictionary, map_id: String, beast_variant: int) -> void:
-	players = remote_players
+	players = _normalize_players(remote_players)
 	selected_map = map_id
 	GameManager.beast_variant = beast_variant as GameManager.BeastVariant
 	players_updated.emit()
@@ -174,7 +208,8 @@ func register_player(id: int, player_name: String) -> void:
 			peer.disconnect_peer(id)
 		return
 	_add_player(id, player_name)
-	_sync_full_state.rpc(players, selected_map, GameManager.beast_variant)
+	_broadcast_lobby()
+
 
 
 @rpc("authority", "reliable")
@@ -187,10 +222,11 @@ func _reject_join(reason: String) -> void:
 
 func _on_peer_disconnected(id: int) -> void:
 	players.erase(id)
+	players.erase(str(id))
 	player_disconnected.emit(id)
 	players_updated.emit()
 	if multiplayer.is_server():
-		_sync_full_state.rpc(players, selected_map, GameManager.beast_variant)
+		_broadcast_lobby()
 
 
 func _on_connected_to_server() -> void:
@@ -210,63 +246,131 @@ func _on_server_disconnected() -> void:
 	players_updated.emit()
 
 
-@rpc("any_peer", "call_local", "reliable")
+func submit_role(role: String) -> void:
+	var id := multiplayer.get_unique_id()
+	if multiplayer.is_server():
+		set_player_role(id, role)
+	else:
+		set_player_role.rpc_id(1, id, role)
+
+
+func submit_ready(ready: bool) -> void:
+	var id := multiplayer.get_unique_id()
+	if multiplayer.is_server():
+		set_player_ready(id, ready)
+	else:
+		set_player_ready.rpc_id(1, id, ready)
+
+
+func submit_skin(skin: int) -> void:
+	var id := multiplayer.get_unique_id()
+	if multiplayer.is_server():
+		set_player_skin(id, skin)
+	else:
+		set_player_skin.rpc_id(1, id, skin)
+
+
+func submit_loadout(loadout: int) -> void:
+	var id := multiplayer.get_unique_id()
+	if multiplayer.is_server():
+		set_player_loadout(id, loadout)
+	else:
+		set_player_loadout.rpc_id(1, id, loadout)
+
+
+func submit_map(map_id: String) -> void:
+	if multiplayer.is_server():
+		set_selected_map(map_id)
+	else:
+		set_selected_map.rpc_id(1, map_id)
+
+
+func submit_beast_variant(variant: int) -> void:
+	if multiplayer.is_server():
+		set_beast_variant(variant)
+	else:
+		set_beast_variant.rpc_id(1, variant)
+
+
+@rpc("any_peer", "reliable")
 func set_player_role(peer_id: int, role: String) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	# sender 0 = llamada local en listen-server
+	if sender != 0 and sender != peer_id:
+		return
+	peer_id = int(peer_id)
 	if not players.has(peer_id):
 		return
-	# Solo una bestia
 	if role == "beast":
 		for pid in players:
-			if players[pid].get("role", "") == "beast" and pid != peer_id:
+			if players[pid].get("role", "") == "beast" and int(pid) != peer_id:
 				players[pid]["role"] = "explorer"
+				players[pid]["ready"] = false
 	players[peer_id]["role"] = role
-	players_updated.emit()
-	if multiplayer.is_server():
-		_sync_full_state.rpc(players, selected_map, GameManager.beast_variant)
+	players[peer_id]["ready"] = false
+	_broadcast_lobby()
 
 
-@rpc("any_peer", "call_local", "reliable")
+@rpc("any_peer", "reliable")
 func set_player_ready(peer_id: int, ready: bool) -> void:
-	if players.has(peer_id):
-		players[peer_id]["ready"] = ready
-		players_updated.emit()
-		if multiplayer.is_server():
-			_sync_full_state.rpc(players, selected_map, GameManager.beast_variant)
+	if not multiplayer.is_server():
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != peer_id:
+		return
+	peer_id = int(peer_id)
+	if not players.has(peer_id):
+		return
+	players[peer_id]["ready"] = ready
+	_broadcast_lobby()
 
 
-@rpc("any_peer", "call_local", "reliable")
+@rpc("any_peer", "reliable")
 func set_selected_map(map_id: String) -> void:
+	if not multiplayer.is_server():
+		return
 	if map_id in MAP_IDS:
 		selected_map = map_id
-		lobby_settings_changed.emit()
-		if multiplayer.is_server():
-			_sync_full_state.rpc(players, selected_map, GameManager.beast_variant)
+		_broadcast_lobby()
 
 
-@rpc("any_peer", "call_local", "reliable")
+@rpc("any_peer", "reliable")
 func set_player_skin(peer_id: int, skin: int) -> void:
-	if players.has(peer_id):
-		players[peer_id]["skin"] = clampi(skin, 0, 3)
-		players_updated.emit()
-		if multiplayer.is_server():
-			_sync_full_state.rpc(players, selected_map, GameManager.beast_variant)
+	if not multiplayer.is_server():
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != peer_id:
+		return
+	peer_id = int(peer_id)
+	if not players.has(peer_id):
+		return
+	players[peer_id]["skin"] = clampi(skin, 0, 3)
+	_broadcast_lobby()
 
 
-@rpc("any_peer", "call_local", "reliable")
+@rpc("any_peer", "reliable")
 func set_player_loadout(peer_id: int, loadout: int) -> void:
-	if players.has(peer_id):
-		players[peer_id]["loadout"] = clampi(loadout, 0, 3)
-		players_updated.emit()
-		if multiplayer.is_server():
-			_sync_full_state.rpc(players, selected_map, GameManager.beast_variant)
+	if not multiplayer.is_server():
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != peer_id:
+		return
+	peer_id = int(peer_id)
+	if not players.has(peer_id):
+		return
+	players[peer_id]["loadout"] = clampi(loadout, 0, 3)
+	_broadcast_lobby()
 
 
-@rpc("any_peer", "call_local", "reliable")
+@rpc("any_peer", "reliable")
 func set_beast_variant(variant: int) -> void:
+	if not multiplayer.is_server():
+		return
 	GameManager.beast_variant = variant as GameManager.BeastVariant
-	lobby_settings_changed.emit()
-	if multiplayer.is_server():
-		_sync_full_state.rpc(players, selected_map, GameManager.beast_variant)
+	_broadcast_lobby()
+
 
 
 func all_players_ready() -> bool:

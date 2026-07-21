@@ -78,7 +78,12 @@ theme_override_constants/separation = 8
 
 [node name="CrewTitle" type="Label" parent="Margin/Root/Body/CrewPanel/CrewMargin/CrewCol"]
 layout_mode = 2
-text = "👥  TRIPULACIÓN"
+text = "👥  TRIPULACIÓN EN HANGAR"
+
+[node name="HangarSlot" type="PanelContainer" parent="Margin/Root/Body/CrewPanel/CrewMargin/CrewCol"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 188)
+layout_mode = 2
 
 [node name="Scroll" type="ScrollContainer" parent="Margin/Root/Body/CrewPanel/CrewMargin/CrewCol"]
 layout_mode = 2
