@@ -149,7 +149,7 @@ func _on_connected() -> void:
 
 
 func _on_connection_failed() -> void:
-	if last_reject_reason != "":
-		status_label.text = last_reject_reason
+	if NetworkManager.last_reject_reason != "":
+		status_label.text = NetworkManager.last_reject_reason
 	else:
 		status_label.text = "No se pudo conectar al VPS. Revisa la URL."
