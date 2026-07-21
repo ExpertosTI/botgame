@@ -87,17 +87,11 @@ func fire(aim_origin: Vector3, aim_dir: Vector3) -> bool:
 	var id: int = current_weapon_id()
 	weapon_cds[weapon_index] = float(WeaponDefs.weapon_data(id).get("cooldown", 1.0))
 	cooldowns_updated.emit()
-	if multiplayer.has_multiplayer_peer():
-		_request_fire.rpc_id(1, id, aim_origin, aim_dir, owner_player.peer_id, is_beast)
-	else:
-		_server_fire(id, aim_origin, aim_dir, owner_player.peer_id, is_beast)
+	CombatFx.request_weapon_fire(id, aim_origin, aim_dir, owner_player.peer_id, is_beast)
 	return true
 
 
-@rpc("any_peer", "reliable")
-func _request_fire(weapon_id: int, origin: Vector3, dir: Vector3, peer: int, beast: bool) -> void:
-	if not multiplayer.is_server():
-		return
+func execute_server_fire(weapon_id: int, origin: Vector3, dir: Vector3, peer: int, beast: bool) -> void:
 	_server_fire(weapon_id, origin, dir, peer, beast)
 
 
@@ -111,7 +105,6 @@ func _server_fire(weapon_id: int, origin: Vector3, dir: Vector3, peer: int, beas
 			CombatFx.replicate_shot(origin, dir, data, peer, vs_explorers)
 		"shotgun":
 			var pellets: int = int(data.get("pellets", 5))
-			# En web/multi: menos pellets = menos RPC/proyectiles
 			if OS.has_feature("web") or NetworkManager.get_player_count() >= 4:
 				pellets = mini(pellets, 3)
 			var spread: float = float(data.get("spread", 0.15))
@@ -186,18 +179,12 @@ func use_ability(index: int) -> bool:
 	var data: Dictionary = WeaponDefs.ability_data(id)
 	ability_cds[index] = float(data.get("cooldown", 5.0))
 	cooldowns_updated.emit()
-	if multiplayer.has_multiplayer_peer():
-		_request_ability.rpc_id(1, id)
-	else:
-		_replicate_ability.rpc(id)
+	CombatFx.request_ability(id, owner_player.peer_id if owner_player else 0)
 	ability_used.emit(data.get("name", "?"))
 	return true
 
 
-@rpc("any_peer", "reliable")
-func _request_ability(ability_id: int) -> void:
-	if not multiplayer.is_server():
-		return
+func execute_server_ability(ability_id: int) -> void:
 	_replicate_ability.rpc(ability_id)
 
 

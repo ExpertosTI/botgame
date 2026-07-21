@@ -137,6 +137,8 @@ func _add_player(id: int, player_name: String) -> void:
 		"name": player_name,
 		"role": "",
 		"ready": false,
+		"skin": 0,
+		"loadout": 0,
 	}
 	player_connected.emit(id, players[id])
 	players_updated.emit()
@@ -237,6 +239,24 @@ func set_selected_map(map_id: String) -> void:
 	if map_id in MAP_IDS:
 		selected_map = map_id
 		lobby_settings_changed.emit()
+		if multiplayer.is_server():
+			_sync_full_state.rpc(players, selected_map, GameManager.beast_variant)
+
+
+@rpc("any_peer", "call_local", "reliable")
+func set_player_skin(peer_id: int, skin: int) -> void:
+	if players.has(peer_id):
+		players[peer_id]["skin"] = clampi(skin, 0, 3)
+		players_updated.emit()
+		if multiplayer.is_server():
+			_sync_full_state.rpc(players, selected_map, GameManager.beast_variant)
+
+
+@rpc("any_peer", "call_local", "reliable")
+func set_player_loadout(peer_id: int, loadout: int) -> void:
+	if players.has(peer_id):
+		players[peer_id]["loadout"] = clampi(loadout, 0, 3)
+		players_updated.emit()
 		if multiplayer.is_server():
 			_sync_full_state.rpc(players, selected_map, GameManager.beast_variant)
 

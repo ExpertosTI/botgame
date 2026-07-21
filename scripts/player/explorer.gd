@@ -23,7 +23,12 @@ func _ready() -> void:
 		lives = GameManager.explorer_lives[peer_id]
 	move_speed = 6.4
 	_apply_robot_visuals()
-	combat.setup(self, false, int(variant))
+	var loadout_id := 0
+	if GameManager.explorer_loadouts.has(peer_id):
+		loadout_id = int(GameManager.explorer_loadouts[peer_id])
+	elif NetworkManager.players.has(peer_id):
+		loadout_id = int(NetworkManager.players[peer_id].get("loadout", 0))
+	combat.setup(self, false, loadout_id)
 
 
 func _apply_robot_visuals() -> void:

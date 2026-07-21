@@ -60,16 +60,33 @@ static func beast_loadout(variant: int) -> Array:
 			return [WeaponId.CLAW, WeaponId.FIRE_SPIT, WeaponId.SLAM_BOMB, WeaponId.ROAR_WAVE]
 
 
-static func explorer_loadout(variant: int) -> Array:
-	match variant:
-		0: # BLUE
-			return [WeaponId.BLASTER, WeaponId.GRENADE, WeaponId.ICE_RAY, WeaponId.PLASMA]
-		1: # PINK
+static func explorer_loadout(loadout_id: int) -> Array:
+	## 0 Asalto · 1 Escopetero · 2 Demolición · 3 Soporte
+	match loadout_id:
+		1:
 			return [WeaponId.SHOTGUN, WeaponId.GRENADE, WeaponId.BLASTER, WeaponId.PLASMA]
-		2: # GREEN
-			return [WeaponId.PLASMA, WeaponId.GRENADE, WeaponId.BLASTER, WeaponId.ICE_RAY]
-		_: # YELLOW
-			return [WeaponId.BLASTER, WeaponId.SHOTGUN, WeaponId.GRENADE, WeaponId.ICE_RAY]
+		2:
+			return [WeaponId.GRENADE, WeaponId.PLASMA, WeaponId.BLASTER, WeaponId.SHOTGUN]
+		3:
+			return [WeaponId.ICE_RAY, WeaponId.BLASTER, WeaponId.GRENADE, WeaponId.PLASMA]
+		_:
+			return [WeaponId.BLASTER, WeaponId.GRENADE, WeaponId.ICE_RAY, WeaponId.PLASMA]
+
+
+static func explorer_loadout_name(loadout_id: int) -> String:
+	match loadout_id:
+		1: return "Escopetero"
+		2: return "Demolición"
+		3: return "Soporte"
+		_: return "Asalto"
+
+
+static func explorer_skin_name(skin: int) -> String:
+	match skin:
+		1: return "Rosa"
+		2: return "Verde"
+		3: return "Amarillo"
+		_: return "Azul"
 
 
 static func beast_abilities(variant: int) -> Array:

@@ -64,7 +64,22 @@ func _spawn_showcase() -> void:
 	var stage_wrap := get_node_or_null("Main/StageWrap") as Control
 	if OS.has_feature("web") or OS.get_name() == "Web":
 		if stage_wrap:
-			stage_wrap.visible = false
+			# Mensaje en vez de viewport vacío
+			var cap := stage_wrap.get_node_or_null("VBox/StageCaption") as Label
+			if cap:
+				cap.text = "BESTIA VS ROBOTS  ·  1 caza a 1–3 robots"
+			var view := stage_wrap.get_node_or_null("VBox/StageView") as Control
+			if view:
+				view.visible = false
+			var tip := Label.new()
+			tip.text = "Entra a la partida → elige rol, color y arsenal en la sala.\nWASD / táctil para mover · DISPARO para combatir · mantén en núcleo para sabotear."
+			tip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			tip.add_theme_font_size_override("font_size", 16)
+			tip.add_theme_color_override("font_color", GameTheme.C_MUTED)
+			var vbox := stage_wrap.get_node_or_null("VBox") as VBoxContainer
+			if vbox:
+				vbox.add_child(tip)
 		return
 
 	var robot: Node3D = CREW_SCRIPT.new()

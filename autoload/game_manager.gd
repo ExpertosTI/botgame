@@ -21,7 +21,8 @@ var objectives_remaining := OBJECTIVES_TO_WIN
 var explorer_lives: Dictionary = {}  # peer_id -> lives
 var player_roles: Dictionary = {}    # peer_id -> Role
 var beast_variant: BeastVariant = BeastVariant.MECHA
-var explorer_variants: Dictionary = {}  # peer_id -> ExplorerVariant
+var explorer_variants: Dictionary = {}  # peer_id -> ExplorerVariant (color)
+var explorer_loadouts: Dictionary = {}  # peer_id -> loadout id (armas)
 var easy_beast_mode := false
 var current_map: String = "lab_neon"
 
@@ -31,22 +32,35 @@ var _explorer_variant_list := [
 	ExplorerVariant.ROBOT_GREEN,
 	ExplorerVariant.ROBOT_YELLOW,
 ]
+var _timer_sync_accum := 0.0
 
 
 func _process(delta: float) -> void:
 	if not match_active:
 		return
-	if multiplayer.has_multiplayer_peer() and not multiplayer.is_server():
+	# Solo el servidor (o singleplayer) cuenta el tiempo
+	var authority := not multiplayer.has_multiplayer_peer() or multiplayer.is_server()
+	if not authority:
 		return
 	match_timer -= delta
+	_timer_sync_accum += delta
+	if multiplayer.has_multiplayer_peer() and _timer_sync_accum >= 0.5:
+		_timer_sync_accum = 0.0
+		_sync_timer.rpc(match_timer)
 	if match_timer <= 0.0:
 		end_match("beast")
+
+
+@rpc("authority", "call_remote", "unreliable")
+func _sync_timer(remaining: float) -> void:
+	match_timer = remaining
 
 
 func setup_match(roles: Dictionary) -> void:
 	player_roles = roles
 	explorer_lives.clear()
 	explorer_variants.clear()
+	explorer_loadouts.clear()
 	objectives_remaining = OBJECTIVES_TO_WIN
 	var match_time := 240.0
 	if NetworkManager.config:
@@ -54,17 +68,25 @@ func setup_match(roles: Dictionary) -> void:
 		easy_beast_mode = NetworkManager.config.easy_beast_mode
 	match_timer = match_time
 	match_active = false
+	_timer_sync_accum = 0.0
 
 	var variant_idx := 0
 	for peer_id in roles:
 		if roles[peer_id] == Role.EXPLORER:
 			explorer_lives[peer_id] = EXPLORER_LIVES
-			explorer_variants[peer_id] = _explorer_variant_list[variant_idx % _explorer_variant_list.size()]
+			var info: Dictionary = NetworkManager.players.get(peer_id, {})
+			var skin: int = int(info.get("skin", variant_idx))
+			var loadout: int = int(info.get("loadout", 0))
+			explorer_variants[peer_id] = _explorer_variant_list[clampi(skin, 0, 3)]
+			explorer_loadouts[peer_id] = clampi(loadout, 0, 3)
 			variant_idx += 1
 
 
 func start_match() -> void:
 	match_active = true
+	_timer_sync_accum = 0.0
+	if multiplayer.has_multiplayer_peer() and multiplayer.is_server():
+		_sync_timer.rpc(match_timer)
 	match_started.emit()
 
 

@@ -7,6 +7,9 @@ extends Control
 @onready var role_robot_button: Button = %RobotRoleButton
 @onready var beast_variant_option: OptionButton = %BeastVariantOption
 @onready var map_option: OptionButton = %MapOption
+@onready var skin_option: OptionButton = %SkinOption
+@onready var loadout_option: OptionButton = %LoadoutOption
+@onready var loadout_hint: Label = %LoadoutHint
 @onready var status_label: Label = %StatusLabel
 @onready var easy_check: CheckBox = %EasyBeastCheck
 @onready var title: Label = %Title
@@ -15,6 +18,12 @@ extends Control
 @onready var map_hint: Label = %MapHint
 
 const GAME_SCENE := "res://scenes/main/game.tscn"
+const LOADOUT_HINTS := [
+	"Bláster · Granada · Rayo Hielo · Plasma",
+	"Escopeta · Granada · Bláster · Plasma",
+	"Granada · Plasma · Bláster · Escopeta",
+	"Rayo Hielo · Bláster · Granada · Plasma",
+]
 
 var local_ready := false
 var _pulse_t := 0.0
@@ -44,6 +53,8 @@ func _ready() -> void:
 		ready_button.visible = false
 		role_beast_button.visible = false
 		role_robot_button.visible = false
+		skin_option.visible = false
+		loadout_option.visible = false
 
 
 func _style_ui() -> void:
@@ -57,6 +68,7 @@ func _style_ui() -> void:
 	ready_button.text = "MARCAR LISTO"
 	start_button.text = "EMPEZAR PARTIDA"
 	map_hint.add_theme_color_override("font_color", GameTheme.C_MUTED)
+	loadout_hint.add_theme_color_override("font_color", GameTheme.C_MUTED)
 
 
 func _setup_atmosphere() -> void:
@@ -83,6 +95,17 @@ func _setup_options() -> void:
 	beast_variant_option.add_item("Sombra Digital", GameManager.BeastVariant.SHADOW)
 	beast_variant_option.item_selected.connect(_on_beast_variant_selected)
 
+	skin_option.clear()
+	for i in 4:
+		skin_option.add_item("Robot " + WeaponDefs.explorer_skin_name(i), i)
+	skin_option.item_selected.connect(_on_skin_selected)
+
+	loadout_option.clear()
+	for i in 4:
+		loadout_option.add_item(WeaponDefs.explorer_loadout_name(i), i)
+	loadout_option.item_selected.connect(_on_loadout_selected)
+	_update_loadout_hint()
+
 	map_option.clear()
 	for map_id in NetworkManager.MAP_IDS:
 		map_option.add_item(NetworkManager.MAP_NAMES[map_id])
@@ -102,8 +125,23 @@ func _update_map_hint() -> void:
 			map_hint.text = "Laboratorio neon — arena abierta, luces frías."
 
 
+func _update_loadout_hint() -> void:
+	var idx := loadout_option.selected
+	if idx >= 0 and idx < LOADOUT_HINTS.size():
+		loadout_hint.text = LOADOUT_HINTS[idx]
+
+
 func _on_beast_variant_selected(index: int) -> void:
 	NetworkManager.set_beast_variant.rpc(beast_variant_option.get_item_id(index))
+
+
+func _on_skin_selected(index: int) -> void:
+	NetworkManager.set_player_skin.rpc(multiplayer.get_unique_id(), skin_option.get_item_id(index))
+
+
+func _on_loadout_selected(index: int) -> void:
+	NetworkManager.set_player_loadout.rpc(multiplayer.get_unique_id(), loadout_option.get_item_id(index))
+	_update_loadout_hint()
 
 
 func _on_map_selected(index: int) -> void:
@@ -168,9 +206,18 @@ func _refresh_player_list() -> void:
 		child.queue_free()
 	for peer_id in NetworkManager.players:
 		var info: Dictionary = NetworkManager.players[peer_id]
+		var role := str(info.get("role", ""))
+		var extra := ""
+		if role == "explorer":
+			extra = " · %s · %s" % [
+				WeaponDefs.explorer_skin_name(int(info.get("skin", 0))),
+				WeaponDefs.explorer_loadout_name(int(info.get("loadout", 0))),
+			]
+		elif role == "beast":
+			extra = " · %s" % GameManager.get_beast_variant_name()
 		var card := GameTheme.make_player_card(
-			str(info.get("name", "?")),
-			str(info.get("role", "")),
+			str(info.get("name", "?")) + extra,
+			role,
 			bool(info.get("ready", false))
 		)
 		player_list.add_child(card)

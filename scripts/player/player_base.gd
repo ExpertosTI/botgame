@@ -28,13 +28,14 @@ func _ready() -> void:
 	peer_id = name.to_int() if name.is_valid_int() else multiplayer.get_unique_id()
 	add_to_group("player_characters")
 	combat = CombatKit.new()
+	combat.name = "CombatKit"
 	add_child(combat)
 
 	if not is_multiplayer_authority():
 		camera.current = false
 		set_process_input(false)
-		# Remotos: interpolar, no simular input
 	else:
+		# Web también captura al hacer click (ver _input)
 		if not DisplayServer.is_touchscreen_available() and not OS.has_feature("mobile"):
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		InputManager.look_delta.connect(_on_touch_look)
