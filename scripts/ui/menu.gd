@@ -161,7 +161,7 @@ func _fill_web_stage(stage_wrap: Control) -> void:
 	var cap := stage_wrap.get_node_or_null("VBox/StageCaption") as Label
 	if cap:
 		cap.visible = not _mobile
-		cap.text = "BESTIA VS ROBOTS"
+		cap.text = "CHADRINE"
 	var view := stage_wrap.get_node_or_null("VBox/StageView") as Control
 	if view:
 		view.visible = false

@@ -1,4 +1,4 @@
-# Deploy — Bestia vs Robots (RenaceNet)
+# Deploy — CHADRINE (RenaceNet)
 
 Stack igual que el resto de RENACE: **Docker Swarm + Traefik** en la red overlay `RenaceNet`.
 

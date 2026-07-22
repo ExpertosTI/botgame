@@ -70,14 +70,14 @@ alignment = 1
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 36
-text = "BESTIA VS ROBOTS"
+text = "CHADRINE"
 horizontal_alignment = 1
 autowrap_mode = 3
 
 [node name="Subtitle" type="Label" parent="Main/Col/FormWrap/Margin/Form"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Elige modo: Online o Campaña solitaria"
+text = "CHADRINE · Online o Campaña solitaria"
 horizontal_alignment = 1
 autowrap_mode = 2
 
@@ -201,7 +201,7 @@ theme_override_constants/separation = 8
 
 [node name="StageCaption" type="Label" parent="Main/Col/StageWrap/VBox"]
 layout_mode = 2
-text = "HANGAR  ·  BESTIA VS ROBOTS"
+text = "HANGAR  ·  CHADRINE"
 horizontal_alignment = 1
 
 [node name="StageView" type="SubViewportContainer" parent="Main/Col/StageWrap/VBox"]

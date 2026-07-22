@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Bestia vs Robots — Deploy producción (Docker Swarm + Traefik / RenaceNet)
+# CHADRINE — Deploy producción (Docker Swarm + Traefik / RenaceNet)
 # Uso:  cd /opt/botgame && ./deploy.sh update
 set -euo pipefail
 
@@ -21,7 +21,7 @@ die()  { err "$*"; exit 1; }
 
 banner() {
     echo -e "${CYAN}╔═══════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║     Bestia vs Robots — Deploy         ║${NC}"
+    echo -e "${CYAN}║     CHADRINE — Deploy                 ║${NC}"
     echo -e "${CYAN}║     RenaceNet / Swarm / Traefik       ║${NC}"
     echo -e "${CYAN}╚═══════════════════════════════════════╝${NC}"
 }

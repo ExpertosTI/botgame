@@ -1,6 +1,6 @@
-# Bestia vs Robots
+# CHADRINE
 
-Juego multijugador asimétrico 3D (Godot 4) — estilo cápsula original, pensado para **Web + tiendas** (APK) contra un **VPS**.
+Juego multijugador asimétrico 3D (Godot 4) — **CHADRINE**: Bestia vs Robots, campaña y online.
 
 **Versión:** 1.0.0 · **Editor:** Renace Tech · **Dev:** Expertos TI / Renace  
 **Legal:** [LEGAL.md](LEGAL.md) · **Privacidad:** [PRIVACY.md](PRIVACY.md) / https://botgame.renace.tech/privacy
@@ -35,19 +35,16 @@ git push origin main
 cd /opt/botgame && FORCE_GODOT_EXPORT=1 ./deploy.sh update
 ```
 
-Cada deploy publica `version.json` y fuerza build fresca en el cliente.
-
 ## Tiendas (checklist MVP)
 
-- [x] Nombre, versión, autor en `project.godot`
+- [x] Nombre **CHADRINE**, versión, autor
 - [x] Créditos + disclaimer in-game
 - [x] Privacidad pública (`/privacy`)
 - [x] Pausa + mute + sensibilidad
-- [x] Campaña 8 niveles + tip de nivel
-- [x] Desconexión con mensaje claro
-- [ ] Export Android/iOS (keystore / Apple team — configurar en Godot)
+- [x] Campaña 8 niveles
+- [ ] Export Android/iOS (keystore / Apple team)
 - [ ] Audio SFX/música definitivos
 
 ## Notas legales
 
-Personajes **originales**. Silueta cápsula = inspiración estética; sin assets ni marcas de Among Us / Innersloth.
+**CHADRINE** y sus personajes son **originales**. Silueta cápsula = inspiración estética; sin assets ni marcas de Among Us / Innersloth.

@@ -91,7 +91,7 @@ func _ready() -> void:
 func _apply_solo_lobby() -> void:
 	if not NetworkManager.is_solo_practice:
 		return
-	title.text = "PRÁCTICA · CAMPAÑA"
+	title.text = "PRÁCTICA · CHADRINE"
 	wait_label.text = "Elige rol, arsenal y pulsa JUGAR NIVEL"
 	ready_button.visible = false
 	local_ready = true

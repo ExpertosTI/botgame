@@ -1,6 +1,6 @@
-# Política de privacidad — Bestia vs Robots
+# Política de privacidad — CHADRINE
 
-**Última actualización:** 2026-07-21  
+**Última actualización:** 2026-07-22  
 **Responsable:** Renace Tech / Expertos TI  
 
 ## Qué datos usamos
@@ -22,4 +22,4 @@ Puedes dejar de usar el servicio y borrar datos locales del dispositivo.
 Contacto: Renace Tech (sitio https://botgame.renace.tech).
 
 ## Menores
-El juego es adecuado para público general; si eres menor, pide permiso a un adulto para jugar online.
+CHADRINE es adecuado para público general; si eres menor, pide permiso a un adulto para jugar online.

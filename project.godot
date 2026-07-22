@@ -1,12 +1,12 @@
 ; Engine configuration file.
-; Bestia vs Robots — juego multijugador asimétrico 3D
+; CHADRINE — juego multijugador asimétrico 3D
 
 config_version=5
 
 [application]
 
-config/name="Bestia vs Robots"
-config/description="Asimétrico · 1 Bestia vs Robots · campaña y online. © Renace Tech."
+config/name="CHADRINE"
+config/description="CHADRINE · asimétrico Bestia vs Robots · campaña y online. © Renace Tech."
 config/version="1.0.0"
 config/author="Renace Tech / Expertos TI"
 run/main_scene="res://scenes/main/menu.tscn"

@@ -1,4 +1,4 @@
-# Bestia vs Robots — Stack Swarm + Traefik (RenaceNet)
+# CHADRINE — Stack Swarm + Traefik (RenaceNet)
 # Deploy: ./deploy.sh update
 # Dominio fijo (Swarm interpola mal variables en labels a veces)
 
