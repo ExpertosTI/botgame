@@ -323,7 +323,7 @@ run_export() {
     log "Reusando .godot (${gsz}MB). Sin --import separado."
   fi
 
-  local export_timeout="${GODOT_EXPORT_TIMEOUT:-600}"
+  local export_timeout="${GODOT_EXPORT_TIMEOUT:-900}"
 
   set_status "EXPORT_WEB"
   log "Export Web → export/web/index.html (timeout=${export_timeout}s)"
