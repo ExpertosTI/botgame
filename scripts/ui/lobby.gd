@@ -40,7 +40,7 @@ const LOADOUT_HINTS := [
 
 var local_ready := false
 var _pulse_t := 0.0
-var _skin := 0
+var _skin := -1
 var _loadout := 0
 var _map_idx := 0
 var _beast_variant := GameManager.BeastVariant.MECHA
@@ -49,6 +49,8 @@ var _syncing_checks := false
 
 
 func _ready() -> void:
+	if _skin < 0:
+		_skin = CharacterCatalog.default_explorer_skin()
 	GameTheme.apply(self)
 	_style_ui()
 	_setup_atmosphere()
@@ -100,10 +102,15 @@ func _apply_solo_lobby() -> void:
 	campaign_check.disabled = true
 	_syncing_checks = false
 	ProgressionManager.campaign_mode = true
-	NetworkManager.selected_map = ProgressionManager.force_campaign_map()
+	# No pisar el teatro ya elegido en el hangar
+	if NetworkManager.selected_map not in NetworkManager.MAP_IDS:
+		NetworkManager.selected_map = ProgressionManager.force_campaign_map()
 	var map_idx := NetworkManager.MAP_IDS.find(NetworkManager.selected_map)
 	if map_idx >= 0:
 		_map_idx = map_idx
+	_skin = CharacterCatalog.default_explorer_skin()
+	if NetworkManager.players.has(1):
+		NetworkManager.players[1]["skin"] = _skin
 	start_button.text = "JUGAR NIVEL"
 	start_button.disabled = false
 	GameTheme.style_primary(start_button)
@@ -149,12 +156,12 @@ func _style_ui() -> void:
 	if crew_panel:
 		(crew_panel as PanelContainer).add_theme_stylebox_override(
 			"panel",
-			GameTheme.panel_style(Color(0.04, 0.07, 0.09, 0.8), GameTheme.C_CYAN, 12, 2)
+			GameTheme.panel_style(Color(0.04, 0.07, 0.09, 0.5), GameTheme.C_CYAN, 12, 2)
 		)
 	if setup_panel:
 		(setup_panel as PanelContainer).add_theme_stylebox_override(
 			"panel",
-			GameTheme.panel_style(Color(0.05, 0.08, 0.1, 0.88), GameTheme.C_AMBER.darkened(0.3), 12, 2)
+			GameTheme.panel_style(Color(0.05, 0.08, 0.1, 0.58), GameTheme.C_AMBER.darkened(0.3), 12, 2)
 		)
 	var tw := create_tween().set_loops()
 	tw.tween_property(start_button, "modulate", Color(0.88, 1.0, 0.96), 0.95).set_trans(Tween.TRANS_SINE)
@@ -282,7 +289,17 @@ func _wire_card(card: PanelContainer, cb: Callable) -> void:
 
 func _rebuild_skins() -> void:
 	_clear_row(skin_row)
-	var indices: Array = CharacterCatalog.explorer_indices()
+	var with_mesh: Array = []
+	var legacy: Array = []
+	for cat_i in CharacterCatalog.explorer_indices():
+		var mesh := str(CharacterCatalog.get_entry(int(cat_i)).get("mesh", ""))
+		if not mesh.is_empty() and ResourceLoader.exists(mesh):
+			with_mesh.append(int(cat_i))
+		else:
+			legacy.append(int(cat_i))
+	var indices: Array = []
+	indices.append_array(with_mesh)
+	indices.append_array(legacy)
 	for cat_i in indices:
 		var locked := not CharacterCatalog.is_unlocked(int(cat_i))
 		var card := VisualPicker.make_skin_card(int(cat_i), int(cat_i) == _skin, locked)
@@ -306,8 +323,6 @@ func _rebuild_maps() -> void:
 	for i in NetworkManager.MAP_IDS.size():
 		var mid: String = NetworkManager.MAP_IDS[i]
 		var locked := not ProgressionManager.is_map_unlocked(mid)
-		if ProgressionManager.campaign_mode or NetworkManager.is_solo_practice:
-			locked = mid != NetworkManager.selected_map
 		var card := VisualPicker.make_map_card(mid, i == _map_idx, locked)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_wire_card(card, _on_map_picked.bind(i))
@@ -351,9 +366,6 @@ func _on_loadout_picked(loadout: int) -> void:
 
 
 func _on_map_picked(index: int) -> void:
-	if ProgressionManager.campaign_mode or NetworkManager.is_solo_practice:
-		status_label.text = "Campaña activa — mapa del nivel actual"
-		return
 	var mid: String = NetworkManager.MAP_IDS[index]
 	if not ProgressionManager.is_map_unlocked(mid):
 		status_label.text = "Mapa bloqueado — gana con robots para desbloquear"
@@ -362,6 +374,8 @@ func _on_map_picked(index: int) -> void:
 	_rebuild_maps()
 	NetworkManager.submit_map(mid)
 	_update_map_hint()
+	if NetworkManager.is_solo_practice:
+		status_label.text = "Teatro: %s" % NetworkManager.MAP_NAMES.get(mid, mid)
 
 
 func _on_beast_picked(variant: int) -> void:
@@ -418,15 +432,15 @@ func _update_campaign_ui() -> void:
 	if ProgressionManager.campaign_complete:
 		campaign_label.text += " · ¡CAMPAÑA COMPLETA!"
 	if NetworkManager.is_solo_practice:
-		campaign_label.text += " · SOLITARIO"
-		map_row.modulate = Color(0.75, 0.75, 0.8)
+		campaign_label.text += " · SOLITARIO · elige teatro libre"
+		map_row.modulate = Color.WHITE
 		if level_title:
 			level_title.visible = true
 		if level_row:
 			level_row.visible = true
 		return
 	if ProgressionManager.campaign_mode:
-		campaign_label.text += " · CAMPAÑA ON"
+		campaign_label.text += " · CAMPAÑA ON · mapa del nivel (online)"
 		map_row.modulate = Color(0.75, 0.75, 0.8)
 		if level_title:
 			level_title.visible = true

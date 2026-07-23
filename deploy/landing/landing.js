@@ -1,15 +1,17 @@
 /* CHADRINE landing — hangar con GLB reales del roster */
 
 const ROSTER = [
-  { id: "blocky_a", name: "Blocky A", file: "/media/roster/blocky_a.glb", thumb: "/media/ui/robot_azul.png", scale: 1.15 },
-  { id: "blocky_b", name: "Blocky B", file: "/media/roster/blocky_b.glb", thumb: "/media/ui/robot_rosa.png", scale: 1.15 },
+  { id: "blocky_a", name: "Blocky A", file: "/media/roster/blocky_a.glb", thumb: "/media/roster/Textures/texture-a.png", scale: 1.15 },
+  { id: "blocky_b", name: "Blocky B", file: "/media/roster/blocky_b.glb", thumb: "/media/roster/Textures/texture-b.png", scale: 1.15 },
   { id: "kay_knight", name: "Caballero", file: "/media/roster/kay_knight.glb", thumb: "/media/ui/robot_verde.png", scale: 1.0 },
   { id: "kay_mage", name: "Mago", file: "/media/roster/kay_mage.glb", thumb: "/media/ui/robot_amarillo.png", scale: 1.0 },
   { id: "kay_barbarian", name: "Bárbaro", file: "/media/roster/kay_barbarian.glb", thumb: "/media/ui/robot_azul.png", scale: 1.0 },
-  { id: "forest_archer", name: "Arquero", file: "/media/roster/forest_archer.glb", thumb: "/media/ui/robot_verde.png", scale: 1.05 },
+  { id: "forest_archer", name: "Arquero", file: "/media/roster/forest_archer.glb", thumb: "/media/roster/Textures/colormap.png", scale: 1.05 },
   { id: "skel_warrior", name: "Esqueleto", file: "/media/roster/skel_warrior.glb", thumb: "/media/ui/beast_classic.png", scale: 1.1 },
   { id: "skel_mage", name: "Skel Mago", file: "/media/roster/skel_mage.glb", thumb: "/media/ui/beast_shadow.png", scale: 1.1 },
 ];
+
+const loadingIds = new Set();
 
 const MAPS = [
   { id: "lab_neon", name: "Laboratorio Neon", src: "/media/maps/map_neon.jpg" },
@@ -118,7 +120,16 @@ function initThree() {
   pedestal.position.y = -0.11;
   scene.add(pedestal);
 
-  gltfLoader = new THREE.GLTFLoader();
+  const manager = new THREE.LoadingManager();
+  manager.setURLModifier((url) => {
+    // Blocky/forest GLBs referencian Textures/*.png relativos al GLB
+    if (url.indexOf("Textures/") !== -1 || /texture-[a-f]\.png|colormap\.png/i.test(url)) {
+      const name = url.split("/").pop();
+      return "/media/roster/Textures/" + name;
+    }
+    return url;
+  });
+  gltfLoader = new THREE.GLTFLoader(manager);
   animate();
 }
 
@@ -158,6 +169,7 @@ function loadModel(id) {
   if (!gltfLoader) return;
 
   const apply = (root) => {
+    if (currentId !== entry.id) return;
     clearActive();
     activeRoot = root.clone(true);
     fitModel(activeRoot, entry.scale);
@@ -168,17 +180,21 @@ function loadModel(id) {
     apply(modelCache[entry.id]);
     return;
   }
+  if (loadingIds.has(entry.id)) return;
+  loadingIds.add(entry.id);
 
   gltfLoader.load(
     entry.file,
     (gltf) => {
+      loadingIds.delete(entry.id);
       modelCache[entry.id] = gltf.scene;
-      if (currentId === entry.id) apply(gltf.scene);
+      apply(gltf.scene);
     },
     undefined,
     (err) => {
+      loadingIds.delete(entry.id);
       console.warn("GLB load failed", entry.file, err);
-      // fallback: tinte cápsula
+      if (currentId !== entry.id) return;
       clearActive();
       const g = new THREE.Group();
       const mat = new THREE.MeshStandardMaterial({ color: 0x1ad4c0, metalness: 0.4, roughness: 0.4 });

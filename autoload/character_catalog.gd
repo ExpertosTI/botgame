@@ -79,6 +79,21 @@ func index_of_id(id: String) -> int:
 	return 0
 
 
+func default_explorer_skin() -> int:
+	## Primer robot 3D desbloqueado (Blocky A); evita cápsula verde legacy.
+	var prefer := index_of_id("blocky_a")
+	if prefer > 0 or str(get_entry(prefer).get("id", "")) == "blocky_a":
+		var mesh := str(get_entry(prefer).get("mesh", ""))
+		if not mesh.is_empty() and ResourceLoader.exists(mesh):
+			return prefer
+	for idx in explorer_indices():
+		var i := int(idx)
+		var mesh := str(get_entry(i).get("mesh", ""))
+		if not mesh.is_empty() and ResourceLoader.exists(mesh) and is_unlocked(i):
+			return i
+	return 0
+
+
 func explorer_indices() -> Array:
 	var out: Array = []
 	for i in entries.size():

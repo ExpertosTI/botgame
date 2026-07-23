@@ -92,14 +92,15 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
   height: 100%;
   object-fit: cover;
   z-index: 0;
+  filter: brightness(1.12) saturate(1.08) contrast(1.05);
 }
 .hangar-shade {
   position: absolute;
   inset: 0;
   z-index: 1;
   background:
-    linear-gradient(90deg, rgba(4, 8, 12, 0.88) 0%, rgba(4, 8, 12, 0.55) 42%, rgba(4, 8, 12, 0.35) 100%),
-    linear-gradient(180deg, rgba(4, 8, 12, 0.35) 0%, rgba(4, 8, 12, 0.75) 100%);
+    linear-gradient(90deg, rgba(4, 8, 12, 0.55) 0%, rgba(4, 8, 12, 0.22) 48%, rgba(4, 8, 12, 0.12) 100%),
+    linear-gradient(180deg, rgba(4, 8, 12, 0.2) 0%, rgba(4, 8, 12, 0.45) 100%);
   pointer-events: none;
 }
 .hangar-grid {
@@ -126,9 +127,9 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
   margin: 0;
   font-family: var(--font-display);
   font-weight: 900;
-  font-size: clamp(2.8rem, 8vw, 4.6rem);
+  font-size: clamp(2.1rem, 6vw, 3.4rem);
   letter-spacing: 0.04em;
-  line-height: 0.95;
+  line-height: 1.05;
   color: #fff;
   text-shadow: 0 0 40px rgba(26, 212, 192, 0.35);
 }
@@ -144,8 +145,8 @@ button { font: inherit; cursor: pointer; border: 0; background: none; color: inh
   position: relative;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: var(--panel);
-  backdrop-filter: blur(8px);
+  background: rgba(6, 14, 18, 0.42);
+  backdrop-filter: blur(6px);
   overflow: hidden;
   min-height: min(58vh, 520px);
   display: flex;

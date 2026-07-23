@@ -47,6 +47,7 @@ func _ready() -> void:
 
 	_mobile = _is_mobile_layout()
 	GameTheme.apply(self)
+	_setup_cinematic_bg()
 	_style_ui()
 	_lift_brand_header()
 	_setup_atmosphere()
@@ -73,8 +74,90 @@ func _ready() -> void:
 	address_input.placeholder_text = "wss://botgame.renace.tech/ws"
 	mute_check.button_pressed = SettingsManager.muted
 	legal_label.text = "%s · v%s" % [GameBrand.copyright_line(), GameBrand.VERSION]
-	title_label.text = GameBrand.GAME_TITLE
+	# Marca una sola vez en legal; el hangar habla de misión, no repite el título
+	title_label.text = "HANGAR"
+	_pick_skin = _default_mesh_skin()
 	_set_mode("online")
+
+
+func _default_mesh_skin() -> int:
+	return CharacterCatalog.default_explorer_skin()
+
+
+func _setup_cinematic_bg() -> void:
+	## Vídeo de fondo como la landing (mute; AudioDirector lleva la música).
+	if get_node_or_null("CinematicBg") != null:
+		return
+	var player := VideoStreamPlayer.new()
+	player.name = "CinematicBg"
+	player.set_anchors_preset(Control.PRESET_FULL_RECT)
+	player.expand = true
+	player.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	player.volume_db = -80.0
+	player.z_index = -2
+	var candidates: Array[String] = []
+	if OS.has_feature("web") or OS.get_name() == "Web":
+		candidates = [
+			"res://assets/video/intro/chadrine_intro.webm",
+			"res://assets/video/intro/chadrine_intro.mp4",
+		]
+	else:
+		candidates = [
+			"res://assets/video/intro/chadrine_intro.mp4",
+			"res://assets/video/intro/chadrine_intro.webm",
+		]
+	var ok := false
+	for path in candidates:
+		if not ResourceLoader.exists(path):
+			continue
+		var stream = load(path)
+		if stream == null:
+			continue
+		player.stream = stream
+		add_child(player)
+		move_child(player, 0)
+		player.play()
+		ok = true
+		# Loop: al terminar, reinicia
+		if not player.finished.is_connected(_on_cinematic_loop):
+			player.finished.connect(_on_cinematic_loop)
+		break
+	if not ok:
+		player.queue_free()
+		_setup_keyart_bg()
+	# Atmósfera más transparente para que se vea el vídeo
+	if atmosphere:
+		atmosphere.modulate = Color(1, 1, 1, 0.42)
+		atmosphere.z_index = -1
+
+
+func _on_cinematic_loop() -> void:
+	var player := get_node_or_null("CinematicBg") as VideoStreamPlayer
+	if player and player.stream:
+		player.play()
+
+
+func _setup_keyart_bg() -> void:
+	var art_path := "res://assets/art/chadrine_keyart.png"
+	if not ResourceLoader.exists(art_path):
+		return
+	var tex := load(art_path) as Texture2D
+	if tex == null:
+		return
+	var tr := TextureRect.new()
+	tr.name = "KeyartBg"
+	tr.texture = tex
+	tr.set_anchors_preset(Control.PRESET_FULL_RECT)
+	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tr.modulate = Color(1, 1, 1, 0.85)
+	tr.z_index = -2
+	add_child(tr)
+	move_child(tr, 0)
+	if atmosphere:
+		atmosphere.modulate = Color(1, 1, 1, 0.5)
+		atmosphere.z_index = -1
 
 
 func _is_mobile_layout() -> bool:
@@ -85,10 +168,10 @@ func _is_mobile_layout() -> bool:
 
 
 func _style_ui() -> void:
-	var title_size := 44 if _mobile else 52
+	var title_size := 36 if _mobile else 42
 	GameTheme.style_title(title_label, title_size)
 	GameTheme.style_muted(subtitle, 15 if _mobile else 17)
-	subtitle.text = "HANGAR · elige tripulación y lanza la misión"
+	subtitle.text = "Elige tripulación · lanza la misión"
 	GameTheme.style_primary(join_button)
 	GameTheme.style_primary(solo_start_button)
 	join_button.text = "ENTRAR AL COMBATE"
@@ -130,12 +213,12 @@ func _style_hangar_panels() -> void:
 	if stage:
 		stage.add_theme_stylebox_override(
 			"panel",
-			GameTheme.panel_style(Color(0.04, 0.07, 0.09, 0.72), GameTheme.C_CYAN, 14, 2)
+			GameTheme.panel_style(Color(0.04, 0.07, 0.09, 0.48), GameTheme.C_CYAN, 14, 2)
 		)
 	if form:
 		form.add_theme_stylebox_override(
 			"panel",
-			GameTheme.panel_style(Color(0.05, 0.08, 0.1, 0.88), GameTheme.C_AMBER.darkened(0.25), 14, 2)
+			GameTheme.panel_style(Color(0.05, 0.08, 0.1, 0.62), GameTheme.C_AMBER.darkened(0.25), 14, 2)
 		)
 
 
@@ -229,13 +312,15 @@ func _set_mode(mode: String) -> void:
 		online_mode_button.remove_theme_stylebox_override("normal")
 		online_mode_button.remove_theme_stylebox_override("hover")
 		online_mode_button.remove_theme_stylebox_override("pressed")
-		subtitle.text = "CAMPAÑA · bots · desbloqueos reales"
+		subtitle.text = "CAMPAÑA · elige teatro · lanza con bots"
 		var lv := ProgressionManager.level_name()
 		status_label.text = "%s · %d victorias" % [lv, ProgressionManager.wins_total]
-		solo_hint.text = "Arriba: personaje y mapa · abajo: LANZAR MISIÓN\n%s" % lv
-		_pick_map_idx = NetworkManager.MAP_IDS.find(ProgressionManager.force_campaign_map())
-		if _pick_map_idx < 0:
-			_pick_map_idx = 0
+		solo_hint.text = "TEATRO libre arriba · abajo: LANZAR MISIÓN\n%s" % lv
+		# Solo sugerir mapa del nivel si aún no eligió
+		if _pick_map_idx < 0 or _pick_map_idx >= NetworkManager.MAP_IDS.size():
+			_pick_map_idx = NetworkManager.MAP_IDS.find(ProgressionManager.force_campaign_map())
+			if _pick_map_idx < 0:
+				_pick_map_idx = 0
 	_rebuild_dynamic_pickers()
 	_update_pick_status()
 
@@ -265,9 +350,9 @@ func _fill_dynamic_stage(stage_wrap: Control) -> void:
 	var sv := stage_wrap.get_node_or_null("VBox/StageView/SubViewport") as SubViewport
 	if view and sv:
 		view.visible = true
-		view.custom_minimum_size = Vector2(0, 200 if _mobile else 240)
+		view.custom_minimum_size = Vector2(0, 280 if _mobile else 340)
 		sv.render_target_update_mode = SubViewport.UPDATE_WHEN_VISIBLE
-		sv.size = Vector2i(480, 280)
+		sv.size = Vector2i(640, 400)
 		sv.transparent_bg = false
 
 	var vbox := stage_wrap.get_node_or_null("VBox") as VBoxContainer
@@ -278,9 +363,12 @@ func _fill_dynamic_stage(stage_wrap: Control) -> void:
 		if str(c.name).begins_with("Dyn"):
 			c.queue_free()
 
-	_pick_map_idx = NetworkManager.MAP_IDS.find(ProgressionManager.force_campaign_map())
-	if _pick_map_idx < 0:
-		_pick_map_idx = 0
+	# Preferir mapa ya elegido / seleccionado en red; si no, el del nivel de campaña
+	var prefer := NetworkManager.selected_map
+	var idx := NetworkManager.MAP_IDS.find(prefer)
+	if idx < 0:
+		idx = NetworkManager.MAP_IDS.find(ProgressionManager.force_campaign_map())
+	_pick_map_idx = idx if idx >= 0 else 0
 
 	_dyn_status = Label.new()
 	_dyn_status.name = "DynStatus"
@@ -400,6 +488,39 @@ func _add_hscroll(vbox: VBoxContainer, row_name: String) -> HBoxContainer:
 	return row
 
 
+func _menu_explorer_indices() -> Array:
+	## Roster 3D primero; cápsulas viejas al final (como la landing).
+	var with_mesh: Array = []
+	var legacy: Array = []
+	for idx in CharacterCatalog.explorer_indices():
+		var i := int(idx)
+		var mesh := str(CharacterCatalog.get_entry(i).get("mesh", ""))
+		if not mesh.is_empty() and ResourceLoader.exists(mesh):
+			with_mesh.append(i)
+		else:
+			legacy.append(i)
+	var out: Array = []
+	out.append_array(with_mesh)
+	out.append_array(legacy)
+	return out
+
+
+func _menu_beast_indices() -> Array:
+	var with_mesh: Array = []
+	var legacy: Array = []
+	for idx in CharacterCatalog.beast_indices():
+		var i := int(idx)
+		var mesh := str(CharacterCatalog.get_entry(i).get("mesh", ""))
+		if not mesh.is_empty() and ResourceLoader.exists(mesh):
+			with_mesh.append(i)
+		else:
+			legacy.append(i)
+	var out: Array = []
+	out.append_array(with_mesh)
+	out.append_array(legacy)
+	return out
+
+
 func _rebuild_dynamic_pickers() -> void:
 	if _dyn_robots == null or _dyn_beasts == null or _dyn_maps == null:
 		return
@@ -411,7 +532,7 @@ func _rebuild_dynamic_pickers() -> void:
 		c.queue_free()
 	_chip_nodes.clear()
 
-	for idx in CharacterCatalog.explorer_indices():
+	for idx in _menu_explorer_indices():
 		var i := int(idx)
 		var locked := not CharacterCatalog.is_unlocked(i)
 		var selected := i == _pick_skin and _pick_role == "explorer"
@@ -422,7 +543,7 @@ func _rebuild_dynamic_pickers() -> void:
 		_dyn_robots.add_child(card)
 		_chip_nodes.append(card)
 
-	for idx in CharacterCatalog.beast_indices():
+	for idx in _menu_beast_indices():
 		var i := int(idx)
 		var locked := not CharacterCatalog.is_unlocked(i)
 		var selected := _pick_role == "beast" and i == _pick_skin
@@ -435,9 +556,12 @@ func _rebuild_dynamic_pickers() -> void:
 
 	for mi in NetworkManager.MAP_IDS.size():
 		var mid: String = NetworkManager.MAP_IDS[mi]
-		var locked := not ProgressionManager.is_map_unlocked(mid)
+		var locked := false
 		if _mode == "solo":
-			locked = mid != ProgressionManager.force_campaign_map()
+			# Campaña solitaria: todos los teatros para probar
+			locked = false
+		else:
+			locked = not ProgressionManager.is_map_unlocked(mid)
 		var selected := mi == _pick_map_idx
 		var card := VisualPicker.make_map_card(mid, selected, locked)
 		card.custom_minimum_size = Vector2(118, 130)
@@ -495,14 +619,7 @@ func _on_pick_map(map_idx: int) -> void:
 	if map_idx < 0 or map_idx >= NetworkManager.MAP_IDS.size():
 		return
 	var mid: String = NetworkManager.MAP_IDS[map_idx]
-	if _mode == "solo":
-		_pick_map_idx = NetworkManager.MAP_IDS.find(ProgressionManager.force_campaign_map())
-		if _pick_map_idx < 0:
-			_pick_map_idx = 0
-		_rebuild_dynamic_pickers()
-		_update_pick_status()
-		return
-	if not ProgressionManager.is_map_unlocked(mid):
+	if _mode != "solo" and not ProgressionManager.is_map_unlocked(mid):
 		return
 	_pick_map_idx = map_idx
 	NetworkManager.selected_map = mid
@@ -528,10 +645,10 @@ func _apply_menu_picks_to_network() -> void:
 		NetworkManager.players[1]["skin"] = _pick_skin
 		NetworkManager.players[1]["ready"] = true
 	GameManager.beast_variant = _pick_beast_variant
-	if _mode == "solo":
-		NetworkManager.selected_map = ProgressionManager.force_campaign_map()
-	elif _pick_map_idx >= 0 and _pick_map_idx < NetworkManager.MAP_IDS.size():
+	if _pick_map_idx >= 0 and _pick_map_idx < NetworkManager.MAP_IDS.size():
 		NetworkManager.selected_map = NetworkManager.MAP_IDS[_pick_map_idx]
+	elif _mode == "solo":
+		NetworkManager.selected_map = ProgressionManager.force_campaign_map()
 
 
 func _start_ui_motion() -> void:
@@ -562,7 +679,7 @@ func _process(delta: float) -> void:
 			n.rotate_y(delta * (0.55 if i == 0 else -0.4))
 	for i in _chip_nodes.size():
 		var c := _chip_nodes[i]
-		if not is_instance_valid(c):
+		if not is_instance_valid(c) or c.is_queued_for_deletion():
 			continue
 		var selected: bool = bool(c.get_meta("picked", false))
 		var base := 0.9 + 0.1 * sin(_anim_t * 2.2 + i * 0.35)
@@ -653,6 +770,8 @@ func _on_solo_start_pressed() -> void:
 	SettingsManager.save_settings()
 	status_label.text = "Iniciando nivel…"
 	solo_start_button.disabled = true
+	# Aplicar picks (mapa incluido) ANTES de crear la sesión solo
+	_apply_menu_picks_to_network()
 	if not NetworkManager.match_start_requested.is_connected(_on_solo_match_start):
 		NetworkManager.match_start_requested.connect(_on_solo_match_start, CONNECT_ONE_SHOT)
 	var err: Error = NetworkManager.start_solo_practice(player_name)
@@ -660,6 +779,7 @@ func _on_solo_start_pressed() -> void:
 		solo_start_button.disabled = false
 		status_label.text = "No se pudo iniciar práctica"
 		return
+	# Reaplicar por si disconnect_from_game limpió algo del peer 1
 	_apply_menu_picks_to_network()
 	NetworkManager.request_start_match()
 

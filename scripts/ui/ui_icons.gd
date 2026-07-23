@@ -76,6 +76,20 @@ static func catalog_tex(index: int) -> Texture2D:
 			out = tex(ROBOT_SKINS[2])
 		"crew_yellow":
 			out = tex(ROBOT_SKINS[3])
+		"blocky_a":
+			out = tex("res://assets/characters/roster/Textures/texture-a.png")
+		"blocky_b":
+			out = tex("res://assets/characters/roster/Textures/texture-b.png")
+		"blocky_c":
+			out = tex("res://assets/characters/roster/Textures/texture-c.png")
+		"blocky_d":
+			out = tex("res://assets/characters/roster/Textures/texture-d.png")
+		"blocky_e":
+			out = tex("res://assets/characters/roster/Textures/texture-e.png")
+		"blocky_f":
+			out = tex("res://assets/characters/roster/Textures/texture-f.png")
+		"forest_archer":
+			out = tex("res://assets/characters/roster/Textures/colormap.png")
 		"beast_classic":
 			out = beast_tex(int(GameManager.BeastVariant.CLASSIC))
 		"beast_mecha":

@@ -27,7 +27,10 @@ var selected_level := 0  # nivel que se jugará ahora
 var wins_total := 0
 var matches_played := 0
 var campaign_complete := false
-var unlocked_maps: Array = ["lab_neon"]
+var unlocked_maps: Array = [
+	"lab_neon", "containers", "ruins", "reactor_pit",
+	"skybridge", "castle", "cave", "forest",
+]
 var unlocked_loadouts: Array = [0, 1]
 var unlocked_beasts: Array = [0, 1]
 var last_unlock_message := ""
@@ -78,14 +81,24 @@ func _defaults() -> void:
 	matches_played = 0
 	campaign_complete = false
 	best_score = 0
-	unlocked_maps = ["lab_neon"]
+	unlocked_maps = [
+		"lab_neon", "containers", "ruins", "reactor_pit",
+		"skybridge", "castle", "cave", "forest",
+	]
 	unlocked_loadouts = [0, 1]
 	unlocked_beasts = [0, 1]
 
 
 func _normalize() -> void:
 	if unlocked_maps.is_empty():
-		unlocked_maps = ["lab_neon"]
+		unlocked_maps = [
+			"lab_neon", "containers", "ruins", "reactor_pit",
+			"skybridge", "castle", "cave", "forest",
+		]
+	# Asegurar teatros del build (saves viejos solo tenían lab_neon)
+	for mid in NetworkManager.MAP_IDS:
+		if mid not in unlocked_maps:
+			unlocked_maps.append(mid)
 	if unlocked_loadouts.is_empty():
 		unlocked_loadouts = [0]
 	campaign_index = clampi(campaign_index, 0, CAMPAIGN.size() - 1)
@@ -118,6 +131,9 @@ func select_level(idx: int) -> bool:
 
 
 func is_map_unlocked(map_id: String) -> bool:
+	## Práctica / campaña solitaria: todos los teatros disponibles para probar.
+	if NetworkManager.is_solo_practice:
+		return map_id in NetworkManager.MAP_IDS
 	return map_id in unlocked_maps
 
 

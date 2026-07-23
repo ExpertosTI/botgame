@@ -188,13 +188,16 @@ static func make_map_card(map_id: String, selected: bool, locked: bool = false) 
 		_:
 			accent = Color(0.2, 0.7, 0.85)
 			sub = "Arena abierta"
-	var emoji: String = str(UiIcons.MAP_EMOJI.get(map_id, "🗺️"))
+	var emoji: String = ""
+	var map_icon := UiIcons.map_tex(map_id)
+	if map_icon == null:
+		emoji = str(UiIcons.MAP_EMOJI.get(map_id, ""))
 	return make_card(
 		NetworkManager.MAP_NAMES.get(map_id, map_id),
 		sub,
 		accent,
 		selected,
-		UiIcons.map_tex(map_id),
+		map_icon,
 		emoji,
 		Vector2(128, 132),
 		70.0,

@@ -122,6 +122,27 @@ for id in "${ROSTER_IDS[@]}"; do
 done
 echo "[landing-media] roster GLB: $roster_ok / ${#ROSTER_IDS[@]}"
 
+# —— Texturas externas de Blocky / forest (GLB no embebidos) ——
+TEX_OUT="$OUT/roster/Textures"
+mkdir -p "$TEX_OUT"
+tex_ok=0
+for tex in texture-a texture-b texture-c texture-d texture-e texture-f colormap; do
+  dest="$TEX_OUT/${tex}.png"
+  for src in \
+    "$ROOT/assets/characters/roster/Textures/${tex}.png" \
+    "$ROOT/assets/kenney/blocky-characters_20/Models/GLB format/Textures/${tex}.png" \
+    "$ROOT/assets/kenney/mini-forest_1.0/Models/GLB format/Textures/${tex}.png" \
+    "$PARK/assets/characters/roster/Textures/${tex}.png"
+  do
+    if [ -f "$src" ] && [ -s "$src" ]; then
+      cp -f "$src" "$dest"
+      tex_ok=$((tex_ok + 1))
+      break
+    fi
+  done
+done
+echo "[landing-media] roster Textures: $tex_ok"
+
 # —— Mapas UI ——
 for map in map_neon map_containers map_ruins; do
   rel="assets/ui/${map}.jpg"

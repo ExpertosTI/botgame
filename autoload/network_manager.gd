@@ -96,6 +96,8 @@ func host_listen_server(player_name: String = "Anfitrión", port: int = -1) -> E
 
 func start_solo_practice(player_name: String = "Practicante") -> Error:
 	## Campaña / práctica offline: OfflineMultiplayerPeer + bots.
+	## Respeta el mapa ya elegido en el hangar (no lo pisa con el del nivel).
+	var keep_map := selected_map
 	disconnect_from_game()
 	is_dedicated_server = false
 	is_solo_practice = true
@@ -104,7 +106,10 @@ func start_solo_practice(player_name: String = "Practicante") -> Error:
 	peer = offline
 	multiplayer.multiplayer_peer = offline
 	ProgressionManager.campaign_mode = true
-	selected_map = ProgressionManager.force_campaign_map()
+	if keep_map in MAP_IDS:
+		selected_map = keep_map
+	else:
+		selected_map = ProgressionManager.force_campaign_map()
 	_add_player(1, player_name)
 	players[1]["role"] = "explorer"
 	players[1]["ready"] = true
@@ -140,7 +145,7 @@ func prepare_solo_bots() -> void:
 		_add_player(bid, "Bot Robot")
 		players[bid]["role"] = "explorer"
 		players[bid]["ready"] = true
-		players[bid]["skin"] = 1
+		players[bid]["skin"] = CharacterCatalog.default_explorer_skin()
 		players[bid]["loadout"] = 0
 	else:
 		# Tú eres robot → 1 bestia bot
@@ -213,7 +218,7 @@ func _add_player(id: int, player_name: String) -> void:
 		"name": player_name,
 		"role": "",
 		"ready": false,
-		"skin": 0,
+		"skin": CharacterCatalog.default_explorer_skin(),
 		"loadout": 0,
 	}
 	player_connected.emit(id, players[id])
@@ -230,7 +235,7 @@ func _normalize_players(raw: Dictionary) -> Dictionary:
 			continue
 		var d: Dictionary = (info as Dictionary).duplicate(true)
 		d["ready"] = bool(d.get("ready", false))
-		d["skin"] = int(d.get("skin", 0))
+		d["skin"] = int(d.get("skin", CharacterCatalog.default_explorer_skin()))
 		d["loadout"] = int(d.get("loadout", 0))
 		d["role"] = str(d.get("role", ""))
 		d["name"] = str(d.get("name", "?"))
@@ -590,7 +595,9 @@ func request_start_match() -> void:
 		var match_time := -1.0
 		var beast_hp := 1.0
 		ProgressionManager.campaign_mode = true
-		selected_map = ProgressionManager.force_campaign_map()
+		# Solitario: mapa elegido por el jugador; no forzar el del nivel
+		if selected_map not in MAP_IDS:
+			selected_map = ProgressionManager.force_campaign_map()
 		var lv := ProgressionManager.current_level()
 		cores = int(lv.get("cores", 5))
 		match_time = float(lv.get("time", 240))
@@ -614,7 +621,11 @@ func request_start_match() -> void:
 	var beast_hp := 1.0
 	if ProgressionManager.campaign_mode:
 		ProgressionManager.campaign_mode = true
-		selected_map = ProgressionManager.force_campaign_map()
+		# Online campaña: mapa del nivel. Solitario: el que eligió el jugador.
+		if not is_solo_practice:
+			selected_map = ProgressionManager.force_campaign_map()
+		elif selected_map not in MAP_IDS:
+			selected_map = ProgressionManager.force_campaign_map()
 		var lv := ProgressionManager.current_level()
 		cores = int(lv.get("cores", 5))
 		match_time = float(lv.get("time", 240))
