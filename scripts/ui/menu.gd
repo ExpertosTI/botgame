@@ -31,6 +31,14 @@ var _anim_t := 0.0
 var _mobile := false
 var _mode := "online"
 var _join_timeout: SceneTreeTimer = null
+var _pick_skin := 0
+var _pick_role := "explorer"
+var _pick_beast_variant := GameManager.BeastVariant.MECHA
+var _pick_map_idx := 0
+var _dyn_robots: HBoxContainer
+var _dyn_beasts: HBoxContainer
+var _dyn_maps: HBoxContainer
+var _dyn_status: Label
 
 
 func _ready() -> void:
@@ -167,7 +175,12 @@ func _set_mode(mode: String) -> void:
 		subtitle.text = "Campaña solitaria · bots · desbloqueos reales"
 		var lv := ProgressionManager.level_name()
 		status_label.text = "%s · victorias %d" % [lv, ProgressionManager.wins_total]
-		solo_hint.text = "EMPEZAR PRÁCTICA abre el nivel al instante (robot vs bestia bot).\n%s · núcleos y tiempo del nivel." % lv
+		solo_hint.text = "Elige personaje/mapa arriba · EMPEZAR PRÁCTICA entra al nivel.\n%s" % lv
+		_pick_map_idx = NetworkManager.MAP_IDS.find(ProgressionManager.force_campaign_map())
+		if _pick_map_idx < 0:
+			_pick_map_idx = 0
+	_rebuild_dynamic_pickers()
+	_update_pick_status()
 
 
 func _setup_atmosphere() -> void:
@@ -178,33 +191,16 @@ func _setup_atmosphere() -> void:
 
 func _spawn_showcase() -> void:
 	var stage_wrap := get_node_or_null("Main/Col/StageWrap") as Control
-	if OS.has_feature("web") or OS.get_name() == "Web" or stage_root == null:
-		if stage_wrap:
-			_fill_web_stage(stage_wrap)
+	if stage_wrap == null:
 		return
-
-	var robot: Node3D = CREW_SCRIPT.new()
-	robot.is_beast = false
-	robot.position = Vector3(-1.15, 0, 0)
-	stage_root.add_child(robot)
-	robot.apply_colors(Color(0.15, 0.75, 0.85), Color(0.7, 0.95, 1.0), Color(0.1, 0.35, 0.4))
-	robot.set_player_name("ROBOT")
-
-	var beast: Node3D = CREW_SCRIPT.new()
-	beast.is_beast = true
-	beast.body_scale = 1.05
-	beast.position = Vector3(1.25, 0, 0.2)
-	stage_root.add_child(beast)
-	beast.apply_colors(Color(0.55, 0.08, 0.12), Color(1.0, 0.35, 0.2), Color(0.9, 0.55, 0.1))
-	beast.set_player_name("BESTIA")
-	_spin_nodes = [robot, beast]
+	# Menú web y desktop: selección dinámica (sin chips estáticos viejos)
+	_fill_dynamic_stage(stage_wrap)
 
 
-func _fill_web_stage(stage_wrap: Control) -> void:
+func _fill_dynamic_stage(stage_wrap: Control) -> void:
 	var cap := stage_wrap.get_node_or_null("VBox/StageCaption") as Label
 	if cap:
-		cap.visible = not _mobile
-		cap.text = "CHADRINE"
+		cap.visible = false
 	var view := stage_wrap.get_node_or_null("VBox/StageView") as Control
 	if view:
 		view.visible = false
@@ -212,7 +208,16 @@ func _fill_web_stage(stage_wrap: Control) -> void:
 	if vbox == null:
 		return
 
+	for c in vbox.get_children():
+		if str(c.name).begins_with("Dyn"):
+			c.queue_free()
+
+	_pick_map_idx = NetworkManager.MAP_IDS.find(ProgressionManager.force_campaign_map())
+	if _pick_map_idx < 0:
+		_pick_map_idx = 0
+
 	_hero = TextureRect.new()
+	_hero.name = "DynHero"
 	var keyart := "res://assets/art/chadrine_keyart.png"
 	if ResourceLoader.exists(keyart):
 		_hero.texture = load(keyart) as Texture2D
@@ -220,121 +225,190 @@ func _fill_web_stage(stage_wrap: Control) -> void:
 		_hero.texture = UiIcons.tex(UiIcons.MENU_HERO)
 	_hero.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_hero.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	_hero.custom_minimum_size = Vector2(0, 260 if _mobile else 240)
+	_hero.custom_minimum_size = Vector2(0, 160 if _mobile else 180)
 	_hero.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_hero.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hero.clip_contents = true
 	vbox.add_child(_hero)
 
-	_hero.pivot_offset = Vector2(180, 120)
-	var ken := create_tween().set_loops()
-	ken.tween_property(_hero, "scale", Vector2(1.05, 1.05), 3.2).set_trans(Tween.TRANS_SINE)
-	ken.tween_property(_hero, "scale", Vector2.ONE, 3.2).set_trans(Tween.TRANS_SINE)
+	_dyn_status = Label.new()
+	_dyn_status.name = "DynStatus"
+	_dyn_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_dyn_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	GameTheme.style_muted(_dyn_status, 14)
+	vbox.add_child(_dyn_status)
 
-	var grid := GridContainer.new() if _mobile else null
-	var row: Container
-	if _mobile:
-		grid.columns = 2
-		grid.add_theme_constant_override("h_separation", 10)
-		grid.add_theme_constant_override("v_separation", 10)
-		grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		vbox.add_child(grid)
-		row = grid
-	else:
-		var h := HBoxContainer.new()
-		h.alignment = BoxContainer.ALIGNMENT_CENTER
-		h.add_theme_constant_override("separation", 8)
-		h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		vbox.add_child(h)
-		row = h
+	vbox.add_child(_section_label("DynLblRobots", "Robots · toca para elegir"))
+	_dyn_robots = _add_hscroll(vbox, "DynRobots")
+	vbox.add_child(_section_label("DynLblBeasts", "Bestias · toca para jugar como Bestia"))
+	_dyn_beasts = _add_hscroll(vbox, "DynBeasts")
+	vbox.add_child(_section_label("DynLblMaps", "Mapas"))
+	_dyn_maps = _add_hscroll(vbox, "DynMaps")
 
-	for item in [
-		[UiIcons.skin_tex(0), "Robot", GameTheme.C_CYAN],
-		[UiIcons.beast_tex(GameManager.BeastVariant.CLASSIC), "Bestia", GameTheme.C_CRIMSON],
-		[UiIcons.loadout_tex(0), "Arsenal", Color(1.0, 0.75, 0.2)],
-		[UiIcons.map_tex("lab_neon"), "Mapas", Color(0.45, 0.7, 1.0)],
-	]:
-		var chip := _make_chip(item[0], item[1], item[2])
-		row.add_child(chip)
-		_chip_nodes.append(chip)
+	_rebuild_dynamic_pickers()
+	_update_pick_status()
 
-	# Fila de personajes del catálogo (contenido real del build)
-	var roster_lbl := Label.new()
-	roster_lbl.text = "Tripulación desbloqueable"
-	roster_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	GameTheme.style_muted(roster_lbl, 13)
-	vbox.add_child(roster_lbl)
-	var roster_row := HBoxContainer.new()
-	roster_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	roster_row.add_theme_constant_override("separation", 6)
-	roster_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	vbox.add_child(roster_row)
-	var shown := 0
+
+func _section_label(node_name: String, text: String) -> Label:
+	var lb := Label.new()
+	lb.name = node_name
+	lb.text = text
+	lb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	GameTheme.style_muted(lb, 13)
+	return lb
+
+
+func _add_hscroll(vbox: VBoxContainer, row_name: String) -> HBoxContainer:
+	var scroll := ScrollContainer.new()
+	scroll.name = row_name + "Scroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_ALWAYS
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.custom_minimum_size = Vector2(0, 150 if _mobile else 142)
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_child(scroll)
+	var row := HBoxContainer.new()
+	row.name = row_name
+	row.add_theme_constant_override("separation", 8)
+	scroll.add_child(row)
+	return row
+
+
+func _rebuild_dynamic_pickers() -> void:
+	if _dyn_robots == null or _dyn_beasts == null or _dyn_maps == null:
+		return
+	for c in _dyn_robots.get_children():
+		c.queue_free()
+	for c in _dyn_beasts.get_children():
+		c.queue_free()
+	for c in _dyn_maps.get_children():
+		c.queue_free()
+	_chip_nodes.clear()
+
 	for idx in CharacterCatalog.explorer_indices():
-		if shown >= 6:
-			break
-		var e: Dictionary = CharacterCatalog.get_entry(int(idx))
-		if e.is_empty():
-			continue
-		var unlocked := CharacterCatalog.is_unlocked(int(idx))
-		var accent: Color = e.get("tint", GameTheme.C_CYAN)
-		var title: String = str(e.get("name", "?"))
-		if not unlocked:
-			title = "🔒"
+		var i := int(idx)
+		var locked := not CharacterCatalog.is_unlocked(i)
+		var card := VisualPicker.make_skin_card(i, i == _pick_skin and _pick_role == "explorer", locked)
+		card.custom_minimum_size = Vector2(92, 130)
+		_wire_menu_card(card, func(): _on_pick_robot(i))
+		_dyn_robots.add_child(card)
+		_chip_nodes.append(card)
+
+	for idx in CharacterCatalog.beast_indices():
+		var i := int(idx)
+		var locked := not CharacterCatalog.is_unlocked(i)
+		var e: Dictionary = CharacterCatalog.get_entry(i)
+		var accent: Color = e.get("tint", GameTheme.C_CRIMSON)
+		var title: String = str(e.get("name", "Bestia"))
 		var card := VisualPicker.make_card(
 			title,
-			"Robot" if unlocked else "Wins",
+			"BESTIA",
 			accent,
-			false,
-			null,
-			"🤖" if unlocked else "🔒",
-			Vector2(72, 88),
-			40.0,
-			not unlocked
+			_pick_role == "beast" and i == _pick_skin,
+			UiIcons.beast_tex(_beast_variant_for_entry(e)),
+			"👹",
+			Vector2(100, 130),
+			72.0,
+			locked
 		)
-		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		roster_row.add_child(card)
-		shown += 1
+		_wire_menu_card(card, func(): _on_pick_beast_entry(i))
+		_dyn_beasts.add_child(card)
+		_chip_nodes.append(card)
 
-	var tip := Label.new()
-	tip.text = "Online · o Campaña solitaria vs bots"
-	tip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	tip.add_theme_font_size_override("font_size", 16 if _mobile else 15)
-	tip.add_theme_color_override("font_color", GameTheme.C_MUTED)
-	vbox.add_child(tip)
+	for mi in NetworkManager.MAP_IDS.size():
+		var mid: String = NetworkManager.MAP_IDS[mi]
+		var locked := not ProgressionManager.is_map_unlocked(mid)
+		if _mode == "solo":
+			locked = mid != ProgressionManager.force_campaign_map()
+		var card := VisualPicker.make_map_card(mid, mi == _pick_map_idx, locked)
+		card.custom_minimum_size = Vector2(118, 130)
+		_wire_menu_card(card, func(): _on_pick_map(mi))
+		_dyn_maps.add_child(card)
+		_chip_nodes.append(card)
 
 
-func _make_chip(tex: Texture2D, label: String, accent: Color) -> PanelContainer:
-	var chip := PanelContainer.new()
-	if _mobile:
-		chip.custom_minimum_size = Vector2(0, 128)
-		chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	else:
-		chip.custom_minimum_size = Vector2(90, 100)
-		chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	chip.add_theme_stylebox_override(
-		"panel",
-		GameTheme.panel_style(Color(0.05, 0.08, 0.1, 0.95), accent.darkened(0.15), 12, 2)
+func _beast_variant_for_entry(e: Dictionary) -> int:
+	match str(e.get("id", "")):
+		"beast_mecha":
+			return GameManager.BeastVariant.MECHA
+		"beast_shadow":
+			return GameManager.BeastVariant.SHADOW
+		_:
+			return GameManager.BeastVariant.CLASSIC
+
+
+func _wire_menu_card(card: PanelContainer, cb: Callable) -> void:
+	card.gui_input.connect(func(ev: InputEvent):
+		if card.get_meta("locked", false):
+			return
+		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+			AudioDirector.play_ui("click")
+			cb.call()
+		elif ev is InputEventScreenTouch and ev.pressed:
+			AudioDirector.play_ui("click")
+			cb.call()
 	)
-	var col := VBoxContainer.new()
-	col.alignment = BoxContainer.ALIGNMENT_CENTER
-	col.add_theme_constant_override("separation", 6)
-	chip.add_child(col)
-	var tr := TextureRect.new()
-	tr.texture = tex
-	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	tr.custom_minimum_size = Vector2(72 if _mobile else 56, 64 if _mobile else 48)
-	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(tr)
-	var lb := Label.new()
-	lb.text = label
-	lb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lb.add_theme_font_size_override("font_size", 16 if _mobile else 12)
-	lb.add_theme_color_override("font_color", GameTheme.C_TEXT)
-	col.add_child(lb)
-	return chip
+
+
+func _on_pick_robot(skin: int) -> void:
+	if not CharacterCatalog.is_unlocked(skin):
+		return
+	_pick_role = "explorer"
+	_pick_skin = skin
+	_rebuild_dynamic_pickers()
+	_update_pick_status()
+
+
+func _on_pick_beast_entry(catalog_i: int) -> void:
+	if not CharacterCatalog.is_unlocked(catalog_i):
+		return
+	_pick_role = "beast"
+	_pick_skin = catalog_i
+	_pick_beast_variant = _beast_variant_for_entry(CharacterCatalog.get_entry(catalog_i)) as GameManager.BeastVariant
+	_rebuild_dynamic_pickers()
+	_update_pick_status()
+
+
+func _on_pick_map(map_idx: int) -> void:
+	if map_idx < 0 or map_idx >= NetworkManager.MAP_IDS.size():
+		return
+	var mid: String = NetworkManager.MAP_IDS[map_idx]
+	if _mode == "solo":
+		_pick_map_idx = NetworkManager.MAP_IDS.find(ProgressionManager.force_campaign_map())
+		if _pick_map_idx < 0:
+			_pick_map_idx = 0
+		_rebuild_dynamic_pickers()
+		_update_pick_status()
+		return
+	if not ProgressionManager.is_map_unlocked(mid):
+		return
+	_pick_map_idx = map_idx
+	NetworkManager.selected_map = mid
+	_rebuild_dynamic_pickers()
+	_update_pick_status()
+
+
+func _update_pick_status() -> void:
+	if _dyn_status == null:
+		return
+	var who := CharacterCatalog.display_name(_pick_skin)
+	var map_id: String = NetworkManager.MAP_IDS[_pick_map_idx] if _pick_map_idx < NetworkManager.MAP_IDS.size() else "lab_neon"
+	var map_name: String = str(NetworkManager.MAP_NAMES.get(map_id, map_id))
+	if _pick_role == "beast":
+		_dyn_status.text = "Listo: Bestia «%s» · %s" % [who, map_name]
+	else:
+		_dyn_status.text = "Listo: Robot «%s» · %s" % [who, map_name]
+
+
+func _apply_menu_picks_to_network() -> void:
+	if NetworkManager.players.has(1):
+		NetworkManager.players[1]["role"] = _pick_role
+		NetworkManager.players[1]["skin"] = _pick_skin
+		NetworkManager.players[1]["ready"] = true
+	GameManager.beast_variant = _pick_beast_variant
+	if _mode == "solo":
+		NetworkManager.selected_map = ProgressionManager.force_campaign_map()
+	elif _pick_map_idx >= 0 and _pick_map_idx < NetworkManager.MAP_IDS.size():
+		NetworkManager.selected_map = NetworkManager.MAP_IDS[_pick_map_idx]
 
 
 func _start_ui_motion() -> void:
@@ -442,6 +516,7 @@ func _on_solo_start_pressed() -> void:
 		solo_start_button.disabled = false
 		status_label.text = "No se pudo iniciar práctica"
 		return
+	_apply_menu_picks_to_network()
 	NetworkManager.request_start_match()
 
 

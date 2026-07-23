@@ -502,7 +502,7 @@ func set_player_skin(peer_id: int, skin: int) -> void:
 	peer_id = int(peer_id)
 	if not players.has(peer_id):
 		return
-	players[peer_id]["skin"] = clampi(skin, 0, 3)
+	players[peer_id]["skin"] = clampi(skin, 0, maxi(0, CharacterCatalog.count() - 1))
 	_broadcast_lobby()
 
 
