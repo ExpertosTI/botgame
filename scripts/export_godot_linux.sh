@@ -130,12 +130,20 @@ run_export() {
     rm -f export/server/BestiaVsRobots.x86_64
   fi
 
-  log "Importando proyecto (.godot)..."
+  set_status() {
+    printf '%s\n%s\n' "$1" "$(date -Is)" > /tmp/botgame-export-status.txt
+  }
+
+  set_status "IMPORT"
+  log "Importando proyecto (.godot)...  [monitor: ./scripts/deploy_progress.sh]"
   "$GODOT_BIN" --headless --path "$ROOT" --import >/tmp/botgame-godot-import.log 2>&1 || true
+
+  set_status "EDITOR_COMPILE"
   # Segunda pasada: asegura que los scripts compilan
   "$GODOT_BIN" --headless --path "$ROOT" --editor --quit-after 3 >/tmp/botgame-godot-editor.log 2>&1 || true
 
   if grep -qiE 'SCRIPT ERROR|Parse Error|Compile Error' /tmp/botgame-godot-editor.log /tmp/botgame-godot-import.log 2>/dev/null; then
+    set_status "ERROR_SCRIPTS"
     log "ERROR: scripts rotos — abortando export:"
     grep -iE 'SCRIPT ERROR|Parse Error|Compile Error' /tmp/botgame-godot-editor.log /tmp/botgame-godot-import.log 2>/dev/null | head -40 || true
     die "Corrige los Parse/Script Error antes de desplegar"
@@ -143,9 +151,11 @@ run_export() {
 
   # Godot 4.3: for_mobile=true + sin import_etc2_astc → error vacío en Web.
   # Ver export_presets (for_mobile=false) y project.godot (import_etc2_astc).
+  set_status "EXPORT_WEB"
   log "Export Web → export/web/index.html (renderer=gl_compatibility, etc2 ok)"
   if ! "$GODOT_BIN" --headless --path "$ROOT" --export-release "Web" "$ROOT/export/web/index.html" \
       >/tmp/botgame-export-web.log 2>&1; then
+    set_status "ERROR_WEB"
     echo "----- /tmp/botgame-export-web.log -----" >&2
     cat /tmp/botgame-export-web.log >&2
     echo "----- project rendering -----" >&2
@@ -157,9 +167,11 @@ run_export() {
     die "Export Web falló"
   fi
 
+  set_status "EXPORT_LINUX"
   log "Export Linux → export/server/BestiaVsRobots.x86_64"
   if ! "$GODOT_BIN" --headless --path "$ROOT" --export-release "Linux" "$ROOT/export/server/BestiaVsRobots.x86_64" \
       >/tmp/botgame-export-linux.log 2>&1; then
+    set_status "ERROR_LINUX"
     echo "----- /tmp/botgame-export-linux.log -----" >&2
     cat /tmp/botgame-export-linux.log >&2
     die "Export Linux falló"
@@ -169,6 +181,7 @@ run_export() {
   ls -lh export/web/ | head -20
   ls -lh export/server/ | head -10
   ls export/web/*.wasm >/dev/null 2>&1 || die "Export Web sin .wasm"
+  set_status "CACHE_BUST"
   log "Export OK"
 }
 
@@ -177,6 +190,7 @@ cache_bust() {
   sha="$(git rev-parse --short HEAD 2>/dev/null || date +%s)"
   chmod +x "$ROOT/scripts/cache_bust_web.sh" 2>/dev/null || true
   bash "$ROOT/scripts/cache_bust_web.sh" "$ROOT/export/web" "$sha"
+  printf '%s\n%s\n' "DONE" "$(date -Is)" > /tmp/botgame-export-status.txt
 }
 
 main() {
