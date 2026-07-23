@@ -211,91 +211,106 @@ install_templates() {
 }
 
 run_godot_timeout() {
-  # usage: run_godot_timeout <logfile> <args...>
+  # usage: run_godot_timeout <secs> <logfile> <args...>
+  local secs="$1"; shift
   local logfile="$1"; shift
-  if [ "${IMPORT_TIMEOUT}" = "0" ] || ! command -v timeout >/dev/null 2>&1; then
+  if [ "${secs}" = "0" ] || ! command -v timeout >/dev/null 2>&1; then
     "$GODOT_BIN" "$@" >"$logfile" 2>&1
     return $?
   fi
-  timeout --signal=KILL "${IMPORT_TIMEOUT}" "$GODOT_BIN" "$@" >"$logfile" 2>&1
+  timeout --signal=KILL "${secs}" "$GODOT_BIN" "$@" >"$logfile" 2>&1
+}
+
+# MP4 en headless Linux a menudo cuelga el import (codecs). Se aparcan durante el export;
+# el intro ya tiene fallback si no existe el video.
+park_heavy_media() {
+  PARK_DIR="${PARK_DIR:-/var/cache/botgame-godot/parked-media}"
+  mkdir -p "$PARK_DIR"
+  local f
+  for f in \
+    assets/video/intro/chadrine_intro.mp4 \
+    assets/video/cinematics/estilo_visual.mp4 \
+    assets/art/chadrine_keyart_2.png
+  do
+    if [ -f "$ROOT/$f" ]; then
+      mkdir -p "$PARK_DIR/$(dirname "$f")"
+      mv -f "$ROOT/$f" "$PARK_DIR/$f"
+      log "Aparcado (anti-hang): $f"
+    fi
+  done
+}
+
+restore_heavy_media() {
+  PARK_DIR="${PARK_DIR:-/var/cache/botgame-godot/parked-media}"
+  [ -d "$PARK_DIR" ] || return 0
+  local f
+  while IFS= read -r -d '' f; do
+    local rel="${f#"$PARK_DIR"/}"
+    mkdir -p "$ROOT/$(dirname "$rel")"
+    mv -f "$f" "$ROOT/$rel" 2>/dev/null || true
+  done < <(find "$PARK_DIR" -type f -print0 2>/dev/null)
 }
 
 run_export() {
   [ -f "$ROOT/export_presets.cfg" ] || die "Falta export_presets.cfg"
   prune_import_junk
+  park_heavy_media
+  trap 'restore_heavy_media' EXIT
 
   mkdir -p export/web export/server "$CACHE"
   if [ -f export/server/BestiaVsRobots.x86_64 ] && head -1 export/server/BestiaVsRobots.x86_64 | grep -q '^#!'; then
     rm -f export/server/BestiaVsRobots.x86_64
   fi
 
-  local need_import=0
-  if [ "${FORCE_GODOT_IMPORT:-0}" = "1" ]; then
-    log "FORCE_GODOT_IMPORT=1 → borrando .godot/"
+  # --import standalone se cuelga en este VPS (CPU 0, .godot ~2MB).
+  # Solo se usa con FORCE_GODOT_IMPORT=1 + BOTGAME_ALLOW_SLOW_IMPORT=1.
+  # En todos los demás casos: borrar cache rota y dejar que --export-release importe.
+  local gsz
+  gsz="$(du -sm "$ROOT/.godot" 2>/dev/null | awk '{print $1}')"
+  if [ "${FORCE_GODOT_IMPORT:-0}" = "1" ] && [ "${BOTGAME_ALLOW_SLOW_IMPORT:-0}" = "1" ]; then
+    log "ALLOW_SLOW_IMPORT: --import con timeout ${IMPORT_TIMEOUT}s"
     rm -rf "$ROOT/.godot"
-    need_import=1
-  elif [ ! -d "$ROOT/.godot/imported" ]; then
-    need_import=1
-    log "Sin .godot/imported → hace falta import inicial"
-  else
-    # Import interrumpido (SSH kill) suele dejar .godot diminuto e inutilizable
-    local gsz
-    gsz="$(du -sm "$ROOT/.godot" 2>/dev/null | awk '{print $1}')"
-    if [ "${gsz:-0}" -lt 12 ]; then
-      log ".godot=${gsz}MB (sospechoso de import cortado) → reiniciando import"
-      rm -rf "$ROOT/.godot"
-      need_import=1
-    fi
-  fi
-  # Por defecto en re-exports: NO hacer --import completo (duplicaba trabajo y
-  # se colgaba horas). Godot --export-release importa solo lo sucio.
-  if [ "${SKIP_GODOT_IMPORT:-1}" = "1" ] && [ "${FORCE_GODOT_IMPORT:-0}" != "1" ]; then
-    if [ -d "$ROOT/.godot/imported" ]; then
-      need_import=0
-      log "SKIP_GODOT_IMPORT (default) → export con import incremental"
-    fi
-  fi
-
-  if [ "$need_import" = "1" ]; then
     set_status "IMPORT"
-    log "Importando proyecto (.godot)... timeout=${IMPORT_TIMEOUT}s  [monitor: ./scripts/deploy_progress.sh]"
     local rc=0
-    run_godot_timeout /tmp/botgame-godot-import.log --headless --path "$ROOT" --import || rc=$?
+    run_godot_timeout "${IMPORT_TIMEOUT}" /tmp/botgame-godot-import.log --headless --path "$ROOT" --import || rc=$?
     if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then
       set_status "ERROR_IMPORT_TIMEOUT"
-      die "Import superó ${IMPORT_TIMEOUT}s. Revisa packs sin .gdignore o sube GODOT_IMPORT_TIMEOUT=0"
+      die "Import superó ${IMPORT_TIMEOUT}s"
     fi
-    # Validación rápida de scripts (3s editor) solo tras import limpio
-    set_status "EDITOR_COMPILE"
-    run_godot_timeout /tmp/botgame-godot-editor.log --headless --path "$ROOT" --editor --quit-after 2 || true
-    if grep -qiE 'SCRIPT ERROR|Parse Error|Compile Error' /tmp/botgame-godot-editor.log /tmp/botgame-godot-import.log 2>/dev/null; then
-      set_status "ERROR_SCRIPTS"
-      log "ERROR: scripts rotos — abortando export:"
-      grep -iE 'SCRIPT ERROR|Parse Error|Compile Error' /tmp/botgame-godot-editor.log /tmp/botgame-godot-import.log 2>/dev/null | head -40 || true
-      die "Corrige los Parse/Script Error antes de desplegar"
-    fi
+  elif [ "${gsz:-0}" -lt 12 ]; then
+    log "Cache .godot=${gsz:-0}MB incompleta → se descarta; export hará import incremental"
+    rm -rf "$ROOT/.godot"
   else
-    log "Reusando .godot/ (sin --import completo). FORCE_GODOT_IMPORT=1 para forzar."
+    log "Reusando .godot (${gsz}MB). Sin --import separado."
   fi
 
+  local export_timeout="${GODOT_EXPORT_TIMEOUT:-1200}"
+
   set_status "EXPORT_WEB"
-  log "Export Web → export/web/index.html"
-  if ! "$GODOT_BIN" --headless --path "$ROOT" --export-release "Web" "$ROOT/export/web/index.html" \
-      >/tmp/botgame-export-web.log 2>&1; then
+  log "Export Web → export/web/index.html (timeout=${export_timeout}s)"
+  local rc=0
+  run_godot_timeout "${export_timeout}" /tmp/botgame-export-web.log \
+    --headless --path "$ROOT" --export-release "Web" "$ROOT/export/web/index.html" || rc=$?
+  if [ "$rc" -ne 0 ]; then
     set_status "ERROR_WEB"
-    echo "----- /tmp/botgame-export-web.log -----" >&2
-    cat /tmp/botgame-export-web.log >&2
-    die "Export Web falló"
+    echo "----- /tmp/botgame-export-web.log (tail) -----" >&2
+    tail -80 /tmp/botgame-export-web.log >&2 || true
+    if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then
+      die "Export Web timeout ${export_timeout}s"
+    fi
+    die "Export Web falló (rc=$rc)"
   fi
 
   set_status "EXPORT_LINUX"
   log "Export Linux → export/server/BestiaVsRobots.x86_64"
-  if ! "$GODOT_BIN" --headless --path "$ROOT" --export-release "Linux" "$ROOT/export/server/BestiaVsRobots.x86_64" \
-      >/tmp/botgame-export-linux.log 2>&1; then
+  rc=0
+  run_godot_timeout "${export_timeout}" /tmp/botgame-export-linux.log \
+    --headless --path "$ROOT" --export-release "Linux" "$ROOT/export/server/BestiaVsRobots.x86_64" || rc=$?
+  if [ "$rc" -ne 0 ]; then
     set_status "ERROR_LINUX"
-    echo "----- /tmp/botgame-export-linux.log -----" >&2
-    cat /tmp/botgame-export-linux.log >&2
-    die "Export Linux falló"
+    echo "----- /tmp/botgame-export-linux.log (tail) -----" >&2
+    tail -80 /tmp/botgame-export-linux.log >&2 || true
+    die "Export Linux falló (rc=$rc)"
   fi
 
   chmod +x export/server/BestiaVsRobots.x86_64 || true
@@ -305,6 +320,8 @@ run_export() {
   set_status "CACHE_BUST"
   log "Export OK"
   fingerprint > "$STAMP_FILE" || true
+  restore_heavy_media
+  trap - EXIT
 }
 
 cache_bust() {

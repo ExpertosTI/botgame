@@ -293,11 +293,11 @@ Flujo rápido:
   2) VPS:  cd /opt/botgame && ./deploy.sh update
   3) VPS:  ./scripts/deploy_progress.sh   # o: ./deploy.sh logs deploy
 
-Forzar re-export (rápido, reusa .godot):
-  FORCE_GODOT_EXPORT=1 ./deploy.sh start
+Forzar re-export (rápido, sin --import):
+  FORCE_GODOT_EXPORT=1 ./deploy.sh update
 
-Import completo solo si cache corrupta (lento):
-  FORCE_GODOT_IMPORT=1 FORCE_GODOT_EXPORT=1 ./deploy.sh start --fg
+NO uses FORCE_GODOT_IMPORT en este VPS (se cuelga). Solo debug:
+  BOTGAME_ALLOW_SLOW_IMPORT=1 FORCE_GODOT_IMPORT=1 ...
 
 Dominio: ${BOTGAME_DOMAIN:-botgame.renace.tech}
 Env:     $ENV_FILE
