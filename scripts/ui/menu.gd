@@ -48,6 +48,7 @@ func _ready() -> void:
 	_mobile = _is_mobile_layout()
 	GameTheme.apply(self)
 	_style_ui()
+	_lift_brand_header()
 	_setup_atmosphere()
 	_spawn_showcase()
 	_start_ui_motion()
@@ -84,42 +85,100 @@ func _is_mobile_layout() -> bool:
 
 
 func _style_ui() -> void:
-	var title_size := 40 if _mobile else 46
+	var title_size := 44 if _mobile else 52
 	GameTheme.style_title(title_label, title_size)
-	GameTheme.style_muted(subtitle, 16 if _mobile else 17)
+	GameTheme.style_muted(subtitle, 15 if _mobile else 17)
+	subtitle.text = "HANGAR · elige tripulación y lanza la misión"
 	GameTheme.style_primary(join_button)
 	GameTheme.style_primary(solo_start_button)
-	join_button.text = "▶  ENTRAR ONLINE"
-	host_button.text = "Sala local (LAN)"
-	solo_start_button.text = "▶  EMPEZAR PRÁCTICA"
-	online_mode_button.text = "🌐  ONLINE"
-	solo_mode_button.text = "🎯  CAMPAÑA"
+	join_button.text = "ENTRAR AL COMBATE"
+	host_button.text = "Sala LAN"
+	solo_start_button.text = "LANZAR MISIÓN"
+	online_mode_button.text = "ONLINE"
+	solo_mode_button.text = "CAMPAÑA"
 	status_label.add_theme_color_override("font_color", GameTheme.C_AMBER)
-	join_button.custom_minimum_size = Vector2(0, 72 if _mobile else 52)
-	join_button.add_theme_font_size_override("font_size", 26 if _mobile else 22)
-	solo_start_button.custom_minimum_size = Vector2(0, 72 if _mobile else 52)
-	solo_start_button.add_theme_font_size_override("font_size", 26 if _mobile else 22)
+	join_button.custom_minimum_size = Vector2(0, 76 if _mobile else 58)
+	join_button.add_theme_font_size_override("font_size", 24 if _mobile else 22)
+	solo_start_button.custom_minimum_size = Vector2(0, 76 if _mobile else 58)
+	solo_start_button.add_theme_font_size_override("font_size", 24 if _mobile else 22)
+	online_mode_button.custom_minimum_size = Vector2(0, 58 if _mobile else 52)
+	solo_mode_button.custom_minimum_size = Vector2(0, 58 if _mobile else 52)
 	name_input.custom_minimum_size = Vector2(0, 58 if _mobile else 44)
 	name_input.add_theme_font_size_override("font_size", 20 if _mobile else 16)
+	name_input.placeholder_text = "Callsign"
 	solo_name_input.custom_minimum_size = Vector2(0, 58 if _mobile else 44)
-	address_input.custom_minimum_size = Vector2(0, 52 if _mobile else 44)
-	GameTheme.style_muted(solo_hint, 15)
-	GameTheme.style_muted(legal_label, 12)
-	credits_button.text = "ℹ  Créditos · legal · privacidad"
-	if _mobile:
-		host_button.visible = false
-		var addr_label := online_panel.get_node_or_null("AddrLabel") as Control
-		if addr_label:
-			addr_label.visible = false
+	solo_name_input.placeholder_text = "Callsign"
+	address_input.custom_minimum_size = Vector2(0, 48 if _mobile else 40)
+	GameTheme.style_muted(solo_hint, 14)
+	GameTheme.style_muted(legal_label, 11)
+	credits_button.text = "Créditos"
+	mute_check.text = "Audio apagado"
+	_style_hangar_panels()
+	_tone_down_form_labels()
+	# Web / móvil: URL del VPS va por defecto; no parece formulario de hosting
+	host_button.visible = not _mobile and not OS.has_feature("web")
+	var addr_label := online_panel.get_node_or_null("AddrLabel") as Control
+	if addr_label:
+		addr_label.visible = false
+	if _mobile or OS.has_feature("web"):
 		address_input.visible = false
 
 
-func _build_hub_modes() -> void:
-	## Fila de submodos Kenney bajo los botones Online/Campaña.
+func _style_hangar_panels() -> void:
+	var stage := get_node_or_null("Main/Col/StageWrap") as PanelContainer
+	var form := get_node_or_null("Main/Col/FormWrap") as PanelContainer
+	if stage:
+		stage.add_theme_stylebox_override(
+			"panel",
+			GameTheme.panel_style(Color(0.04, 0.07, 0.09, 0.72), GameTheme.C_CYAN, 14, 2)
+		)
+	if form:
+		form.add_theme_stylebox_override(
+			"panel",
+			GameTheme.panel_style(Color(0.05, 0.08, 0.1, 0.88), GameTheme.C_AMBER.darkened(0.25), 14, 2)
+		)
+
+
+func _tone_down_form_labels() -> void:
+	for path in ["NameLabel", "AddrLabel"]:
+		var lb := online_panel.get_node_or_null(path) as Label
+		if lb == null:
+			continue
+		lb.visible = path == "NameLabel"
+		if lb.visible:
+			lb.text = "CALLSIGN"
+			GameTheme.style_muted(lb, 12)
+
+
+func _lift_brand_header() -> void:
+	## Marca arriba del hangar: primer viewport = juego, no formulario.
 	var col := get_node_or_null("Main/Col") as VBoxContainer
-	if col == null:
-		# Buscar contenedor flexible
-		col = find_child("Col", true, false) as VBoxContainer
+	var form := get_node_or_null("Main/Col/FormWrap/Margin/Form") as VBoxContainer
+	if col == null or form == null:
+		return
+	if col.get_node_or_null("BrandHeader") != null:
+		return
+	var brand := VBoxContainer.new()
+	brand.name = "BrandHeader"
+	brand.add_theme_constant_override("separation", 2)
+	brand.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	form.remove_child(title_label)
+	form.remove_child(subtitle)
+	brand.add_child(title_label)
+	brand.add_child(subtitle)
+	col.add_child(brand)
+	col.move_child(brand, 0)
+
+
+func _build_hub_modes() -> void:
+	## Submodos opcionales (Platformer/FPS/City) — solo si alguno está en el build.
+	var any_extra := false
+	for mid in [ModeRouter.MODE_PLATFORMER, ModeRouter.MODE_FPS, ModeRouter.MODE_CITY]:
+		if ModeRouter.mode_available(mid):
+			any_extra = true
+			break
+	if not any_extra:
+		return
 	var host: Control = online_mode_button.get_parent() as Control
 	if host == null:
 		return
@@ -128,19 +187,19 @@ func _build_hub_modes() -> void:
 	row.add_theme_constant_override("separation", 8)
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var modes := [
-		{"id": ModeRouter.MODE_PLATFORMER, "label": "🏃 Platformer"},
-		{"id": ModeRouter.MODE_FPS, "label": "🔫 FPS"},
-		{"id": ModeRouter.MODE_CITY, "label": "🏙 City"},
+		{"id": ModeRouter.MODE_PLATFORMER, "label": "PLATFORMER"},
+		{"id": ModeRouter.MODE_FPS, "label": "FPS"},
+		{"id": ModeRouter.MODE_CITY, "label": "CITY"},
 	]
 	for m in modes:
 		var b := Button.new()
 		var mid: String = str(m["id"])
 		var available := ModeRouter.mode_available(mid)
-		b.text = str(m["label"]) if available else ("%s · N/A" % str(m["label"]))
+		b.text = str(m["label"]) if available else ("%s · LOCK" % str(m["label"]))
 		b.disabled = not available
-		b.tooltip_text = "" if available else "Modo no incluido en este build (capa opcional)"
+		b.tooltip_text = "" if available else "Modo opcional no incluido en este build"
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.custom_minimum_size = Vector2(0, 44)
+		b.custom_minimum_size = Vector2(0, 40)
 		b.pressed.connect(func():
 			AudioDirector.play_ui("confirm")
 			ModeRouter.start_mode(mid)
@@ -151,7 +210,6 @@ func _build_hub_modes() -> void:
 		var idx := host.get_index()
 		parent.add_child(row)
 		parent.move_child(row, idx + 1)
-	subtitle.text = "Asimétrico abajo · Platformer / FPS / City si están instalados"
 
 
 func _set_mode(mode: String) -> void:
@@ -164,17 +222,17 @@ func _set_mode(mode: String) -> void:
 		solo_mode_button.remove_theme_stylebox_override("normal")
 		solo_mode_button.remove_theme_stylebox_override("hover")
 		solo_mode_button.remove_theme_stylebox_override("pressed")
-		subtitle.text = "Multijugador · 1 Bestia vs 1–3 Robots · VPS o LAN"
+		subtitle.text = "ONLINE · 1 Bestia vs 1–3 Robots"
 		status_label.text = ""
 	else:
 		GameTheme.style_primary(solo_mode_button)
 		online_mode_button.remove_theme_stylebox_override("normal")
 		online_mode_button.remove_theme_stylebox_override("hover")
 		online_mode_button.remove_theme_stylebox_override("pressed")
-		subtitle.text = "Campaña solitaria · bots · desbloqueos reales"
+		subtitle.text = "CAMPAÑA · bots · desbloqueos reales"
 		var lv := ProgressionManager.level_name()
-		status_label.text = "%s · victorias %d" % [lv, ProgressionManager.wins_total]
-		solo_hint.text = "Elige personaje/mapa arriba · EMPEZAR PRÁCTICA entra al nivel.\n%s" % lv
+		status_label.text = "%s · %d victorias" % [lv, ProgressionManager.wins_total]
+		solo_hint.text = "Arriba: personaje y mapa · abajo: LANZAR MISIÓN\n%s" % lv
 		_pick_map_idx = NetworkManager.MAP_IDS.find(ProgressionManager.force_campaign_map())
 		if _pick_map_idx < 0:
 			_pick_map_idx = 0
@@ -199,7 +257,9 @@ func _spawn_showcase() -> void:
 func _fill_dynamic_stage(stage_wrap: Control) -> void:
 	var cap := stage_wrap.get_node_or_null("VBox/StageCaption") as Label
 	if cap:
-		cap.visible = false
+		cap.text = "HANGAR · TRIPULACIÓN"
+		GameTheme.style_muted(cap, 12)
+		cap.visible = true
 	var view := stage_wrap.get_node_or_null("VBox/StageView") as Control
 	if view:
 		view.visible = false
@@ -224,24 +284,28 @@ func _fill_dynamic_stage(stage_wrap: Control) -> void:
 		_hero.texture = UiIcons.tex(UiIcons.MENU_HERO)
 	_hero.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_hero.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	_hero.custom_minimum_size = Vector2(0, 160 if _mobile else 180)
+	_hero.custom_minimum_size = Vector2(0, 200 if _mobile else 220)
 	_hero.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_hero.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hero.clip_contents = true
+	_hero.pivot_offset = Vector2(160, 100)
 	vbox.add_child(_hero)
 
 	_dyn_status = Label.new()
 	_dyn_status.name = "DynStatus"
 	_dyn_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_dyn_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	GameTheme.style_muted(_dyn_status, 14)
+	if GameTheme.font_title():
+		_dyn_status.add_theme_font_override("font", GameTheme.font_title())
+	_dyn_status.add_theme_font_size_override("font_size", 15 if _mobile else 16)
+	_dyn_status.add_theme_color_override("font_color", GameTheme.C_CYAN)
 	vbox.add_child(_dyn_status)
 
-	vbox.add_child(_section_label("DynLblRobots", "Robots · toca para elegir"))
+	vbox.add_child(_section_label("DynLblRobots", "ROBOTS"))
 	_dyn_robots = _add_hscroll(vbox, "DynRobots")
-	vbox.add_child(_section_label("DynLblBeasts", "Bestias · toca para jugar como Bestia"))
+	vbox.add_child(_section_label("DynLblBeasts", "BESTIAS"))
 	_dyn_beasts = _add_hscroll(vbox, "DynBeasts")
-	vbox.add_child(_section_label("DynLblMaps", "Mapas"))
+	vbox.add_child(_section_label("DynLblMaps", "TEATRO"))
 	_dyn_maps = _add_hscroll(vbox, "DynMaps")
 
 	_rebuild_dynamic_pickers()
@@ -253,7 +317,10 @@ func _section_label(node_name: String, text: String) -> Label:
 	lb.name = node_name
 	lb.text = text
 	lb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	GameTheme.style_muted(lb, 13)
+	if GameTheme.font_title():
+		lb.add_theme_font_override("font", GameTheme.font_title())
+	lb.add_theme_font_size_override("font_size", 13)
+	lb.add_theme_color_override("font_color", GameTheme.C_AMBER)
 	return lb
 
 
@@ -262,12 +329,12 @@ func _add_hscroll(vbox: VBoxContainer, row_name: String) -> HBoxContainer:
 	scroll.name = row_name + "Scroll"
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_ALWAYS
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.custom_minimum_size = Vector2(0, 150 if _mobile else 142)
+	scroll.custom_minimum_size = Vector2(0, 156 if _mobile else 148)
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox.add_child(scroll)
 	var row := HBoxContainer.new()
 	row.name = row_name
-	row.add_theme_constant_override("separation", 8)
+	row.add_theme_constant_override("separation", 10)
 	scroll.add_child(row)
 	return row
 
@@ -286,8 +353,10 @@ func _rebuild_dynamic_pickers() -> void:
 	for idx in CharacterCatalog.explorer_indices():
 		var i := int(idx)
 		var locked := not CharacterCatalog.is_unlocked(i)
-		var card := VisualPicker.make_skin_card(i, i == _pick_skin and _pick_role == "explorer", locked)
+		var selected := i == _pick_skin and _pick_role == "explorer"
+		var card := VisualPicker.make_skin_card(i, selected, locked)
 		card.custom_minimum_size = Vector2(92, 130)
+		card.set_meta("picked", selected)
 		_wire_menu_card(card, func(): _on_pick_robot(i))
 		_dyn_robots.add_child(card)
 		_chip_nodes.append(card)
@@ -298,17 +367,19 @@ func _rebuild_dynamic_pickers() -> void:
 		var e: Dictionary = CharacterCatalog.get_entry(i)
 		var accent: Color = e.get("tint", GameTheme.C_CRIMSON)
 		var title: String = str(e.get("name", "Bestia"))
+		var selected := _pick_role == "beast" and i == _pick_skin
 		var card := VisualPicker.make_card(
 			title,
 			"BESTIA",
 			accent,
-			_pick_role == "beast" and i == _pick_skin,
+			selected,
 			UiIcons.beast_tex(_beast_variant_for_entry(e)),
-			"👹",
+			"",
 			Vector2(100, 130),
 			72.0,
 			locked
 		)
+		card.set_meta("picked", selected)
 		_wire_menu_card(card, func(): _on_pick_beast_entry(i))
 		_dyn_beasts.add_child(card)
 		_chip_nodes.append(card)
@@ -318,8 +389,10 @@ func _rebuild_dynamic_pickers() -> void:
 		var locked := not ProgressionManager.is_map_unlocked(mid)
 		if _mode == "solo":
 			locked = mid != ProgressionManager.force_campaign_map()
-		var card := VisualPicker.make_map_card(mid, mi == _pick_map_idx, locked)
+		var selected := mi == _pick_map_idx
+		var card := VisualPicker.make_map_card(mid, selected, locked)
 		card.custom_minimum_size = Vector2(118, 130)
+		card.set_meta("picked", selected)
 		_wire_menu_card(card, func(): _on_pick_map(mi))
 		_dyn_maps.add_child(card)
 		_chip_nodes.append(card)
@@ -393,9 +466,9 @@ func _update_pick_status() -> void:
 	var map_id: String = NetworkManager.MAP_IDS[_pick_map_idx] if _pick_map_idx < NetworkManager.MAP_IDS.size() else "lab_neon"
 	var map_name: String = str(NetworkManager.MAP_NAMES.get(map_id, map_id))
 	if _pick_role == "beast":
-		_dyn_status.text = "Listo: Bestia «%s» · %s" % [who, map_name]
+		_dyn_status.text = "DESPLEGAR · BESTIA «%s» · %s" % [who, map_name]
 	else:
-		_dyn_status.text = "Listo: Robot «%s» · %s" % [who, map_name]
+		_dyn_status.text = "DESPLEGAR · ROBOT «%s» · %s" % [who, map_name]
 
 
 func _apply_menu_picks_to_network() -> void:
@@ -411,9 +484,23 @@ func _apply_menu_picks_to_network() -> void:
 
 
 func _start_ui_motion() -> void:
+	# Pulso CTA principal
 	var tw := create_tween().set_loops()
-	tw.tween_property(join_button, "modulate", Color(0.85, 1.0, 0.95), 0.85).set_trans(Tween.TRANS_SINE)
-	tw.tween_property(join_button, "modulate", Color.WHITE, 0.85).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(join_button, "modulate", Color(0.88, 1.0, 0.96), 0.9).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(join_button, "modulate", Color.WHITE, 0.9).set_trans(Tween.TRANS_SINE)
+	var tw2 := create_tween().set_loops()
+	tw2.tween_property(solo_start_button, "modulate", Color(0.88, 1.0, 0.96), 0.9).set_trans(Tween.TRANS_SINE)
+	tw2.tween_property(solo_start_button, "modulate", Color.WHITE, 0.9).set_trans(Tween.TRANS_SINE)
+	# Título: glow respirando
+	var tw3 := create_tween().set_loops()
+	tw3.tween_property(title_label, "modulate", Color(0.92, 1.0, 1.0), 1.4).set_trans(Tween.TRANS_SINE)
+	tw3.tween_property(title_label, "modulate", Color.WHITE, 1.4).set_trans(Tween.TRANS_SINE)
+	# Keyart: leve ken-burns
+	if is_instance_valid(_hero):
+		_hero.scale = Vector2(1.02, 1.02)
+		var tw4 := create_tween().set_loops()
+		tw4.tween_property(_hero, "scale", Vector2(1.08, 1.08), 5.5).set_trans(Tween.TRANS_SINE)
+		tw4.tween_property(_hero, "scale", Vector2(1.02, 1.02), 5.5).set_trans(Tween.TRANS_SINE)
 
 
 func _process(delta: float) -> void:
@@ -424,9 +511,15 @@ func _process(delta: float) -> void:
 			n.rotate_y(delta * (0.55 if i == 0 else -0.4))
 	for i in _chip_nodes.size():
 		var c := _chip_nodes[i]
-		if is_instance_valid(c):
-			var a := 0.88 + 0.12 * sin(_anim_t * 2.0 + i)
-			c.modulate = Color(a, a, a, 1.0)
+		if not is_instance_valid(c):
+			continue
+		var selected: bool = bool(c.get_meta("picked", false))
+		var base := 0.9 + 0.1 * sin(_anim_t * 2.2 + i * 0.35)
+		if selected:
+			base = 0.95 + 0.05 * sin(_anim_t * 4.0)
+			c.modulate = Color(1.0, base, base * 0.95 + 0.05, 1.0)
+		else:
+			c.modulate = Color(base, base, base, 1.0)
 
 
 func _notification(what: int) -> void:
@@ -436,19 +529,20 @@ func _notification(what: int) -> void:
 
 func _adapt_layout() -> void:
 	_mobile = _is_mobile_layout()
+	var brand := get_node_or_null("Main/Col/BrandHeader") as Control
 	var stage := get_node_or_null("Main/Col/StageWrap") as Control
-	var form := get_node_or_null("Main/Col/FormWrap") as Control
 	var col := get_node_or_null("Main/Col") as VBoxContainer
 	if col == null:
 		return
-	if _mobile:
-		if form and col.get_child(0) != form:
-			col.move_child(form, 0)
-	else:
-		if stage and col.get_child(0) != stage:
-			col.move_child(stage, 0)
+	# Orden: marca → hangar → misión (nunca formulario arriba)
+	if brand:
+		col.move_child(brand, 0)
+	if stage:
+		col.move_child(stage, 1 if brand else 0)
 	if is_instance_valid(_hero):
-		_hero.custom_minimum_size = Vector2(0, 260 if _mobile else 240)
+		_hero.custom_minimum_size = Vector2(0, 220 if _mobile else 240)
+		if _hero.size.x > 1.0:
+			_hero.pivot_offset = Vector2(_hero.size.x * 0.5, _hero.size.y * 0.5)
 
 
 func _on_join_pressed() -> void:

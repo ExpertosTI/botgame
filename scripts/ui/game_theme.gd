@@ -209,8 +209,7 @@ static func make_player_card(name_text: String, role: String, ready: bool, skin:
 	row.add_child(col)
 
 	var name_l := Label.new()
-	var role_emoji := "👹" if is_beast else ("🤖" if role == "explorer" else "⏳")
-	name_l.text = "%s  %s" % [role_emoji, name_text]
+	name_l.text = name_text
 	if _font_ui_bold:
 		name_l.add_theme_font_override("font", _font_ui_bold)
 	name_l.add_theme_font_size_override("font_size", 17)
@@ -218,7 +217,7 @@ static func make_player_card(name_text: String, role: String, ready: bool, skin:
 
 	var role_l := Label.new()
 	var role_txt := "BESTIA" if is_beast else ("ROBOT" if role == "explorer" else "SIN ROL")
-	role_l.text = role_txt + ("  ·  LISTO ✅" if ready else "  ·  esperando…")
+	role_l.text = role_txt + ("  ·  LISTO" if ready else "  ·  esperando…")
 	role_l.add_theme_font_size_override("font_size", 13)
 	role_l.add_theme_color_override("font_color", edge if ready else C_MUTED)
 	col.add_child(role_l)

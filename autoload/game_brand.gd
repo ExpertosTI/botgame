@@ -5,11 +5,11 @@ extends RefCounted
 
 const GAME_TITLE := "CHADRINE"
 const GAME_SHORT := "CHADRINE"
-const TAGLINE := "Hub · Asimétrico · Platformer · FPS · City"
+const TAGLINE := "Hangar · Online asimétrico · Campaña"
 const PUBLISHER := "Renace Tech"
 const DEVELOPER := "Expertos TI / Renace"
-const VERSION := "1.2.3"
-const VERSION_CODE := 123
+const VERSION := "1.3.0"
+const VERSION_CODE := 130
 const COPYRIGHT_YEAR := "2026"
 const SUPPORT_URL := "https://botgame.renace.tech"
 const PRIVACY_URL := "https://botgame.renace.tech/privacy"

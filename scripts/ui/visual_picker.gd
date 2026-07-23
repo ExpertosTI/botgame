@@ -93,7 +93,7 @@ static func make_card(
 
 	if not subtitle.is_empty() or locked:
 		var s := Label.new()
-		s.text = "🔒 BLOQUEADO" if locked else subtitle
+		s.text = "BLOQUEADO" if locked else subtitle
 		s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		s.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		s.add_theme_font_size_override("font_size", 11)

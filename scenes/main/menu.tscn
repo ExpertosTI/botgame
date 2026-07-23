@@ -48,148 +48,7 @@ horizontal_scroll_mode = 0
 [node name="Col" type="VBoxContainer" parent="Main"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 14
-
-[node name="FormWrap" type="PanelContainer" parent="Main/Col"]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="Margin" type="MarginContainer" parent="Main/Col/FormWrap"]
-layout_mode = 2
-theme_override_constants/margin_left = 18
-theme_override_constants/margin_top = 18
-theme_override_constants/margin_right = 18
-theme_override_constants/margin_bottom = 18
-
-[node name="Form" type="VBoxContainer" parent="Main/Col/FormWrap/Margin"]
-layout_mode = 2
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="TitleLabel" type="Label" parent="Main/Col/FormWrap/Margin/Form"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_font_sizes/font_size = 36
-text = "CHADRINE"
-horizontal_alignment = 1
-autowrap_mode = 3
-
-[node name="Subtitle" type="Label" parent="Main/Col/FormWrap/Margin/Form"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "CHADRINE · Online o Campaña solitaria"
-horizontal_alignment = 1
-autowrap_mode = 2
-
-[node name="ModeRow" type="HBoxContainer" parent="Main/Col/FormWrap/Margin/Form"]
-unique_name_in_owner = true
-layout_mode = 2
 theme_override_constants/separation = 10
-
-[node name="OnlineModeButton" type="Button" parent="Main/Col/FormWrap/Margin/Form/ModeRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 56)
-layout_mode = 2
-size_flags_horizontal = 3
-text = "ONLINE"
-
-[node name="SoloModeButton" type="Button" parent="Main/Col/FormWrap/Margin/Form/ModeRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 56)
-layout_mode = 2
-size_flags_horizontal = 3
-text = "CAMPAÑA"
-
-[node name="OnlinePanel" type="VBoxContainer" parent="Main/Col/FormWrap/Margin/Form"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="NameLabel" type="Label" parent="Main/Col/FormWrap/Margin/Form/OnlinePanel"]
-layout_mode = 2
-text = "INDICATIVO"
-
-[node name="NameInput" type="LineEdit" parent="Main/Col/FormWrap/Margin/Form/OnlinePanel"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 52)
-layout_mode = 2
-placeholder_text = "Tu nombre"
-alignment = 1
-
-[node name="AddrLabel" type="Label" parent="Main/Col/FormWrap/Margin/Form/OnlinePanel"]
-layout_mode = 2
-text = "ENLACE AL SERVIDOR"
-
-[node name="AddressInput" type="LineEdit" parent="Main/Col/FormWrap/Margin/Form/OnlinePanel"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 48)
-layout_mode = 2
-placeholder_text = "wss://…"
-alignment = 1
-
-[node name="JoinButton" type="Button" parent="Main/Col/FormWrap/Margin/Form/OnlinePanel"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 64)
-layout_mode = 2
-theme_override_font_sizes/font_size = 22
-text = "ENTRAR ONLINE"
-
-[node name="HostButton" type="Button" parent="Main/Col/FormWrap/Margin/Form/OnlinePanel"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 40)
-layout_mode = 2
-text = "Sala local (LAN)"
-
-[node name="SoloPanel" type="VBoxContainer" parent="Main/Col/FormWrap/Margin/Form"]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="SoloHint" type="Label" parent="Main/Col/FormWrap/Margin/Form/SoloPanel"]
-unique_name_in_owner = true
-layout_mode = 2
-autowrap_mode = 2
-horizontal_alignment = 1
-text = "Practica la campaña contra bots. Progresión y desbloqueos cuentan."
-
-[node name="SoloNameInput" type="LineEdit" parent="Main/Col/FormWrap/Margin/Form/SoloPanel"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 52)
-layout_mode = 2
-placeholder_text = "Tu nombre"
-alignment = 1
-
-[node name="SoloStartButton" type="Button" parent="Main/Col/FormWrap/Margin/Form/SoloPanel"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 64)
-layout_mode = 2
-theme_override_font_sizes/font_size = 22
-text = "EMPEZAR PRÁCTICA"
-
-[node name="StatusLabel" type="Label" parent="Main/Col/FormWrap/Margin/Form"]
-unique_name_in_owner = true
-layout_mode = 2
-horizontal_alignment = 1
-autowrap_mode = 2
-
-[node name="MuteCheck" type="CheckBox" parent="Main/Col/FormWrap/Margin/Form"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Silenciar audio"
-
-[node name="CreditsButton" type="Button" parent="Main/Col/FormWrap/Margin/Form"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 40)
-layout_mode = 2
-text = "Créditos y legal"
-
-[node name="LegalLabel" type="Label" parent="Main/Col/FormWrap/Margin/Form"]
-unique_name_in_owner = true
-layout_mode = 2
-autowrap_mode = 2
-horizontal_alignment = 1
-text = "© Renace Tech"
 
 [node name="StageWrap" type="PanelContainer" parent="Main/Col"]
 layout_mode = 2
@@ -201,7 +60,7 @@ theme_override_constants/separation = 8
 
 [node name="StageCaption" type="Label" parent="Main/Col/StageWrap/VBox"]
 layout_mode = 2
-text = "HANGAR  ·  CHADRINE"
+text = "HANGAR"
 horizontal_alignment = 1
 
 [node name="StageView" type="SubViewportContainer" parent="Main/Col/StageWrap/VBox"]
@@ -245,3 +104,144 @@ omni_range = 5.0
 
 [node name="StageRoot" type="Node3D" parent="Main/Col/StageWrap/VBox/StageView/SubViewport/World"]
 unique_name_in_owner = true
+
+[node name="FormWrap" type="PanelContainer" parent="Main/Col"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Margin" type="MarginContainer" parent="Main/Col/FormWrap"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 18
+
+[node name="Form" type="VBoxContainer" parent="Main/Col/FormWrap/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+alignment = 1
+
+[node name="TitleLabel" type="Label" parent="Main/Col/FormWrap/Margin/Form"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 36
+text = "CHADRINE"
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="Subtitle" type="Label" parent="Main/Col/FormWrap/Margin/Form"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "HANGAR · elige tripulación y modo"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="ModeRow" type="HBoxContainer" parent="Main/Col/FormWrap/Margin/Form"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="OnlineModeButton" type="Button" parent="Main/Col/FormWrap/Margin/Form/ModeRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "ONLINE"
+
+[node name="SoloModeButton" type="Button" parent="Main/Col/FormWrap/Margin/Form/ModeRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "CAMPAÑA"
+
+[node name="OnlinePanel" type="VBoxContainer" parent="Main/Col/FormWrap/Margin/Form"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="NameLabel" type="Label" parent="Main/Col/FormWrap/Margin/Form/OnlinePanel"]
+layout_mode = 2
+text = "INDICATIVO"
+
+[node name="NameInput" type="LineEdit" parent="Main/Col/FormWrap/Margin/Form/OnlinePanel"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+placeholder_text = "Tu nombre"
+alignment = 1
+
+[node name="AddrLabel" type="Label" parent="Main/Col/FormWrap/Margin/Form/OnlinePanel"]
+layout_mode = 2
+text = "SERVIDOR"
+
+[node name="AddressInput" type="LineEdit" parent="Main/Col/FormWrap/Margin/Form/OnlinePanel"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+placeholder_text = "wss://…"
+alignment = 1
+
+[node name="JoinButton" type="Button" parent="Main/Col/FormWrap/Margin/Form/OnlinePanel"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 64)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "ENTRAR ONLINE"
+
+[node name="HostButton" type="Button" parent="Main/Col/FormWrap/Margin/Form/OnlinePanel"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+text = "Sala local (LAN)"
+
+[node name="SoloPanel" type="VBoxContainer" parent="Main/Col/FormWrap/Margin/Form"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="SoloHint" type="Label" parent="Main/Col/FormWrap/Margin/Form/SoloPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 2
+horizontal_alignment = 1
+text = "Elige personaje arriba y lanza el nivel."
+
+[node name="SoloNameInput" type="LineEdit" parent="Main/Col/FormWrap/Margin/Form/SoloPanel"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+placeholder_text = "Tu nombre"
+alignment = 1
+
+[node name="SoloStartButton" type="Button" parent="Main/Col/FormWrap/Margin/Form/SoloPanel"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 64)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "EMPEZAR PRÁCTICA"
+
+[node name="StatusLabel" type="Label" parent="Main/Col/FormWrap/Margin/Form"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="MuteCheck" type="CheckBox" parent="Main/Col/FormWrap/Margin/Form"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Silenciar audio"
+
+[node name="CreditsButton" type="Button" parent="Main/Col/FormWrap/Margin/Form"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+text = "Créditos y legal"
+
+[node name="LegalLabel" type="Label" parent="Main/Col/FormWrap/Margin/Form"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 2
+horizontal_alignment = 1
+text = "© Renace Tech"

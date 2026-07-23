@@ -104,7 +104,7 @@ func _apply_solo_lobby() -> void:
 	var map_idx := NetworkManager.MAP_IDS.find(NetworkManager.selected_map)
 	if map_idx >= 0:
 		_map_idx = map_idx
-	start_button.text = "▶  JUGAR NIVEL"
+	start_button.text = "JUGAR NIVEL"
 	start_button.disabled = false
 	GameTheme.style_primary(start_button)
 	_rebuild_maps()
@@ -130,10 +130,10 @@ func _style_ui() -> void:
 	GameTheme.style_danger(role_beast_button)
 	GameTheme.style_primary(role_robot_button)
 	GameTheme.style_primary(start_button)
-	role_beast_button.text = "👹  SOY LA BESTIA"
-	role_robot_button.text = "🤖  SOY ROBOT"
-	ready_button.text = "✅  MARCAR LISTO"
-	start_button.text = "🚀  EMPEZAR PARTIDA"
+	role_beast_button.text = "SOY LA BESTIA"
+	role_robot_button.text = "SOY ROBOT"
+	ready_button.text = "MARCAR LISTO"
+	start_button.text = "EMPEZAR PARTIDA"
 	role_beast_button.icon = UiIcons.beast_tex(GameManager.BeastVariant.CLASSIC)
 	role_robot_button.icon = UiIcons.skin_tex(0)
 	role_beast_button.expand_icon = true
@@ -142,9 +142,23 @@ func _style_ui() -> void:
 	role_robot_button.add_theme_constant_override("icon_max_width", 40)
 	role_beast_button.custom_minimum_size = Vector2(0, 56)
 	role_robot_button.custom_minimum_size = Vector2(0, 56)
+	start_button.custom_minimum_size = Vector2(0, 64)
 	map_hint.add_theme_color_override("font_color", GameTheme.C_MUTED)
 	loadout_hint.add_theme_color_override("font_color", GameTheme.C_MUTED)
 	campaign_label.add_theme_color_override("font_color", GameTheme.C_CYAN)
+	if crew_panel:
+		(crew_panel as PanelContainer).add_theme_stylebox_override(
+			"panel",
+			GameTheme.panel_style(Color(0.04, 0.07, 0.09, 0.8), GameTheme.C_CYAN, 12, 2)
+		)
+	if setup_panel:
+		(setup_panel as PanelContainer).add_theme_stylebox_override(
+			"panel",
+			GameTheme.panel_style(Color(0.05, 0.08, 0.1, 0.88), GameTheme.C_AMBER.darkened(0.3), 12, 2)
+		)
+	var tw := create_tween().set_loops()
+	tw.tween_property(start_button, "modulate", Color(0.88, 1.0, 0.96), 0.95).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(start_button, "modulate", Color.WHITE, 0.95).set_trans(Tween.TRANS_SINE)
 
 
 func _setup_atmosphere() -> void:
