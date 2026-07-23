@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # CHADRINE — Deploy producción (Docker Swarm + Traefik / RenaceNet)
+# Igual que RNV/ChatCE: en el VPS, primer plano.
 # Uso:  cd /opt/botgame && ./deploy.sh update
-#       ./deploy.sh update --fg     # primer plano (muere si se corta SSH)
-# Por defecto update/start corren detached (sobreviven al cierre de SSH).
 set -euo pipefail
 
 STACK_NAME="botgame"
@@ -12,8 +11,6 @@ APP_DOMAIN="${APP_DOMAIN:-botgame.renace.tech}"
 NETWORK_PUBLIC="RenaceNet"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
-DEPLOY_LOG="${BOTGAME_DEPLOY_LOG:-/var/log/botgame-deploy.log}"
-DEPLOY_PID_FILE="${BOTGAME_DEPLOY_PID:-/var/run/botgame-deploy.pid}"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 CYAN='\033[0;36m'; NC='\033[0m'
@@ -63,69 +60,6 @@ ensure_renacenet() {
     if ! is_swarm_active; then
         die "Docker Swarm no está activo. Ejecuta: docker swarm init"
     fi
-}
-
-kill_stale_godot() {
-    local pids
-    pids="$(pgrep -f 'Godot_v.*--(import|export-release|editor)' 2>/dev/null || true)"
-    if [ -n "$pids" ]; then
-        warn "→ Matando Godot huérfano: $pids"
-        # shellcheck disable=SC2086
-        kill $pids 2>/dev/null || true
-        sleep 2
-        # shellcheck disable=SC2086
-        kill -9 $pids 2>/dev/null || true
-    fi
-}
-
-maybe_detach() {
-    local fg=0
-    local a
-    for a in "$@"; do
-        case "$a" in
-            --fg|--foreground) fg=1 ;;
-        esac
-    done
-    if [ "$fg" = "1" ] || [ "${BOTGAME_DEPLOY_FOREGROUND:-0}" = "1" ]; then
-        return 1
-    fi
-    if [ "${BOTGAME_DEPLOY_INNER:-0}" = "1" ]; then
-        return 1
-    fi
-    if [ -n "${TMUX:-}" ] && [ "${BOTGAME_DEPLOY_FORCE_DETACH:-0}" != "1" ]; then
-        log "→ Dentro de tmux: foreground OK (SSH puede cortar sin matar la sesión)"
-        return 1
-    fi
-    return 0
-}
-
-run_detached() {
-    local cmd="$1"
-    mkdir -p "$(dirname "$DEPLOY_LOG")" 2>/dev/null || true
-    touch "$DEPLOY_LOG" 2>/dev/null || DEPLOY_LOG="/tmp/botgame-deploy.log"
-    log "→ Deploy en background (sobrevive si se corta SSH)"
-    log "   log: $DEPLOY_LOG"
-    log "   monitor: cd /opt/botgame && ./scripts/deploy_progress.sh"
-    log "   seguir:  tail -f $DEPLOY_LOG"
-    local env_export="BOTGAME_DEPLOY_INNER=1"
-    env_export+=" FORCE_GODOT_EXPORT=${FORCE_GODOT_EXPORT:-0}"
-    env_export+=" FORCE_GODOT_IMPORT=${FORCE_GODOT_IMPORT:-0}"
-    env_export+=" SKIP_GODOT_IMPORT=${SKIP_GODOT_IMPORT:-1}"
-    env_export+=" GODOT_IMPORT_TIMEOUT=${GODOT_IMPORT_TIMEOUT:-900}"
-    # shellcheck disable=SC2086
-    nohup setsid env $env_export bash "$ROOT/deploy.sh" "$cmd" --fg \
-        >>"$DEPLOY_LOG" 2>&1 < /dev/null &
-    local pid=$!
-    echo "$pid" > "$DEPLOY_PID_FILE" 2>/dev/null || true
-    log "   PID $pid"
-    sleep 1
-    if ! kill -0 "$pid" 2>/dev/null; then
-        err "El deploy background murió al arrancar. Mira $DEPLOY_LOG"
-        tail -40 "$DEPLOY_LOG" || true
-        exit 1
-    fi
-    log "Listo — puedes cerrar SSH. El deploy sigue."
-    exit 0
 }
 
 build_images() {
@@ -187,14 +121,9 @@ health() {
 }
 
 cmd_update() {
-    if maybe_detach "$@"; then
-        run_detached update
-    fi
     banner
-    trap '' HUP
     load_env
     ensure_renacenet
-    kill_stale_godot
     if [ -d .git ]; then
         log "→ git fetch + reset origin/main"
         local before after
@@ -205,7 +134,7 @@ cmd_update() {
         after="$(git rev-parse HEAD 2>/dev/null || true)"
         if [ -n "$before" ] && [ -n "$after" ] && [ "$before" != "$after" ]; then
             log "→ Código actualizado; reiniciando deploy con script nuevo..."
-            exec env BOTGAME_DEPLOY_INNER=1 bash "$ROOT/deploy.sh" start --fg
+            exec bash "$ROOT/deploy.sh" start
         fi
     fi
     load_env
@@ -220,16 +149,11 @@ cmd_update() {
 }
 
 cmd_start() {
-    if maybe_detach "$@"; then
-        run_detached start
-    fi
     banner
-    trap '' HUP
     load_env
     unset GIT_SHA
     refresh_git_sha
     ensure_renacenet
-    kill_stale_godot
     build_images
     stack_deploy
     wait_services || true
@@ -240,25 +164,12 @@ cmd_start() {
 
 cmd_status() {
     load_env
-    if [ -f "$DEPLOY_PID_FILE" ]; then
-        local pid
-        pid="$(cat "$DEPLOY_PID_FILE" 2>/dev/null || true)"
-        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
-            log "Deploy background activo PID $pid"
-        else
-            warn "Sin deploy background activo"
-        fi
-    fi
     docker stack services "$STACK_NAME" 2>/dev/null || docker service ls | grep "$STACK_NAME" || true
     docker stack ps "$STACK_NAME" --no-trunc 2>/dev/null | head -30 || true
 }
 
 cmd_logs() {
     local svc="${1:-web}"
-    if [ "$svc" = "deploy" ]; then
-        tail -n 100 -f "$DEPLOY_LOG"
-        return
-    fi
     docker service logs -f "${STACK_NAME}_${svc}"
 }
 
@@ -275,39 +186,30 @@ cmd_stop() {
 
 usage() {
     cat <<EOF
-Uso: ./deploy.sh <comando> [--fg]
+Uso: ./deploy.sh <comando>
 
-  update    git pull + export Godot (VPS) + build + stack deploy
+  update    git pull + export Godot + build + stack deploy
   start     export Godot + build + stack deploy (sin git pull)
-  status    estado Swarm (+ PID deploy bg)
-  logs [web|game-server|deploy]
+  status    estado Swarm
+  logs [web|game-server]
   restart   force update servicios
   stop      baja el stack
   health    curl HTTPS
 
-Por defecto update/start van en background (nohup/setsid) para que un
-corte de SSH NO mate el export. Usa --fg solo si estás en tmux/screen.
+Flujo Renace (sin rsync / sin passwords):
+  1) En Mac:  git push origin main
+  2) En VPS:  cd /opt/botgame && ./deploy.sh update
 
-Flujo rápido:
-  1) Mac:  git push origin main
-  2) VPS:  cd /opt/botgame && ./deploy.sh update
-  3) VPS:  ./scripts/deploy_progress.sh   # o: ./deploy.sh logs deploy
-
-Forzar re-export (rápido, sin --import):
-  FORCE_GODOT_EXPORT=1 ./deploy.sh update
-
-NO uses FORCE_GODOT_IMPORT en este VPS (se cuelga). Solo debug:
-  BOTGAME_ALLOW_SLOW_IMPORT=1 FORCE_GODOT_IMPORT=1 ...
+Forzar re-export: FORCE_GODOT_EXPORT=1 ./deploy.sh start
 
 Dominio: ${BOTGAME_DOMAIN:-botgame.renace.tech}
 Env:     $ENV_FILE
-Log:     $DEPLOY_LOG
 EOF
 }
 
 case "${1:-}" in
-    update)  cmd_update "${@:2}" ;;
-    start)   cmd_start "${@:2}" ;;
+    update)  cmd_update ;;
+    start)   cmd_start ;;
     status)  cmd_status ;;
     logs)    cmd_logs "${2:-web}" ;;
     restart) cmd_restart ;;
