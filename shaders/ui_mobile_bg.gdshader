@@ -1,6 +1,6 @@
 shader_type canvas_item;
 
-## Hangar vivo: grid + haces + viñeta (barato en Web).
+// Hangar vivo: grid + haces + vineta (barato en Web).
 
 uniform vec4 color_a : source_color = vec4(0.02, 0.05, 0.08, 1.0);
 uniform vec4 color_b : source_color = vec4(0.05, 0.14, 0.18, 1.0);
@@ -23,7 +23,7 @@ void fragment() {
 	beam = 1.0 - beam;
 	c += accent.rgb * beam * 0.12;
 
-	// Viñeta
+	// Vineta
 	float vig = smoothstep(0.95, 0.25, length(uv - 0.5));
 	c *= mix(0.55, 1.0, vig);
 

@@ -41,22 +41,23 @@ func _apply_robot_visuals() -> void:
 	crew.apply_colors(color, Color(0.75, 0.95, 1.0), color.lightened(0.2))
 	var pname: String = str(NetworkManager.players.get(peer_id, {}).get("name", "Robot"))
 	crew.set_player_name(pname)
-	# Mesh GLB del catálogo (Web + desktop). Sin mesh → cápsula tintada.
+	# Diferir mesh un frame: evita freeze al spawnear en Web
+	call_deferred("_attach_catalog_mesh", cat_idx, 0.85)
+
+
+func _attach_catalog_mesh(cat_idx: int, scale_mult: float) -> void:
 	var mesh_parent: Node3D = get_node_or_null("Mesh") as Node3D
 	if mesh_parent == null:
 		return
 	var existing := mesh_parent.get_node_or_null("CatalogMesh")
 	if existing:
-		existing.queue_free()
-	var attached := CharacterCatalog.attach_mesh(mesh_parent, cat_idx, 0.85)
+		mesh_parent.remove_child(existing)
+		existing.free()
+	var attached := CharacterCatalog.attach_mesh(mesh_parent, cat_idx, scale_mult)
 	if attached and crew:
 		for c in crew.get_children():
 			if c is MeshInstance3D:
 				(c as MeshInstance3D).visible = false
-			elif c is Label3D:
-				# Nombre sigue visible encima del mesh
-				pass
-		# Reparent name label above mesh if needed — keep crew label visible
 		if crew.name_label:
 			crew.name_label.visible = true
 

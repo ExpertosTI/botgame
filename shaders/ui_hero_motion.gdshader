@@ -1,6 +1,6 @@
 shader_type canvas_item;
 
-## Ken Burns + scanlines + tint pulse (estilo “GIF” ligero para Web).
+// Ken Burns + scanlines + tint pulse (estilo “GIF” ligero para Web).
 
 uniform float time_scale = 1.0;
 uniform float zoom_amp = 0.06;

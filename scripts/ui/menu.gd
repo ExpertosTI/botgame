@@ -260,9 +260,16 @@ func _fill_dynamic_stage(stage_wrap: Control) -> void:
 		cap.text = "HANGAR · TRIPULACIÓN"
 		GameTheme.style_muted(cap, 12)
 		cap.visible = true
-	var view := stage_wrap.get_node_or_null("VBox/StageView") as Control
-	if view:
-		view.visible = false
+
+	var view := stage_wrap.get_node_or_null("VBox/StageView") as SubViewportContainer
+	var sv := stage_wrap.get_node_or_null("VBox/StageView/SubViewport") as SubViewport
+	if view and sv:
+		view.visible = true
+		view.custom_minimum_size = Vector2(0, 200 if _mobile else 240)
+		sv.render_target_update_mode = SubViewport.UPDATE_WHEN_VISIBLE
+		sv.size = Vector2i(480, 280)
+		sv.transparent_bg = false
+
 	var vbox := stage_wrap.get_node_or_null("VBox") as VBoxContainer
 	if vbox == null:
 		return
@@ -274,22 +281,6 @@ func _fill_dynamic_stage(stage_wrap: Control) -> void:
 	_pick_map_idx = NetworkManager.MAP_IDS.find(ProgressionManager.force_campaign_map())
 	if _pick_map_idx < 0:
 		_pick_map_idx = 0
-
-	_hero = TextureRect.new()
-	_hero.name = "DynHero"
-	var keyart := "res://assets/art/chadrine_keyart.png"
-	if ResourceLoader.exists(keyart):
-		_hero.texture = load(keyart) as Texture2D
-	else:
-		_hero.texture = UiIcons.tex(UiIcons.MENU_HERO)
-	_hero.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_hero.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	_hero.custom_minimum_size = Vector2(0, 200 if _mobile else 220)
-	_hero.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_hero.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_hero.clip_contents = true
-	_hero.pivot_offset = Vector2(160, 100)
-	vbox.add_child(_hero)
 
 	_dyn_status = Label.new()
 	_dyn_status.name = "DynStatus"
@@ -310,6 +301,76 @@ func _fill_dynamic_stage(stage_wrap: Control) -> void:
 
 	_rebuild_dynamic_pickers()
 	_update_pick_status()
+	call_deferred("_update_3d_stage_preview")
+
+
+func _update_3d_stage_preview() -> void:
+	var world := get_node_or_null("Main/Col/StageWrap/VBox/StageView/SubViewport/World") as Node3D
+	if world == null:
+		return
+
+	var pedestal := world.get_node_or_null("Pedestal") as MeshInstance3D
+	if pedestal == null:
+		pedestal = MeshInstance3D.new()
+		pedestal.name = "Pedestal"
+		var cyl := CylinderMesh.new()
+		cyl.top_radius = 1.2
+		cyl.bottom_radius = 1.35
+		cyl.height = 0.22
+		pedestal.mesh = cyl
+		pedestal.position = Vector3(0, -0.1, 0)
+		var pmat := StandardMaterial3D.new()
+		pmat.albedo_color = Color(0.08, 0.12, 0.18, 1.0)
+		pmat.metallic = 0.7
+		pmat.roughness = 0.25
+		pmat.emission_enabled = true
+		pmat.emission = Color(0.1, 0.7, 0.8, 1.0)
+		pmat.emission_energy_multiplier = 0.45
+		pedestal.material_override = pmat
+		world.add_child(pedestal)
+
+	var container := world.get_node_or_null("ModelPivot") as Node3D
+	if container == null:
+		container = Node3D.new()
+		container.name = "ModelPivot"
+		world.add_child(container)
+
+	_spin_nodes.clear()
+	_spin_nodes.append(container)
+
+	while container.get_child_count() > 0:
+		var ch := container.get_child(0)
+		container.remove_child(ch)
+		ch.free()
+
+	var attached := CharacterCatalog.attach_mesh(container, _pick_skin, 0.95 if _pick_role != "beast" else 1.05)
+	if attached != null:
+		return
+
+	# Fallback procedural tintado (crew sin GLB)
+	var entry := CharacterCatalog.get_entry(_pick_skin)
+	var tint: Color = entry.get("tint", Color(0.25, 0.55, 1.0))
+	var mesh_inst := MeshInstance3D.new()
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = tint
+	mat.metallic = 0.35
+	mat.roughness = 0.35
+	mat.emission_enabled = true
+	mat.emission = tint
+	mat.emission_energy_multiplier = 0.25
+	if _pick_role == "beast":
+		var box := BoxMesh.new()
+		box.size = Vector3(1.2, 1.7, 1.2)
+		mesh_inst.mesh = box
+		mesh_inst.position.y = 0.95
+	else:
+		var caps := CapsuleMesh.new()
+		caps.radius = 0.42
+		caps.height = 1.5
+		mesh_inst.mesh = caps
+		mesh_inst.position.y = 0.85
+	mesh_inst.material_override = mat
+	container.add_child(mesh_inst)
 
 
 func _section_label(node_name: String, text: String) -> Label:
@@ -416,6 +477,7 @@ func _on_pick_robot(skin: int) -> void:
 	_pick_skin = skin
 	_rebuild_dynamic_pickers()
 	_update_pick_status()
+	call_deferred("_update_3d_stage_preview")
 
 
 func _on_pick_beast_entry(catalog_i: int) -> void:
@@ -426,6 +488,7 @@ func _on_pick_beast_entry(catalog_i: int) -> void:
 	_pick_beast_variant = _beast_variant_for_entry(CharacterCatalog.get_entry(catalog_i)) as GameManager.BeastVariant
 	_rebuild_dynamic_pickers()
 	_update_pick_status()
+	call_deferred("_update_3d_stage_preview")
 
 
 func _on_pick_map(map_idx: int) -> void:

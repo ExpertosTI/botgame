@@ -31,14 +31,19 @@ func _apply_beast_visuals() -> void:
 		crew.apply_colors(colors.body, colors.visor, colors.accent)
 	var pname: String = str(NetworkManager.players.get(peer_id, {}).get("name", "Bestia"))
 	crew.set_player_name(pname)
+	if str(entry.get("mesh", "")).is_empty():
+		return
+	call_deferred("_attach_beast_mesh", cat_idx)
+
+
+func _attach_beast_mesh(cat_idx: int) -> void:
 	var mesh_parent: Node3D = get_node_or_null("Mesh") as Node3D
 	if mesh_parent == null:
 		return
 	var existing := mesh_parent.get_node_or_null("CatalogMesh")
 	if existing:
-		existing.queue_free()
-	if str(entry.get("mesh", "")).is_empty():
-		return
+		mesh_parent.remove_child(existing)
+		existing.free()
 	var attached := CharacterCatalog.attach_mesh(mesh_parent, cat_idx, 1.1)
 	if attached and crew:
 		for c in crew.get_children():
