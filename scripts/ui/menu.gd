@@ -21,7 +21,6 @@ extends Control
 @onready var legal_label: Label = %LegalLabel
 
 const LOBBY_SCENE := "res://scenes/main/lobby.tscn"
-const CREW_SCRIPT := preload("res://scripts/player/crew_visual.gd")
 const BG_SHADER := preload("res://shaders/ui_mobile_bg.gdshader")
 
 var _spin_nodes: Array[Node3D] = []
