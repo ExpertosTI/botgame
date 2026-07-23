@@ -26,6 +26,12 @@ func build(map_id: String, objectives_parent: Node3D) -> void:
 			_build_reactor_pit()
 		"skybridge":
 			_build_skybridge()
+		"castle":
+			_build_castle()
+		"cave":
+			_build_cave()
+		"forest":
+			_build_forest()
 		_:
 			_build_lab_neon()
 	map_ready.emit()
@@ -57,6 +63,14 @@ func _seed_hazards(hazards: HazardSystem, map_id: String) -> void:
 			hazards.add_slow_zone(Vector3(8, 0.1, 0), 2.8, 0.35, Color(0.5, 0.8, 1.0))
 			hazards.add_damage_zone(Vector3(-16, 0.1, 0), 2.5, 22.0, Color(0.6, 0.2, 0.9))
 			hazards.add_damage_zone(Vector3(16, 0.1, 0), 2.5, 22.0, Color(0.6, 0.2, 0.9))
+		"castle":
+			hazards.add_slow_zone(Vector3(0, 0.1, 0), 4.0, 0.25)
+			hazards.add_pulse_zone(Vector3(0, 0.1, -8), 3.5, 10.0, 5.0, Color(0.9, 0.75, 0.3))
+		"cave":
+			hazards.add_damage_zone(Vector3(0, 0.1, 0), 3.0, 12.0, Color(0.5, 0.2, 0.1))
+			hazards.add_slow_zone(Vector3(-8, 0.1, 8), 3.0, 0.4)
+		"forest":
+			hazards.add_slow_zone(Vector3(0, 0.1, 0), 5.0, 0.3, Color(0.3, 0.7, 0.35))
 		"ruins":
 			hazards.add_pulse_zone(Vector3(0, 0.1, 0), 5.0, 12.0, 5.0, Color(0.85, 0.2, 0.7))
 		"containers":
@@ -324,4 +338,104 @@ func _build_skybridge() -> void:
 		Vector3(-10, 0.5, 0), Vector3(10, 0.5, 0),
 		Vector3(0, 0.5, -12), Vector3(0, 0.5, 12),
 		Vector3(-14, 5.2, -14), Vector3(14, 5.2, 14),
+	])
+
+
+func _prop(path: String, pos: Vector3, yaw_deg: float = 0.0, scl: float = 1.0) -> void:
+	if not ResourceLoader.exists(path):
+		_box(pos + Vector3(0, 1, 0), Vector3(2, 2, 2), Color(0.4, 0.35, 0.3), 0.2)
+		return
+	var packed = load(path)
+	if packed is PackedScene:
+		var n := (packed as PackedScene).instantiate() as Node3D
+		if n:
+			n.position = pos
+			n.rotation_degrees.y = yaw_deg
+			n.scale = Vector3.ONE * scl
+			add_child(n)
+			return
+	_box(pos + Vector3(0, 1, 0), Vector3(2, 2, 2), Color(0.4, 0.35, 0.3), 0.2)
+
+
+func _build_castle() -> void:
+	_env(Color(0.45, 0.55, 0.75), Color(0.7, 0.75, 0.85), Color(0.75, 0.78, 0.85), Color(0.6, 0.65, 0.7), 0.008)
+	_floor(Vector3(48, 0.4, 48), Color(0.35, 0.32, 0.28))
+	_wall(Vector3(0, 3, -24), Vector3(48, 6, 0.8), Color(0.45, 0.42, 0.38))
+	_wall(Vector3(0, 3, 24), Vector3(48, 6, 0.8), Color(0.45, 0.42, 0.38))
+	_wall(Vector3(24, 3, 0), Vector3(0.8, 6, 48), Color(0.45, 0.42, 0.38))
+	_wall(Vector3(-24, 3, 0), Vector3(0.8, 6, 48), Color(0.45, 0.42, 0.38))
+	var base := "res://assets/kenney/props/castle/"
+	_prop(base + "gate.glb", Vector3(0, 0, -18), 0, 1.2)
+	_prop(base + "tower-base.glb", Vector3(-14, 0, -14), 0, 1.0)
+	_prop(base + "tower-base.glb", Vector3(14, 0, -14), 0, 1.0)
+	_prop(base + "tower-hexagon-base.glb", Vector3(-14, 0, 14), 0, 1.0)
+	_prop(base + "tower-hexagon-base.glb", Vector3(14, 0, 14), 0, 1.0)
+	_prop(base + "wall.glb", Vector3(-8, 0, 0), 90, 1.0)
+	_prop(base + "wall.glb", Vector3(8, 0, 0), 90, 1.0)
+	_prop(base + "bridge-straight.glb", Vector3(0, 0, 0), 0, 1.2)
+	_prop(base + "flag.glb", Vector3(0, 0, -10), 0, 1.0)
+	_prop(base + "rocks-large.glb", Vector3(-10, 0, 8), 30, 1.0)
+	_prop(base + "stairs-stone.glb", Vector3(0, 0, 10), 0, 1.0)
+	_neon_tube(Vector3(0, 5.0, 0), Vector3(16, 0.08, 0.08), Color(1.0, 0.85, 0.4))
+	_spawn("beast_spawn", Vector3(0, 1.2, -16))
+	_explorer_spawns_ring(16.0)
+	_set_objectives([
+		Vector3(-14, 0.5, -14), Vector3(14, 0.5, -14),
+		Vector3(-14, 0.5, 14), Vector3(14, 0.5, 14),
+		Vector3(0, 0.5, 0),
+	])
+
+
+func _build_cave() -> void:
+	_env(Color(0.08, 0.07, 0.1), Color(0.2, 0.18, 0.22), Color(0.4, 0.35, 0.4), Color(0.15, 0.12, 0.15), 0.02)
+	_floor(Vector3(40, 0.4, 40), Color(0.22, 0.18, 0.16))
+	_wall(Vector3(0, 3, -20), Vector3(40, 6, 0.8), Color(0.25, 0.2, 0.18))
+	_wall(Vector3(0, 3, 20), Vector3(40, 6, 0.8), Color(0.25, 0.2, 0.18))
+	_wall(Vector3(20, 3, 0), Vector3(0.8, 6, 40), Color(0.25, 0.2, 0.18))
+	_wall(Vector3(-20, 3, 0), Vector3(0.8, 6, 40), Color(0.25, 0.2, 0.18))
+	var base := "res://assets/kenney/props/cave/"
+	_prop(base + "corridor.glb", Vector3(0, 0, -8), 0, 1.2)
+	_prop(base + "corridor-corner.glb", Vector3(-8, 0, 0), 90, 1.2)
+	_prop(base + "corridor-intersection.glb", Vector3(0, 0, 0), 0, 1.2)
+	_prop(base + "corridor-end.glb", Vector3(8, 0, 0), 0, 1.2)
+	_prop(base + "room-large.glb", Vector3(0, 0, 10), 0, 1.0)
+	_prop(base + "gate-rock.glb", Vector3(0, 0, -14), 0, 1.1)
+	_neon_tube(Vector3(0, 3.5, 0), Vector3(12, 0.06, 0.06), Color(1.0, 0.55, 0.2))
+	_accent_light(Vector3(0, 3.0, 0), Color(1.0, 0.5, 0.2), 2.5, 12.0)
+	_spawn("beast_spawn", Vector3(0, 1.2, -15))
+	_explorer_spawns_ring(14.0)
+	_set_objectives([
+		Vector3(-8, 0.5, 0), Vector3(8, 0.5, 0),
+		Vector3(0, 0.5, 10), Vector3(0, 0.5, -8),
+		Vector3(0, 0.5, 0),
+	])
+
+
+func _build_forest() -> void:
+	_env(Color(0.35, 0.55, 0.85), Color(0.55, 0.7, 0.55), Color(0.65, 0.75, 0.55), Color(0.4, 0.55, 0.35), 0.01)
+	_floor(Vector3(48, 0.35, 48), Color(0.28, 0.42, 0.22), true)
+	_wall(Vector3(0, 2.5, -24), Vector3(48, 5, 0.5), Color(0.25, 0.35, 0.2))
+	_wall(Vector3(0, 2.5, 24), Vector3(48, 5, 0.5), Color(0.25, 0.35, 0.2))
+	_wall(Vector3(24, 2.5, 0), Vector3(0.5, 5, 48), Color(0.25, 0.35, 0.2))
+	_wall(Vector3(-24, 2.5, 0), Vector3(0.5, 5, 48), Color(0.25, 0.35, 0.2))
+	var base := "res://assets/kenney/props/forest/"
+	var lite := _lite
+	var step := 2 if lite else 1
+	for i in range(-3, 4, step):
+		_prop(base + "tree-high.glb", Vector3(-12, 0, i * 5.0), randf() * 360.0, 1.0)
+		_prop(base + "tree.glb", Vector3(12, 0, i * 5.0), randf() * 360.0, 1.0)
+	_prop(base + "bridge.glb", Vector3(0, 0, 0), 0, 1.2)
+	_prop(base + "platform.glb", Vector3(0, 0, -10), 0, 1.0)
+	_prop(base + "tent.glb", Vector3(-6, 0, 10), 40, 1.0)
+	_prop(base + "fence.glb", Vector3(6, 0, 8), 0, 1.0)
+	_prop(base + "rocks-high.glb", Vector3(8, 0, -6), 20, 1.0)
+	_prop(base + "plant.glb", Vector3(-4, 0, 4), 0, 1.0)
+	_prop(base + "patch-grass.glb", Vector3(4, 0, -4), 0, 1.5)
+	_neon_tube(Vector3(0, 4.0, 0), Vector3(14, 0.06, 0.06), Color(0.45, 0.95, 0.4))
+	_spawn("beast_spawn", Vector3(0, 1.2, -16))
+	_explorer_spawns_ring(15.0)
+	_set_objectives([
+		Vector3(-12, 0.5, -8), Vector3(12, 0.5, -8),
+		Vector3(-12, 0.5, 8), Vector3(12, 0.5, 8),
+		Vector3(0, 0.5, 0),
 	])

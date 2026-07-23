@@ -35,10 +35,24 @@ func _apply_robot_visuals() -> void:
 	if crew == null:
 		return
 	crew.is_beast = false
-	var color := GameManager.get_explorer_color(variant)
+	var cat_idx := int(GameManager.explorer_characters.get(peer_id, int(NetworkManager.players.get(peer_id, {}).get("skin", 0))))
+	var entry := CharacterCatalog.get_entry(cat_idx)
+	var color: Color = entry.get("tint", GameManager.get_explorer_color(variant)) if not entry.is_empty() else GameManager.get_explorer_color(variant)
 	crew.apply_colors(color, Color(0.75, 0.95, 1.0), color.lightened(0.2))
 	var pname: String = str(NetworkManager.players.get(peer_id, {}).get("name", "Robot"))
 	crew.set_player_name(pname)
+	# Mesh GLB del catálogo (si existe)
+	var mesh_parent: Node3D = get_node_or_null("Mesh") as Node3D
+	if mesh_parent and not OS.has_feature("web"):
+		var existing := mesh_parent.get_node_or_null("CatalogMesh")
+		if existing:
+			existing.queue_free()
+		var attached := CharacterCatalog.attach_mesh(mesh_parent, cat_idx, 0.85)
+		if attached and crew:
+			# Ocultar cápsula si hay mesh real
+			for c in crew.get_children():
+				if c is MeshInstance3D:
+					(c as MeshInstance3D).visible = false
 
 
 func is_alive() -> bool:

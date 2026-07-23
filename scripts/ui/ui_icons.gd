@@ -28,6 +28,9 @@ const MAPS := {
 	"ruins": "res://assets/ui/map_ruins.jpg",
 	"reactor_pit": "res://assets/ui/map_neon.jpg",
 	"skybridge": "res://assets/ui/map_ruins.jpg",
+	"castle": "res://assets/ui/map_containers.jpg",
+	"cave": "res://assets/ui/map_ruins.jpg",
+	"forest": "res://assets/ui/map_neon.jpg",
 }
 
 const MAP_EMOJI := {
@@ -36,6 +39,9 @@ const MAP_EMOJI := {
 	"ruins": "🏚️",
 	"reactor_pit": "☢️",
 	"skybridge": "🌉",
+	"castle": "🏰",
+	"cave": "🪨",
+	"forest": "🌲",
 }
 
 const MENU_HERO := "res://assets/ui/menu_hero.jpg"

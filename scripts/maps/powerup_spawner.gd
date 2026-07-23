@@ -69,6 +69,12 @@ func seed_for_map(map_id: String) -> void:
 			spots = [Vector3(0, 0, -8), Vector3(0, 0, 8), Vector3(-10, 0, 0), Vector3(10, 0, 0)]
 		"skybridge":
 			spots = [Vector3(0, 0, 0), Vector3(-6, 0, -6), Vector3(6, 0, 6)]
+		"castle":
+			spots = [Vector3(0, 0, 0), Vector3(-10, 0, 10), Vector3(10, 0, -10)]
+		"cave":
+			spots = [Vector3(0, 0, 0), Vector3(-6, 0, 6), Vector3(6, 0, -6)]
+		"forest":
+			spots = [Vector3(0, 0, 0), Vector3(-8, 0, 8), Vector3(8, 0, -8)]
 		_:
 			spots = [Vector3(-6, 0, 0), Vector3(6, 0, 0), Vector3(0, 0, 6)]
 	var kinds := [Kind.SHIELD, Kind.SPEED, Kind.REPAIR, Kind.OVERCHARGE]

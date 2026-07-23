@@ -20,3 +20,20 @@ export/web/**
 !export/web/.gitkeep
 export/server/**
 !export/server/.gitkeep
+
+# Temp clones / raw download zips (usar assets/kenney y assets/kaykit extraídos)
+_tmp_kits/
+assets/descargas/*.zip
+
+# Packs crudos pesados (usamos roster + props/ ya copiados)
+assets/kenney/animated-characters-protagonists/
+assets/kenney/animated-characters-retro/
+assets/kenney/blocky-characters_20/
+assets/kenney/mini-characters/
+assets/kenney/monster-builder-pack/
+assets/kenney/retro-fantasy-kit/
+assets/kenney/retro-textures-fantasy/
+assets/kenney/castle-kit/
+assets/kenney/modular-cave-kit_1.0/
+assets/kenney/mini-forest_1.0/
+assets/kaykit/

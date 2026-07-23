@@ -1,0 +1,16 @@
+# Sugerencias de exclusión Web (añadir en export preset si aplica)
+assets/descargas/
+assets/kenney/animated-characters-protagonists/
+assets/kenney/animated-characters-retro/
+assets/kenney/mini-characters/
+assets/kenney/monster-builder-pack/
+assets/kenney/retro-fantasy-kit/
+assets/kenney/retro-textures-fantasy/
+assets/kenney/blocky-characters_20/Models/FBX format/
+assets/kenney/castle-kit/Models/FBX format/
+assets/kenney/modular-cave-kit_1.0/Models/FBX format/
+assets/kenney/mini-forest_1.0/Models/FBX format/
+assets/kaykit/**/fbx/
+assets/kaykit/**/fbx(unity)/
+assets/kaykit/**/obj/
+_tmp_kits/

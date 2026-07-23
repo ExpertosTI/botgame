@@ -107,24 +107,30 @@ static func make_card(
 	return card
 
 
-static func make_skin_card(skin: int, selected: bool) -> PanelContainer:
-	var colors := [
-		Color(0.25, 0.55, 1.0),
-		Color(1.0, 0.4, 0.7),
-		Color(0.25, 0.85, 0.45),
-		Color(1.0, 0.85, 0.2),
-	]
-	var i := clampi(skin, 0, 3)
+static func make_skin_card(skin: int, selected: bool, locked: bool = false) -> PanelContainer:
+	var entry: Dictionary = {}
+	if Engine.get_main_loop() and Engine.get_main_loop().root:
+		entry = CharacterCatalog.get_entry(skin)
+	var tint: Color = entry.get("tint", Color(0.25, 0.55, 1.0)) if not entry.is_empty() else Color(0.25, 0.55, 1.0)
+	var title: String = str(entry.get("name", WeaponDefs.explorer_skin_name(skin % 4))) if not entry.is_empty() else WeaponDefs.explorer_skin_name(skin % 4)
 	var mobile := _is_narrow()
+	var emoji := "🤖"
+	if str(entry.get("id", "")).begins_with("kay_"):
+		emoji = "🗡️"
+	elif str(entry.get("id", "")).begins_with("blocky_"):
+		emoji = "🧱"
+	elif str(entry.get("id", "")).begins_with("crew_"):
+		emoji = UiIcons.ROBOT_EMOJI[clampi(skin % 4, 0, 3)]
 	return make_card(
-		WeaponDefs.explorer_skin_name(skin),
+		title,
 		"ROBOT",
-		colors[i],
+		tint,
 		selected,
-		UiIcons.skin_tex(i),
-		UiIcons.ROBOT_EMOJI[i],
+		UiIcons.skin_tex(clampi(skin % 4, 0, 3)),
+		emoji,
 		Vector2(96 if mobile else 88, 136 if mobile else 128),
-		92.0 if mobile else 78.0
+		92.0 if mobile else 78.0,
+		locked
 	)
 
 
@@ -173,6 +179,15 @@ static func make_map_card(map_id: String, selected: bool, locked: bool = false) 
 		"skybridge":
 			accent = Color(0.4, 0.7, 1.0)
 			sub = "Puentes"
+		"castle":
+			accent = Color(0.75, 0.65, 0.4)
+			sub = "Murallas"
+		"cave":
+			accent = Color(0.55, 0.4, 0.3)
+			sub = "Túneles"
+		"forest":
+			accent = Color(0.35, 0.7, 0.4)
+			sub = "Árboles"
 		_:
 			accent = Color(0.2, 0.7, 0.85)
 			sub = "Arena abierta"

@@ -45,6 +45,7 @@ func _ready() -> void:
 	_start_ui_motion()
 	call_deferred("_adapt_layout")
 	AudioDirector.start_menu_music()
+	_build_hub_modes()
 
 	join_button.pressed.connect(_on_join_pressed)
 	host_button.pressed.connect(_on_host_pressed)
@@ -103,6 +104,44 @@ func _style_ui() -> void:
 		if addr_label:
 			addr_label.visible = false
 		address_input.visible = false
+
+
+func _build_hub_modes() -> void:
+	## Fila de submodos Kenney bajo los botones Online/Campaña.
+	var col := get_node_or_null("Main/Col") as VBoxContainer
+	if col == null:
+		# Buscar contenedor flexible
+		col = find_child("Col", true, false) as VBoxContainer
+	var host: Control = online_mode_button.get_parent() as Control
+	if host == null:
+		return
+	var row := HBoxContainer.new()
+	row.name = "HubModesRow"
+	row.add_theme_constant_override("separation", 8)
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var modes := [
+		{"id": ModeRouter.MODE_PLATFORMER, "label": "🏃 Platformer"},
+		{"id": ModeRouter.MODE_FPS, "label": "🔫 FPS"},
+		{"id": ModeRouter.MODE_CITY, "label": "🏙 City"},
+	]
+	for m in modes:
+		var b := Button.new()
+		b.text = str(m["label"])
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.custom_minimum_size = Vector2(0, 44)
+		var mid: String = str(m["id"])
+		b.pressed.connect(func():
+			AudioDirector.play_ui("confirm")
+			ModeRouter.start_mode(mid)
+		)
+		row.add_child(b)
+	# Insertar después del par online/solo
+	var parent := host.get_parent()
+	if parent:
+		var idx := host.get_index()
+		parent.add_child(row)
+		parent.move_child(row, idx + 1)
+	subtitle.text = "Elige modo: Asimétrico (abajo) o Platformer / FPS / City"
 
 
 func _set_mode(mode: String) -> void:
@@ -337,7 +376,7 @@ func _on_credits_pressed() -> void:
 	var dlg := AcceptDialog.new()
 	dlg.title = "Créditos y legal"
 	dlg.dialog_text = (
-		"%s v%s\n%s\n\n%s\n\n%s\n\nFuentes: ver assets/fonts/LICENSE.txt (SIL OFL).\nPrivacidad: %s\nSoporte: %s"
+		"%s v%s\n%s\n\n%s\n\n%s\n\nAssets: Kenney CC0 + KayKit (assets/CREDITS.md).\nModos: Asimétrico · Platformer · FPS · City Builder.\nFuentes: assets/fonts/LICENSE.txt (SIL OFL).\nPrivacidad: %s\nSoporte: %s"
 		% [
 			GameBrand.GAME_TITLE,
 			GameBrand.VERSION,

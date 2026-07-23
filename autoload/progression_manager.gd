@@ -13,13 +13,13 @@ const CAMPAIGN := [
 	{"id": 3, "name": "Nivel 3 · Ruinas", "map": "ruins", "time": 200, "cores": 4, "beast_hp": 1.1, "unlock_loadout": 2, "tip": "Combate vertical: mira arriba y abajo."},
 	{"id": 4, "name": "Nivel 4 · Neon Pressure", "map": "lab_neon", "time": 180, "cores": 5, "beast_hp": 1.2, "unlock_loadout": 2, "tip": "Coordina: uno distrae, otro sabotea. Recoge powerups."},
 	{"id": 5, "name": "Nivel 5 · Pozo Reactor", "map": "reactor_pit", "time": 170, "cores": 5, "beast_hp": 1.3, "unlock_loadout": 2, "tip": "El núcleo central quema. Rodéalo, no lo cruce."},
-	{"id": 6, "name": "Nivel 6 · Laberinto", "map": "containers", "time": 160, "cores": 5, "beast_hp": 1.4, "unlock_loadout": 3, "tip": "La bestia es más dura: prioriza distancia."},
-	{"id": 7, "name": "Nivel 7 · Skybridge", "map": "skybridge", "time": 150, "cores": 5, "beast_hp": 1.45, "unlock_loadout": 3, "tip": "Puentes estrechos. Cuidado con las zonas violeta."},
-	{"id": 8, "name": "Nivel 8 · Cumbre", "map": "ruins", "time": 140, "cores": 5, "beast_hp": 1.5, "unlock_loadout": 3, "tip": "Dash (G) salva vidas. Guárdalo para escape."},
-	{"id": 9, "name": "Nivel 9 · Overclock", "map": "lab_neon", "time": 125, "cores": 6, "beast_hp": 1.55, "unlock_loadout": 3, "tip": "Reloj corto: no pelees de más."},
-	{"id": 10, "name": "Nivel 10 · Fusión", "map": "reactor_pit", "time": 115, "cores": 6, "beast_hp": 1.65, "unlock_loadout": 3, "tip": "Pulsos del reactor. Muévete entre oleadas."},
-	{"id": 11, "name": "Nivel 11 · Vacío Alto", "map": "skybridge", "time": 105, "cores": 6, "beast_hp": 1.75, "unlock_loadout": 3, "tip": "Núcleos en torres. Railgun ayuda a distancia."},
-	{"id": 12, "name": "Nivel 12 · Protocolo Final", "map": "reactor_pit", "time": 95, "cores": 7, "beast_hp": 1.9, "unlock_loadout": 3, "tip": "Último protocolo: sabotea, sobrevive, gana."},
+	{"id": 6, "name": "Nivel 6 · Castillo", "map": "castle", "time": 160, "cores": 5, "beast_hp": 1.35, "unlock_loadout": 3, "tip": "Torres y murallas Kenney — emboscadas en la puerta."},
+	{"id": 7, "name": "Nivel 7 · Cueva", "map": "cave", "time": 150, "cores": 5, "beast_hp": 1.4, "unlock_loadout": 3, "tip": "Corredores estrechos. Escucha los pasos."},
+	{"id": 8, "name": "Nivel 8 · Bosque", "map": "forest", "time": 145, "cores": 5, "beast_hp": 1.45, "unlock_loadout": 3, "tip": "Árboles = cobertura. Sabotea y muévete."},
+	{"id": 9, "name": "Nivel 9 · Laberinto", "map": "containers", "time": 135, "cores": 5, "beast_hp": 1.5, "unlock_loadout": 3, "tip": "La bestia es más dura: prioriza distancia."},
+	{"id": 10, "name": "Nivel 10 · Skybridge", "map": "skybridge", "time": 120, "cores": 6, "beast_hp": 1.6, "unlock_loadout": 3, "tip": "Puentes estrechos. Cuidado con las zonas violeta."},
+	{"id": 11, "name": "Nivel 11 · Overclock", "map": "lab_neon", "time": 110, "cores": 6, "beast_hp": 1.7, "unlock_loadout": 3, "tip": "Reloj corto: no pelees de más."},
+	{"id": 12, "name": "Nivel 12 · Protocolo Final", "map": "castle", "time": 95, "cores": 7, "beast_hp": 1.9, "unlock_loadout": 3, "tip": "Último protocolo en el castillo. Gana."},
 ]
 
 var campaign_index := 0  # máximo desbloqueado (0-based)
@@ -173,7 +173,7 @@ func on_match_ended(winner: String, map_id: String) -> void:
 
 func _unlock_rewards(map_id: String) -> void:
 	var msgs: PackedStringArray = []
-	var order := ["lab_neon", "containers", "ruins", "reactor_pit", "skybridge"]
+	var order := ["lab_neon", "containers", "ruins", "reactor_pit", "skybridge", "castle", "cave", "forest"]
 	var idx := order.find(map_id)
 	if idx >= 0 and idx + 1 < order.size():
 		var nxt: String = order[idx + 1]

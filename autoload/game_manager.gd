@@ -23,6 +23,7 @@ var player_roles: Dictionary = {}    # peer_id -> Role
 var beast_variant: BeastVariant = BeastVariant.MECHA
 var explorer_variants: Dictionary = {}  # peer_id -> ExplorerVariant (color)
 var explorer_loadouts: Dictionary = {}  # peer_id -> loadout id (armas)
+var explorer_characters: Dictionary = {}  # peer_id -> CharacterCatalog index
 var easy_beast_mode := false
 var current_map: String = "lab_neon"
 ## Overrides de campaña (ProgressionManager.apply_level_rules)
@@ -69,6 +70,7 @@ func setup_match(roles: Dictionary) -> void:
 	explorer_lives.clear()
 	explorer_variants.clear()
 	explorer_loadouts.clear()
+	explorer_characters.clear()
 	objectives_remaining = level_core_count if level_core_count > 0 else OBJECTIVES_TO_WIN
 	var match_time := 240.0
 	if NetworkManager.config:
@@ -88,7 +90,9 @@ func setup_match(roles: Dictionary) -> void:
 			var info: Dictionary = NetworkManager.players.get(peer_id, {})
 			var skin: int = int(info.get("skin", variant_idx))
 			var loadout: int = int(info.get("loadout", 0))
-			explorer_variants[peer_id] = _explorer_variant_list[clampi(skin, 0, 3)]
+			explorer_characters[peer_id] = skin
+			# Mantener variante color 0-3 para tint de cápsula
+			explorer_variants[peer_id] = _explorer_variant_list[clampi(skin % 4, 0, 3)]
 			explorer_loadouts[peer_id] = clampi(loadout, 0, 3)
 			variant_idx += 1
 

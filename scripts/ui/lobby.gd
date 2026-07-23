@@ -268,10 +268,12 @@ func _wire_card(card: PanelContainer, cb: Callable) -> void:
 
 func _rebuild_skins() -> void:
 	_clear_row(skin_row)
-	for i in 4:
-		var card := VisualPicker.make_skin_card(i, i == _skin)
+	var indices: Array = CharacterCatalog.explorer_indices()
+	for cat_i in indices:
+		var locked := not CharacterCatalog.is_unlocked(int(cat_i))
+		var card := VisualPicker.make_skin_card(int(cat_i), int(cat_i) == _skin, locked)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		_wire_card(card, _on_skin_picked.bind(i))
+		_wire_card(card, _on_skin_picked.bind(int(cat_i)))
 		skin_row.add_child(card)
 
 
@@ -314,9 +316,13 @@ func _rebuild_beasts() -> void:
 
 
 func _on_skin_picked(skin: int) -> void:
+	if not CharacterCatalog.is_unlocked(skin):
+		status_label.text = "Personaje bloqueado — gana más partidas"
+		return
 	_skin = skin
 	_rebuild_skins()
 	NetworkManager.submit_skin(skin)
+	_update_hangar_preview()
 	_update_hangar_preview()
 
 
@@ -365,6 +371,12 @@ func _update_map_hint() -> void:
 			map_hint.text = "Pozo reactor — zona de daño central y pulsos."
 		"skybridge":
 			map_hint.text = "Puentes elevados — flancos peligrosos y núcleos altos."
+		"castle":
+			map_hint.text = "Castillo Kenney — puertas, torres y murallas."
+		"cave":
+			map_hint.text = "Cueva modular — corredores y salas oscuras."
+		"forest":
+			map_hint.text = "Mini bosque — cobertura entre árboles."
 		_:
 			map_hint.text = "Laboratorio neon — arena abierta y luces frías."
 	if ProgressionManager.campaign_mode or NetworkManager.is_solo_practice:

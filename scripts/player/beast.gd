@@ -25,6 +25,29 @@ func _apply_beast_visuals() -> void:
 	crew.apply_colors(colors.body, colors.visor, colors.accent)
 	var pname: String = str(NetworkManager.players.get(peer_id, {}).get("name", "Bestia"))
 	crew.set_player_name(pname)
+	# Skeletons / monstruos del catálogo (índices beast)
+	if not OS.has_feature("web"):
+		var bidx := CharacterCatalog.beast_indices()
+		var pick := int(GameManager.beast_variant) + 3  # offset past classic/mecha/shadow names if mesh ones later
+		# Prefer skel if unlocked and variant is SHADOW-ish
+		for i in bidx:
+			var e := CharacterCatalog.get_entry(int(i))
+			if str(e.get("id", "")).begins_with("skel_") and CharacterCatalog.is_unlocked(int(i)):
+				if int(GameManager.beast_variant) == GameManager.BeastVariant.SHADOW:
+					pick = int(i)
+					break
+		var mesh_parent: Node3D = get_node_or_null("Mesh") as Node3D
+		if mesh_parent:
+			var existing := mesh_parent.get_node_or_null("CatalogMesh")
+			if existing:
+				existing.queue_free()
+			var e2 := CharacterCatalog.get_entry(pick)
+			if not str(e2.get("mesh", "")).is_empty():
+				var attached := CharacterCatalog.attach_mesh(mesh_parent, pick, 1.1)
+				if attached and crew:
+					for c in crew.get_children():
+						if c is MeshInstance3D:
+							(c as MeshInstance3D).visible = false
 
 
 func _physics_process(delta: float) -> void:

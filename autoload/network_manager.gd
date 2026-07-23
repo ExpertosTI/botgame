@@ -27,13 +27,16 @@ var last_reject_reason := ""
 var _join_confirmed := false
 
 const BOT_PEER_BASE := 9001
-const MAP_IDS := ["lab_neon", "containers", "ruins", "reactor_pit", "skybridge"]
+const MAP_IDS := ["lab_neon", "containers", "ruins", "reactor_pit", "skybridge", "castle", "cave", "forest"]
 const MAP_NAMES := {
 	"lab_neon": "Laboratorio Neon",
 	"containers": "Ciudad de Contenedores",
 	"ruins": "Ruinas del Núcleo",
 	"reactor_pit": "Pozo Reactor",
 	"skybridge": "Puente Celeste",
+	"castle": "Castillo Kenney",
+	"cave": "Cueva Modular",
+	"forest": "Mini Bosque",
 }
 
 

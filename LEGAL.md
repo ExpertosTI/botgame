@@ -4,7 +4,7 @@
 - **Producto:** CHADRINE  
 - **Editor:** Renace Tech  
 - **Desarrollo:** Expertos TI / Renace  
-- **Versión:** 1.0.0  
+- **Versión:** 1.2.0  
 - **Sitio:** https://botgame.renace.tech  
 
 ## Derechos
@@ -15,6 +15,9 @@ La silueta “cápsula con visor” es solo inspiración estética; **no** usamo
 
 ## Fuentes
 Fuente en `assets/fonts/`: licencia SIL Open Font License — ver `assets/fonts/LICENSE.txt`.
+
+## Assets de terceros
+Ver [assets/CREDITS.md](assets/CREDITS.md): Kenney (CC0 + kits MIT) y KayKit FREE.
 
 ## Privacidad (resumen tiendas)
 - Partidas online usan WebSocket hacia nuestro servidor.  
