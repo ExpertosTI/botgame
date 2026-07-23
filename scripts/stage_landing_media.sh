@@ -123,18 +123,25 @@ done
 echo "[landing-media] roster GLB: $roster_ok / ${#ROSTER_IDS[@]}"
 
 # —— Texturas externas de Blocky / forest (GLB no embebidos) ——
+# Tras el export Godot el working tree suele estar vacío: SIEMPRE sacar de git.
 TEX_OUT="$OUT/roster/Textures"
 mkdir -p "$TEX_OUT"
 tex_ok=0
 for tex in texture-a texture-b texture-c texture-d texture-e texture-f colormap; do
   dest="$TEX_OUT/${tex}.png"
+  rel="assets/characters/roster/Textures/${tex}.png"
+  if git_extract "$rel" "$dest" && [ -s "$dest" ]; then
+    tex_ok=$((tex_ok + 1))
+    continue
+  fi
   for src in \
-    "$ROOT/assets/characters/roster/Textures/${tex}.png" \
+    "$ROOT/$rel" \
     "$ROOT/assets/kenney/blocky-characters_20/Models/GLB format/Textures/${tex}.png" \
     "$ROOT/assets/kenney/mini-forest_1.0/Models/GLB format/Textures/${tex}.png" \
-    "$PARK/assets/characters/roster/Textures/${tex}.png"
+    "$PARK/$rel"
   do
     if [ -f "$src" ] && [ -s "$src" ]; then
+      mkdir -p "$(dirname "$dest")"
       cp -f "$src" "$dest"
       tex_ok=$((tex_ok + 1))
       break
@@ -142,6 +149,14 @@ for tex in texture-a texture-b texture-c texture-d texture-e texture-f colormap;
   done
 done
 echo "[landing-media] roster Textures: $tex_ok"
+if [ "$tex_ok" -lt 6 ]; then
+  echo "[landing-media] ERROR: faltan texturas Blocky ($tex_ok/7) — Blocky A/B fallarán en Three.js" >&2
+  ls -lah "$TEX_OUT" || true
+  exit 1
+fi
+
+# Limpiar basura de Godot .import dentro de media (no deben ir a nginx)
+find "$OUT" -name '*.import' -type f -delete 2>/dev/null || true
 
 # —— Mapas UI ——
 for map in map_neon map_containers map_ruins; do
