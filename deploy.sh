@@ -144,7 +144,8 @@ cmd_update() {
     stack_deploy
     wait_services || true
     health
-    log "Listo: https://${BOTGAME_DOMAIN}/"
+    log "Listo: https://${BOTGAME_DOMAIN}/  (landing)"
+    log "Juego:  https://${BOTGAME_DOMAIN}/play/"
     log "WebSocket: wss://${BOTGAME_DOMAIN}/ws"
 }
 
@@ -158,7 +159,8 @@ cmd_start() {
     stack_deploy
     wait_services || true
     health
-    log "Listo: https://${BOTGAME_DOMAIN}/"
+    log "Listo: https://${BOTGAME_DOMAIN}/  (landing)"
+    log "Juego:  https://${BOTGAME_DOMAIN}/play/"
     log "WebSocket: wss://${BOTGAME_DOMAIN}/ws"
 }
 
