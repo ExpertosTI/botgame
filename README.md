@@ -2,7 +2,7 @@
 
 Juego hub multijugador / local (Godot 4.3) — **CHADRINE**.
 
-**Versión:** 1.2.1 · Renace Tech / Expertos TI  
+**Versión:** 1.2.2 · Renace Tech / Expertos TI  
 **Legal:** [LEGAL.md](LEGAL.md) · **Assets:** [assets/CREDITS.md](assets/CREDITS.md)
 
 ## Modos

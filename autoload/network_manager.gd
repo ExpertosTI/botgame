@@ -569,38 +569,56 @@ func count_explorers() -> int:
 
 @rpc("any_peer", "reliable")
 func request_start_match() -> void:
-	if not multiplayer.is_server():
-		return
+	# OfflineMultiplayerPeer en Web a veces no reporta is_server(); el solo no debe bloquearse.
 	if is_solo_practice:
 		prepare_solo_bots()
 		if players.get(1, {}).get("role", "") == "":
 			players[1]["role"] = "explorer"
 		players[1]["ready"] = true
-	elif players.size() < 2:
-		return
-	if not all_players_ready() and not is_solo_practice:
-		return
-	if not has_exactly_one_beast():
-		return
-	# Roles por defecto: quien no eligió es explorer
-	for pid in players:
-		if players[pid].get("role", "") == "":
-			players[pid]["role"] = "explorer"
-	var cores := -1
-	var match_time := -1.0
-	var beast_hp := 1.0
-	if ProgressionManager.campaign_mode or is_solo_practice:
+		if not has_exactly_one_beast():
+			# Garantizar 1 bestia si prepare falló
+			var bid := BOT_PEER_BASE
+			if not players.has(bid):
+				_add_player(bid, "Bot Bestia")
+			players[bid]["role"] = "beast"
+			players[bid]["ready"] = true
+			if str(players.get(1, {}).get("role", "")) == "beast":
+				players[bid]["role"] = "explorer"
+				players[bid]["name"] = "Bot Robot"
+		var cores := -1
+		var match_time := -1.0
+		var beast_hp := 1.0
 		ProgressionManager.campaign_mode = true
 		selected_map = ProgressionManager.force_campaign_map()
 		var lv := ProgressionManager.current_level()
 		cores = int(lv.get("cores", 5))
 		match_time = float(lv.get("time", 240))
 		beast_hp = float(lv.get("beast_hp", 1.0))
-	# Offline: llamada directa (RPC + OfflineMultiplayerPeer puede colgar en Web)
-	if is_solo_practice:
 		_do_start_match(selected_map, cores, match_time, beast_hp)
-	else:
-		_do_start_match.rpc(selected_map, cores, match_time, beast_hp)
+		return
+
+	if not multiplayer.is_server():
+		return
+	if players.size() < 2:
+		return
+	if not all_players_ready():
+		return
+	if not has_exactly_one_beast():
+		return
+	for pid in players:
+		if players[pid].get("role", "") == "":
+			players[pid]["role"] = "explorer"
+	var cores := -1
+	var match_time := -1.0
+	var beast_hp := 1.0
+	if ProgressionManager.campaign_mode:
+		ProgressionManager.campaign_mode = true
+		selected_map = ProgressionManager.force_campaign_map()
+		var lv := ProgressionManager.current_level()
+		cores = int(lv.get("cores", 5))
+		match_time = float(lv.get("time", 240))
+		beast_hp = float(lv.get("beast_hp", 1.0))
+	_do_start_match.rpc(selected_map, cores, match_time, beast_hp)
 
 
 @rpc("authority", "call_local", "reliable")

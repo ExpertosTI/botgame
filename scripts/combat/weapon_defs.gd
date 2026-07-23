@@ -93,6 +93,9 @@ static func explorer_loadout_name(loadout_id: int) -> String:
 
 
 static func explorer_skin_name(skin: int) -> String:
+	var n: String = CharacterCatalog.display_name(skin)
+	if n != "?" and not n.is_empty():
+		return n
 	match skin:
 		1: return "Rosa"
 		2: return "Verde"

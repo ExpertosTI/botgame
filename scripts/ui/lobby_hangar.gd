@@ -135,13 +135,18 @@ func _update_2d(role: String, skin: int) -> void:
 	if role == "beast":
 		_portrait.texture = UiIcons.beast_tex(GameManager.beast_variant)
 		if _label:
-			_label.text = "👹  BESTIA"
+			_label.text = "👹  %s" % GameManager.get_beast_variant_name()
 			_label.add_theme_color_override("font_color", GameTheme.C_CRIMSON)
 	else:
-		_portrait.texture = UiIcons.skin_tex(skin)
+		var entry: Dictionary = CharacterCatalog.get_entry(skin)
+		_portrait.texture = UiIcons.skin_tex(skin % 4)
 		if _label:
-			_label.text = "🤖  %s" % WeaponDefs.explorer_skin_name(skin)
-			_label.add_theme_color_override("font_color", GameTheme.C_CYAN)
+			var nm := CharacterCatalog.display_name(skin)
+			if nm == "?" or nm.is_empty():
+				nm = WeaponDefs.explorer_skin_name(skin)
+			_label.text = "🤖  %s" % nm
+			var tint: Color = entry.get("tint", GameTheme.C_CYAN) if not entry.is_empty() else GameTheme.C_CYAN
+			_label.add_theme_color_override("font_color", tint)
 
 
 func _rebuild_crew(is_beast: bool, skin: int) -> void:

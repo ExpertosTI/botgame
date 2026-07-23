@@ -167,7 +167,7 @@ func _set_mode(mode: String) -> void:
 		subtitle.text = "Campaña solitaria · bots · desbloqueos reales"
 		var lv := ProgressionManager.level_name()
 		status_label.text = "%s · victorias %d" % [lv, ProgressionManager.wins_total]
-		solo_hint.text = "Elige rol en el hangar y practica el nivel actual contra bots.\n%s · núcleos y tiempo del nivel." % lv
+		solo_hint.text = "EMPEZAR PRÁCTICA abre el nivel al instante (robot vs bestia bot).\n%s · núcleos y tiempo del nivel." % lv
 
 
 func _setup_atmosphere() -> void:
@@ -257,6 +257,44 @@ func _fill_web_stage(stage_wrap: Control) -> void:
 		var chip := _make_chip(item[0], item[1], item[2])
 		row.add_child(chip)
 		_chip_nodes.append(chip)
+
+	# Fila de personajes del catálogo (contenido real del build)
+	var roster_lbl := Label.new()
+	roster_lbl.text = "Tripulación desbloqueable"
+	roster_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	GameTheme.style_muted(roster_lbl, 13)
+	vbox.add_child(roster_lbl)
+	var roster_row := HBoxContainer.new()
+	roster_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	roster_row.add_theme_constant_override("separation", 6)
+	roster_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_child(roster_row)
+	var shown := 0
+	for idx in CharacterCatalog.explorer_indices():
+		if shown >= 6:
+			break
+		var e: Dictionary = CharacterCatalog.get_entry(int(idx))
+		if e.is_empty():
+			continue
+		var unlocked := CharacterCatalog.is_unlocked(int(idx))
+		var accent: Color = e.get("tint", GameTheme.C_CYAN)
+		var title: String = str(e.get("name", "?"))
+		if not unlocked:
+			title = "🔒"
+		var card := VisualPicker.make_card(
+			title,
+			"Robot" if unlocked else "Wins",
+			accent,
+			false,
+			null,
+			"🤖" if unlocked else "🔒",
+			Vector2(72, 88),
+			40.0,
+			not unlocked
+		)
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		roster_row.add_child(card)
+		shown += 1
 
 	var tip := Label.new()
 	tip.text = "Online · o Campaña solitaria vs bots"
@@ -395,10 +433,21 @@ func _on_solo_start_pressed() -> void:
 		player_name = "Practicante"
 	SettingsManager.preferred_name = player_name
 	SettingsManager.save_settings()
-	status_label.text = "Preparando campaña solitaria…"
+	status_label.text = "Iniciando nivel…"
+	solo_start_button.disabled = true
+	if not NetworkManager.match_start_requested.is_connected(_on_solo_match_start):
+		NetworkManager.match_start_requested.connect(_on_solo_match_start, CONNECT_ONE_SHOT)
 	var err: Error = NetworkManager.start_solo_practice(player_name)
 	if err != OK:
+		solo_start_button.disabled = false
 		status_label.text = "No se pudo iniciar práctica"
+		return
+	NetworkManager.request_start_match()
+
+
+func _on_solo_match_start(_map_id: String) -> void:
+	solo_start_button.disabled = false
+	get_tree().change_scene_to_file("res://scenes/main/game.tscn")
 
 
 func _on_mute_toggled(on: bool) -> void:
@@ -428,6 +477,9 @@ func _on_credits_pressed() -> void:
 
 
 func _on_server_started() -> void:
+	# Campaña one-click navega a game vía match_start_requested (no lobby)
+	if NetworkManager.is_solo_practice:
+		return
 	get_tree().change_scene_to_file(LOBBY_SCENE)
 
 
