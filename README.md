@@ -29,4 +29,14 @@ git push origin main
 cd /opt/botgame && FORCE_GODOT_EXPORT=1 ./deploy.sh update
 ```
 
-Nota Web: los GLB pesados de personajes se omiten en cliente web (cápsula fallback); packs crudos en `assets/descargas/*.zip` están en `.gitignore`.
+Nota Web: packs crudos (`assets/descargas`, KayKit, kits Kenney) tienen `.gdignore` y no se importan en el export del VPS.
+
+Deploy VPS (rápido, sobrevive a corte SSH):
+
+```bash
+cd /opt/botgame && ./deploy.sh update
+./scripts/deploy_progress.sh   # otra sesión
+# o: ./deploy.sh logs deploy
+```
+
+`FORCE_GODOT_EXPORT=1` re-exporta reutilizando `.godot`. Solo usa `FORCE_GODOT_IMPORT=1` si la cache está corrupta.

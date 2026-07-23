@@ -23,7 +23,9 @@ export/server/**
 
 # Temp clones / raw download zips (usar assets/kenney y assets/kaykit extraídos)
 _tmp_kits/
-assets/descargas/*.zip
+assets/descargas/**
+!assets/descargas/.gdignore
+!assets/descargas/.gitkeep
 
 # Packs crudos pesados (usamos roster + props/ ya copiados)
 assets/kenney/animated-characters-protagonists/
@@ -37,3 +39,4 @@ assets/kenney/castle-kit/
 assets/kenney/modular-cave-kit_1.0/
 assets/kenney/mini-forest_1.0/
 assets/kaykit/
+assets/video/cinematics/
