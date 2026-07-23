@@ -114,20 +114,17 @@ static func make_skin_card(skin: int, selected: bool, locked: bool = false) -> P
 	var tint: Color = entry.get("tint", Color(0.25, 0.55, 1.0)) if not entry.is_empty() else Color(0.25, 0.55, 1.0)
 	var title: String = str(entry.get("name", WeaponDefs.explorer_skin_name(skin % 4))) if not entry.is_empty() else WeaponDefs.explorer_skin_name(skin % 4)
 	var mobile := _is_narrow()
-	var emoji := "🤖"
-	if str(entry.get("id", "")).begins_with("kay_"):
-		emoji = "🗡️"
-	elif str(entry.get("id", "")).begins_with("blocky_"):
-		emoji = "🧱"
-	elif str(entry.get("id", "")).begins_with("crew_"):
-		emoji = UiIcons.ROBOT_EMOJI[clampi(skin % 4, 0, 3)]
+	var role := str(entry.get("role", "explorer"))
+	var sub := "BESTIA" if role == "beast" else "ROBOT"
+	if not str(entry.get("mesh", "")).is_empty():
+		sub = "3D · " + sub
 	return make_card(
 		title,
-		"ROBOT",
+		sub,
 		tint,
 		selected,
-		UiIcons.skin_tex(clampi(skin % 4, 0, 3)),
-		emoji,
+		UiIcons.catalog_tex(skin),
+		"",
 		Vector2(96 if mobile else 88, 136 if mobile else 128),
 		92.0 if mobile else 78.0,
 		locked

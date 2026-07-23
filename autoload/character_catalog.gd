@@ -127,4 +127,32 @@ func attach_mesh(parent: Node3D, index: int, scale_mult: float = 1.0) -> Node3D:
 	node.name = "CatalogMesh"
 	node.scale = Vector3.ONE * scale_mult
 	parent.add_child(node)
+	_prepare_runtime_mesh(node)
 	return node
+
+
+func _prepare_runtime_mesh(root: Node) -> void:
+	## Web: sin sombras / GI; idle anim si existe.
+	var web := OS.has_feature("web") or OS.get_name() == "Web"
+	for n in root.find_children("*", "GeometryInstance3D", true, false):
+		var gi := n as GeometryInstance3D
+		gi.cast_shadow = (
+			GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			if web
+			else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		)
+		gi.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+	for ap_n in root.find_children("*", "AnimationPlayer", true, false):
+		var ap := ap_n as AnimationPlayer
+		if ap == null:
+			continue
+		var idle := ""
+		for anim in ap.get_animation_list():
+			var low := str(anim).to_lower()
+			if "idle" in low or "stand" in low or "wait" in low:
+				idle = str(anim)
+				break
+		if idle.is_empty() and not ap.get_animation_list().is_empty():
+			idle = str(ap.get_animation_list()[0])
+		if not idle.is_empty():
+			ap.play(idle)

@@ -4,7 +4,7 @@
 - **Producto:** CHADRINE  
 - **Editor:** Renace Tech  
 - **Desarrollo:** Expertos TI / Renace  
-- **Versión:** 1.2.0  
+- **Versión:** 1.3.1
 - **Sitio:** https://botgame.renace.tech  
 
 ## Derechos

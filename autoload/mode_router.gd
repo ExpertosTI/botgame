@@ -22,6 +22,11 @@ var current_mode := MODE_ASYMMETRIC
 var intro_seen_session := false
 
 
+func _ready() -> void:
+	if OS.has_feature("web") or OS.get_name() == "Web":
+		Engine.max_fps = 60
+
+
 func mode_title(mode_id: String) -> String:
 	match mode_id:
 		MODE_PLATFORMER: return "Platformer"

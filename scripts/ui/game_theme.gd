@@ -196,12 +196,17 @@ static func make_player_card(name_text: String, role: String, ready: bool, skin:
 	portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	if is_beast:
-		portrait.texture = UiIcons.beast_tex(GameManager.beast_variant)
+		var bid := CharacterCatalog.index_of_id("beast_classic")
+		if GameManager.beast_variant == GameManager.BeastVariant.MECHA:
+			bid = CharacterCatalog.index_of_id("beast_mecha")
+		elif GameManager.beast_variant == GameManager.BeastVariant.SHADOW:
+			bid = CharacterCatalog.index_of_id("beast_shadow")
+		portrait.texture = UiIcons.catalog_tex(bid)
 	elif role == "explorer":
-		portrait.texture = UiIcons.skin_tex(skin)
+		portrait.texture = UiIcons.catalog_tex(skin)
 	else:
 		portrait.modulate = Color(0.5, 0.5, 0.55)
-		portrait.texture = UiIcons.skin_tex(0)
+		portrait.texture = UiIcons.catalog_tex(0)
 	portrait_wrap.add_child(portrait)
 
 	var col := VBoxContainer.new()

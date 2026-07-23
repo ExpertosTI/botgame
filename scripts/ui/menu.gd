@@ -364,21 +364,9 @@ func _rebuild_dynamic_pickers() -> void:
 	for idx in CharacterCatalog.beast_indices():
 		var i := int(idx)
 		var locked := not CharacterCatalog.is_unlocked(i)
-		var e: Dictionary = CharacterCatalog.get_entry(i)
-		var accent: Color = e.get("tint", GameTheme.C_CRIMSON)
-		var title: String = str(e.get("name", "Bestia"))
 		var selected := _pick_role == "beast" and i == _pick_skin
-		var card := VisualPicker.make_card(
-			title,
-			"BESTIA",
-			accent,
-			selected,
-			UiIcons.beast_tex(_beast_variant_for_entry(e)),
-			"",
-			Vector2(100, 130),
-			72.0,
-			locked
-		)
+		var card := VisualPicker.make_skin_card(i, selected, locked)
+		card.custom_minimum_size = Vector2(100, 130)
 		card.set_meta("picked", selected)
 		_wire_menu_card(card, func(): _on_pick_beast_entry(i))
 		_dyn_beasts.add_child(card)
@@ -653,6 +641,12 @@ func _on_server_started() -> void:
 
 func _on_connected() -> void:
 	join_button.disabled = false
+	NetworkManager.submit_role(_pick_role)
+	NetworkManager.submit_skin(_pick_skin)
+	if _pick_role == "beast":
+		NetworkManager.submit_beast_variant(int(_pick_beast_variant))
+	if _pick_map_idx >= 0 and _pick_map_idx < NetworkManager.MAP_IDS.size():
+		NetworkManager.selected_map = NetworkManager.MAP_IDS[_pick_map_idx]
 	get_tree().change_scene_to_file(LOBBY_SCENE)
 
 

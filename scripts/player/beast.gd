@@ -22,32 +22,46 @@ func _apply_beast_visuals() -> void:
 		return
 	crew.is_beast = true
 	var colors := GameManager.get_beast_colors()
-	crew.apply_colors(colors.body, colors.visor, colors.accent)
+	var cat_idx := _resolve_beast_catalog_index()
+	var entry := CharacterCatalog.get_entry(cat_idx)
+	if not entry.is_empty():
+		var tint: Color = entry.get("tint", colors.body)
+		crew.apply_colors(tint, colors.visor, tint.lightened(0.15))
+	else:
+		crew.apply_colors(colors.body, colors.visor, colors.accent)
 	var pname: String = str(NetworkManager.players.get(peer_id, {}).get("name", "Bestia"))
 	crew.set_player_name(pname)
-	# Skeletons / monstruos del catálogo (índices beast)
-	if not OS.has_feature("web"):
-		var bidx := CharacterCatalog.beast_indices()
-		var pick := int(GameManager.beast_variant) + 3  # offset past classic/mecha/shadow names if mesh ones later
-		# Prefer skel if unlocked and variant is SHADOW-ish
-		for i in bidx:
-			var e := CharacterCatalog.get_entry(int(i))
-			if str(e.get("id", "")).begins_with("skel_") and CharacterCatalog.is_unlocked(int(i)):
-				if int(GameManager.beast_variant) == GameManager.BeastVariant.SHADOW:
-					pick = int(i)
-					break
-		var mesh_parent: Node3D = get_node_or_null("Mesh") as Node3D
-		if mesh_parent:
-			var existing := mesh_parent.get_node_or_null("CatalogMesh")
-			if existing:
-				existing.queue_free()
-			var e2 := CharacterCatalog.get_entry(pick)
-			if not str(e2.get("mesh", "")).is_empty():
-				var attached := CharacterCatalog.attach_mesh(mesh_parent, pick, 1.1)
-				if attached and crew:
-					for c in crew.get_children():
-						if c is MeshInstance3D:
-							(c as MeshInstance3D).visible = false
+	var mesh_parent: Node3D = get_node_or_null("Mesh") as Node3D
+	if mesh_parent == null:
+		return
+	var existing := mesh_parent.get_node_or_null("CatalogMesh")
+	if existing:
+		existing.queue_free()
+	if str(entry.get("mesh", "")).is_empty():
+		return
+	var attached := CharacterCatalog.attach_mesh(mesh_parent, cat_idx, 1.1)
+	if attached and crew:
+		for c in crew.get_children():
+			if c is MeshInstance3D:
+				(c as MeshInstance3D).visible = false
+
+
+func _resolve_beast_catalog_index() -> int:
+	var skin := int(NetworkManager.players.get(peer_id, {}).get("skin", -1))
+	if skin >= 0:
+		var e := CharacterCatalog.get_entry(skin)
+		if str(e.get("role", "")) == "beast":
+			return skin
+	match int(GameManager.beast_variant):
+		GameManager.BeastVariant.MECHA:
+			return CharacterCatalog.index_of_id("beast_mecha")
+		GameManager.BeastVariant.SHADOW:
+			var skel := CharacterCatalog.index_of_id("skel_warrior")
+			if CharacterCatalog.is_unlocked(skel):
+				return skel
+			return CharacterCatalog.index_of_id("beast_shadow")
+		_:
+			return CharacterCatalog.index_of_id("beast_classic")
 
 
 func _physics_process(delta: float) -> void:

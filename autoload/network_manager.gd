@@ -148,6 +148,7 @@ func prepare_solo_bots() -> void:
 		_add_player(bid, "Bot Bestia")
 		players[bid]["role"] = "beast"
 		players[bid]["ready"] = true
+		players[bid]["skin"] = CharacterCatalog.index_of_id("beast_classic")
 
 	GameManager.easy_beast_mode = true
 	if config:

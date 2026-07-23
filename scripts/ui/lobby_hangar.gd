@@ -133,18 +133,28 @@ func _update_2d(role: String, skin: int) -> void:
 	if _portrait == null:
 		return
 	if role == "beast":
-		_portrait.texture = UiIcons.beast_tex(GameManager.beast_variant)
+		var bidx := skin
+		var be := CharacterCatalog.get_entry(bidx)
+		if str(be.get("role", "")) != "beast":
+			match int(GameManager.beast_variant):
+				GameManager.BeastVariant.MECHA:
+					bidx = CharacterCatalog.index_of_id("beast_mecha")
+				GameManager.BeastVariant.SHADOW:
+					bidx = CharacterCatalog.index_of_id("beast_shadow")
+				_:
+					bidx = CharacterCatalog.index_of_id("beast_classic")
+		_portrait.texture = UiIcons.catalog_tex(bidx)
 		if _label:
-			_label.text = "👹  %s" % GameManager.get_beast_variant_name()
+			_label.text = CharacterCatalog.display_name(bidx)
 			_label.add_theme_color_override("font_color", GameTheme.C_CRIMSON)
 	else:
 		var entry: Dictionary = CharacterCatalog.get_entry(skin)
-		_portrait.texture = UiIcons.skin_tex(skin % 4)
+		_portrait.texture = UiIcons.catalog_tex(skin)
 		if _label:
 			var nm := CharacterCatalog.display_name(skin)
 			if nm == "?" or nm.is_empty():
 				nm = WeaponDefs.explorer_skin_name(skin)
-			_label.text = "🤖  %s" % nm
+			_label.text = nm
 			var tint: Color = entry.get("tint", GameTheme.C_CYAN) if not entry.is_empty() else GameTheme.C_CYAN
 			_label.add_theme_color_override("font_color", tint)
 
@@ -155,14 +165,39 @@ func _rebuild_crew(is_beast: bool, skin: int) -> void:
 	if is_instance_valid(_crew):
 		_crew.queue_free()
 		_crew = null
-	_crew = CREW_SCRIPT.new()
-	_crew.is_beast = is_beast
-	_crew.body_scale = 1.05 if is_beast else 1.0
-	_stage.add_child(_crew)
+	# Preferir mesh del catálogo; fallback cápsula
+	var wrap := Node3D.new()
+	_stage.add_child(wrap)
+	_crew = wrap
+	var cat_idx := skin
 	if is_beast:
-		_crew.apply_colors(Color(0.55, 0.08, 0.12), Color(1.0, 0.35, 0.2), Color(0.9, 0.55, 0.1))
-		_crew.set_player_name("BESTIA")
+		var be := CharacterCatalog.get_entry(skin)
+		if str(be.get("role", "")) != "beast":
+			match int(GameManager.beast_variant):
+				GameManager.BeastVariant.MECHA:
+					cat_idx = CharacterCatalog.index_of_id("beast_mecha")
+				GameManager.BeastVariant.SHADOW:
+					cat_idx = CharacterCatalog.index_of_id("beast_shadow")
+				_:
+					cat_idx = CharacterCatalog.index_of_id("beast_classic")
+	var attached := CharacterCatalog.attach_mesh(wrap, cat_idx, 1.0 if is_beast else 0.9)
+	if attached == null:
+		var crew_n: Node3D = CREW_SCRIPT.new()
+		crew_n.is_beast = is_beast
+		crew_n.body_scale = 1.05 if is_beast else 1.0
+		wrap.add_child(crew_n)
+		var entry := CharacterCatalog.get_entry(cat_idx)
+		var tint: Color = entry.get("tint", Color(0.25, 0.55, 1.0))
+		if is_beast:
+			crew_n.apply_colors(tint, Color(1.0, 0.35, 0.2), tint.lightened(0.2))
+			crew_n.set_player_name(CharacterCatalog.display_name(cat_idx))
+		else:
+			crew_n.apply_colors(tint, Color(0.75, 0.95, 1.0), tint.lightened(0.15))
+			crew_n.set_player_name(CharacterCatalog.display_name(cat_idx))
 	else:
-		var c: Array = SKIN_COLORS[clampi(skin, 0, 3)]
-		_crew.apply_colors(c[0], c[1], c[2])
-		_crew.set_player_name("ROBOT")
+		var tag := Label3D.new()
+		tag.text = CharacterCatalog.display_name(cat_idx)
+		tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		tag.font_size = 48
+		tag.position = Vector3(0, 1.7, 0)
+		wrap.add_child(tag)
