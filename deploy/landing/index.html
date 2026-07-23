@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHADRINE — Multijugador 3D Asimétrico & Hub de Juego</title>
+    <meta name="description" content="CHADRINE: Juego multijugador 3D asimétrico (1 Bestia vs Robots) + Modos Platformer, FPS y City Builder. ¡Juega gratis en tu navegador!">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Three.js & OrbitControls for 3D Viewport -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="landing.css">
+</head>
+<body>
+
+    <!-- NAV BAR -->
+    <nav class="cyber-nav">
+        <div class="nav-container">
+            <div class="brand">
+                <span class="brand-badge">3D CORE</span>
+                <span class="brand-title">CHADRINE</span>
+            </div>
+            <div class="nav-links">
+                <a href="#hero">Inicio</a>
+                <a href="#3d-viewer">Visor 3D</a>
+                <a href="#modes">Modos de Juego</a>
+                <a href="#gallery">Galería</a>
+                <a href="#controls">Controles</a>
+            </div>
+            <button class="cta-btn play-nav-btn" onclick="openGameModal()">JUGAR AHORA 🚀</button>
+        </div>
+    </nav>
+
+    <!-- HERO SECTION WITH VIDEO BACKGROUND -->
+    <section id="hero" class="hero-section">
+        <div class="video-container">
+            <video id="intro-video" autoplay loop muted playsinline poster="/media/chadrine_keyart.png">
+                <source src="/media/chadrine_intro.mp4" type="video/mp4">
+            </video>
+            <div class="video-overlay"></div>
+        </div>
+
+        <div class="hero-content">
+            <div class="hero-badge">
+                <span class="pulse-dot"></span> GODOT 4.3 ENGINE · MULTIJUGADOR 3D EN TIEMPO REAL
+            </div>
+            <h1 class="hero-title">CHADRINE</h1>
+            <p class="hero-subtitle">
+                Entra al Hangar. 1 Bestia Destructora contra la Tripulación Robot. <br>
+                Combate asimétrico, submodos arcade y batallas épicas en línea y campaña.
+            </p>
+            
+            <div class="hero-actions">
+                <button class="cta-btn primary-btn" onclick="openGameModal()">
+                    <span class="icon">🎮</span> JUGAR EN NAVEGADOR
+                </button>
+                <a href="/media/chadrine_intro.mp4" target="_blank" class="cta-btn secondary-btn">
+                    <span class="icon">🎬</span> VER TRAILER
+                </a>
+            </div>
+
+            <div class="hero-stats">
+                <div class="stat-item">
+                    <span class="stat-num">1v3</span>
+                    <span class="stat-lbl">Combate Asimétrico</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-num">8+</span>
+                    <span class="stat-lbl">Teatros de Guerra 3D</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-num">4</span>
+                    <span class="stat-lbl">Modos de Juego</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-num">60 FPS</span>
+                    <span class="stat-lbl">Rendimiento WebGL</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- INTERACTIVE 3D MODEL VIEWPORT -->
+    <section id="3d-viewer" class="section-container">
+        <div class="section-header">
+            <h2>VISOR 3D INTERACTIVO DE TRIPULACIÓN</h2>
+            <p>Explora los personajes 3D en tiempo real. Haz clic y arrastra para rotar la cámara 360°.</p>
+        </div>
+
+        <div class="viewer-3d-layout">
+            <div class="canvas-wrapper">
+                <canvas id="three-canvas"></canvas>
+                <div class="canvas-overlay-info">
+                    <span id="active-model-name">ROBOT EXPLORADOR (MODELO 3D)</span>
+                    <small>Arrastra para girar · Rueda para zoom</small>
+                </div>
+            </div>
+
+            <div class="character-selector-panel">
+                <h3>SELECCIONAR MODELO 3D</h3>
+                <div class="char-buttons-grid">
+                    <button class="char-btn active" onclick="load3DModel('robot_blue', 'ROBOT EXPLORADOR AZUL', '#00f2fe')">
+                        <span class="char-icon">🤖</span>
+                        <div class="char-info">
+                            <strong>Robot Azul</strong>
+                            <small>Tripulación Exploradora</small>
+                        </div>
+                    </button>
+                    <button class="char-btn" onclick="load3DModel('robot_pink', 'ROBOT ESPECIALISTA ROSA', '#ff40b3')">
+                        <span class="char-icon">🌸</span>
+                        <div class="char-info">
+                            <strong>Robot Rosa</strong>
+                            <small>Velocidad & Apoyo</small>
+                        </div>
+                    </button>
+                    <button class="char-btn" onclick="load3DModel('beast_mecha', 'MECHA DESTRUCTOR 3D', '#ff3344')">
+                        <span class="char-icon">👹</span>
+                        <div class="char-info">
+                            <strong>Mecha Destructor</strong>
+                            <small>Bestia Asimétrica</small>
+                        </div>
+                    </button>
+                    <button class="char-btn" onclick="load3DModel('skel_warrior', 'ESQUELETO GUERRERO 3D', '#ffab00')">
+                        <span class="char-icon">💀</span>
+                        <div class="char-info">
+                            <strong>Esqueleto Guerrero</strong>
+                            <small>Enemigo Táctico</small>
+                        </div>
+                    </button>
+                </div>
+
+                <div class="model-stats-card" id="model-stats-card">
+                    <h4>ESTADÍSTICAS DEL PERSONAJE</h4>
+                    <div class="stat-bar">
+                        <span>Blindaje / HP</span>
+                        <div class="bar-bg"><div class="bar-fill" id="bar-hp" style="width: 75%;"></div></div>
+                    </div>
+                    <div class="stat-bar">
+                        <span>Velocidad Dash</span>
+                        <div class="bar-bg"><div class="bar-fill" id="bar-speed" style="width: 90%;"></div></div>
+                    </div>
+                    <div class="stat-bar">
+                        <span>Potencia de Fuego</span>
+                        <div class="bar-bg"><div class="bar-fill" id="bar-power" style="width: 80%;"></div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- GAME MODES SECTION -->
+    <section id="modes" class="section-container">
+        <div class="section-header">
+            <h2>MODOS DE JUEGO MULTIDIMENSIONALES</h2>
+            <p>Desde el núcleo asimétrico intensivo hasta submodos opcionales de plataformas y construcción.</p>
+        </div>
+
+        <div class="modes-grid">
+            <div class="mode-card core-mode">
+                <div class="mode-badge">MODO PRINCIPAL</div>
+                <div class="mode-icon">⚔️</div>
+                <h3>Combate Asimétrico</h3>
+                <p>Un jugador controla a la temible Bestia con habilidades devastadoras. De 1 a 3 Robots deben cooperar para capturar objetivos o destruir a la amenaza antes de ser eliminados.</p>
+                <ul>
+                    <li>✔ Servidor WebSocket Online o Bots de Campaña Offline</li>
+                    <li>✔ 8 Teatros de Guerra (Neon, Reactor, Ruinas, Castillo...)</li>
+                    <li>✔ Sistema de Combo y Habilidades Únicas</li>
+                </ul>
+            </div>
+
+            <div class="mode-card">
+                <div class="mode-badge">KENNEY LAYER</div>
+                <div class="mode-icon">🏃</div>
+                <h3>Platformer 3D</h3>
+                <p>Navegación ágil en 3D con plataformas dinámicas, saltos de precisión y desafíos cronometrados en entornos coloridos.</p>
+            </div>
+
+            <div class="mode-card">
+                <div class="mode-badge">FPS LAYER</div>
+                <div class="mode-icon">🎯</div>
+                <h3>Acción FPS</h3>
+                <p>Perspectiva en primera persona acelerada con armamento táctico, control de retroceso y combate directo de ritmo vertiginoso.</p>
+            </div>
+
+            <div class="mode-card">
+                <div class="mode-badge">STRATEGY LAYER</div>
+                <div class="mode-icon">🏗️</div>
+                <h3>City Builder</h3>
+                <p>Construcción y expansión de bases 3D. Emplaza estructuras, administra recursos y defiende tu territorio estratégico.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- GALLERY LIGHTBOX SECTION -->
+    <section id="gallery" class="section-container">
+        <div class="section-header">
+            <h2>GALERÍA DE ARTE Y CAPTURAS 3D</h2>
+            <p>Haz clic en cualquier imagen para ampliar en resolución 4K.</p>
+        </div>
+
+        <div class="gallery-grid">
+            <div class="gallery-item" onclick="openLightbox('/media/chadrine_keyart.png')">
+                <img src="/media/chadrine_keyart.png" alt="CHADRINE Keyart 1">
+                <div class="gallery-caption">Arte Oficial — Hangar Neon</div>
+            </div>
+            <div class="gallery-item" onclick="openLightbox('/media/chadrine_keyart_2.png')">
+                <img src="/media/chadrine_keyart_2.png" alt="CHADRINE Keyart 2">
+                <div class="gallery-caption">Arte Oficial — Bestia vs Tripulación</div>
+            </div>
+            <div class="gallery-item" onclick="openLightbox('/media/chadrine_ref.jpeg')">
+                <img src="/media/chadrine_ref.jpeg" alt="CHADRINE Concept Art">
+                <div class="gallery-caption">Concept Art & Referencia Visual</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CONTROLS SECTION -->
+    <section id="controls" class="section-container">
+        <div class="section-header">
+            <h2>CONTROLES & SOPORTE MULTIPLATAFORMA</h2>
+            <p>Diseñado para PC (Teclado/Mouse) y Dispositivos Múltiples con Interfaz Táctil Adaptativa.</p>
+        </div>
+
+        <div class="controls-grid">
+            <div class="control-box">
+                <h4>⌨️ MOVIMIENTO Y NAVEGACIÓN</h4>
+                <p><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> — Mover personaje</p>
+                <p><kbd>Espacio</kbd> — Saltar</p>
+                <p><kbd>G</kbd> — Dash evasivo</p>
+                <p><kbd>Shift</kbd> — Sprint táctico</p>
+            </div>
+            <div class="control-box">
+                <h4>💥 COMBATE Y HABILIDADES</h4>
+                <p><kbd>Click Izq</kbd> — Disparo primario / Ataque</p>
+                <p><kbd>Q</kbd> — Cambiar arma</p>
+                <p><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> — Habilidades especiales</p>
+                <p><kbd>Esc</kbd> — Pausa y menú Hangar</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="cyber-footer">
+        <div class="footer-container">
+            <div class="footer-info">
+                <h3>CHADRINE v1.3.2</h3>
+                <p>© Renace Tech / Expertos TI. Desarrollado con Godot Engine 4.3.</p>
+            </div>
+            <div class="footer-links">
+                <a href="/privacy.html" target="_blank">Privacidad</a>
+                <a href="/LEGAL.md" target="_blank">Aviso Legal</a>
+                <a href="/play/" class="footer-play">Jugar</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- LIGHTBOX MODAL -->
+    <div id="lightbox-modal" class="modal-overlay" onclick="closeLightbox()">
+        <span class="close-modal">&times;</span>
+        <img id="lightbox-img" src="" alt="Imagen ampliada">
+    </div>
+
+    <!-- GAME LAUNCHER MODAL -->
+    <div id="game-modal" class="modal-overlay">
+        <div class="game-modal-content">
+            <div class="game-modal-header">
+                <h3>CHADRINE — NAVEGADOR WEBGL</h3>
+                <button class="close-modal-btn" onclick="closeGameModal()">&times;</button>
+            </div>
+            <div class="game-viewport-container">
+                <iframe id="game-iframe" src="about:blank" data-game-src="/play/index.html" frameborder="0" allow="autoplay; fullscreen; gamepad; focus-without-user-activation" allowfullscreen></iframe>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom JavaScript -->
+    <script src="landing.js"></script>
+</body>
+</html>

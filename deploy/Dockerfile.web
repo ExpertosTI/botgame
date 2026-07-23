@@ -1,24 +1,40 @@
-# Sirve el export HTML5 de Godot detrás de Traefik/RenaceNet
+# Landing promocional en / + export Godot HTML5 en /play/
 FROM nginx:1.27-alpine
 
 COPY deploy/nginx-web.conf /etc/nginx/conf.d/default.conf
 
-# Quitar "Welcome to nginx!" de la imagen base
 RUN rm -rf /usr/share/nginx/html/*
 
-COPY export/web/ /usr/share/nginx/html/
+# Juego Godot (no pisa el index de la landing)
+COPY export/web/ /usr/share/nginx/html/play/
+
+# Homepage landing
+COPY deploy/landing/index.html /usr/share/nginx/html/index.html
+COPY deploy/landing/landing.css /usr/share/nginx/html/landing.css
+COPY deploy/landing/landing.js /usr/share/nginx/html/landing.js
+
+# Media para hero / galería
+RUN mkdir -p /usr/share/nginx/html/media
+COPY assets/art/chadrine_keyart.png /usr/share/nginx/html/media/chadrine_keyart.png
+COPY assets/art/chadrine_keyart_2.png /usr/share/nginx/html/media/chadrine_keyart_2.png
+COPY assets/art/chadrine_ref.jpeg /usr/share/nginx/html/media/chadrine_ref.jpeg
+COPY assets/video/intro/chadrine_intro.mp4 /usr/share/nginx/html/media/chadrine_intro.mp4
+
 COPY deploy/privacy.html /usr/share/nginx/html/privacy.html
 COPY LEGAL.md /usr/share/nginx/html/LEGAL.md
 COPY PRIVACY.md /usr/share/nginx/html/PRIVACY.md
 
-# Fallar el build si aún no hay export real (evita servir el placeholder)
 RUN set -e; \
-    if ! ls /usr/share/nginx/html/*.wasm >/dev/null 2>&1; then \
-      echo "ERROR: falta export Web Godot (.wasm). En VPS: FORCE_GODOT_EXPORT=1 ./deploy.sh update"; \
+    if ! ls /usr/share/nginx/html/play/*.wasm >/dev/null 2>&1; then \
+      echo "ERROR: falta export Web Godot (.wasm) en /play/. En VPS: FORCE_GODOT_EXPORT=1 ./deploy.sh update"; \
       exit 1; \
     fi; \
-    if [ ! -f /usr/share/nginx/html/index.html ] || grep -q 'Falta el export Web' /usr/share/nginx/html/index.html; then \
-      echo "ERROR: index.html es placeholder, no el export de Godot."; \
+    if [ ! -f /usr/share/nginx/html/play/index.html ] || grep -q 'Falta el export Web' /usr/share/nginx/html/play/index.html; then \
+      echo "ERROR: /play/index.html no es el export de Godot."; \
+      exit 1; \
+    fi; \
+    if [ ! -f /usr/share/nginx/html/index.html ]; then \
+      echo "ERROR: falta landing index.html"; \
       exit 1; \
     fi
 
