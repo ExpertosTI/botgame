@@ -30,6 +30,7 @@ var _chip_nodes: Array[Control] = []
 var _anim_t := 0.0
 var _mobile := false
 var _mode := "online"
+var _join_timeout: SceneTreeTimer = null
 
 
 func _ready() -> void:
@@ -126,22 +127,24 @@ func _build_hub_modes() -> void:
 	]
 	for m in modes:
 		var b := Button.new()
-		b.text = str(m["label"])
+		var mid: String = str(m["id"])
+		var available := ModeRouter.mode_available(mid)
+		b.text = str(m["label"]) if available else ("%s · N/A" % str(m["label"]))
+		b.disabled = not available
+		b.tooltip_text = "" if available else "Modo no incluido en este build (capa opcional)"
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.custom_minimum_size = Vector2(0, 44)
-		var mid: String = str(m["id"])
 		b.pressed.connect(func():
 			AudioDirector.play_ui("confirm")
 			ModeRouter.start_mode(mid)
 		)
 		row.add_child(b)
-	# Insertar después del par online/solo
 	var parent := host.get_parent()
 	if parent:
 		var idx := host.get_index()
 		parent.add_child(row)
 		parent.move_child(row, idx + 1)
-	subtitle.text = "Elige modo: Asimétrico (abajo) o Platformer / FPS / City"
+	subtitle.text = "Asimétrico abajo · Platformer / FPS / City si están instalados"
 
 
 func _set_mode(mode: String) -> void:
@@ -210,7 +213,11 @@ func _fill_web_stage(stage_wrap: Control) -> void:
 		return
 
 	_hero = TextureRect.new()
-	_hero.texture = UiIcons.tex(UiIcons.MENU_HERO)
+	var keyart := "res://assets/art/chadrine_keyart.png"
+	if ResourceLoader.exists(keyart):
+		_hero.texture = load(keyart) as Texture2D
+	else:
+		_hero.texture = UiIcons.tex(UiIcons.MENU_HERO)
 	_hero.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_hero.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	_hero.custom_minimum_size = Vector2(0, 260 if _mobile else 240)
@@ -340,10 +347,36 @@ func _on_join_pressed() -> void:
 	SettingsManager.preferred_name = player_name
 	SettingsManager.save_settings()
 	var address := address_input.text.strip_edges()
-	status_label.text = "Conectando al hangar…"
+	if address.is_empty():
+		address = NetworkManager.get_default_server_url()
+		address_input.text = address
+	status_label.text = "Conectando a %s …" % address
+	join_button.disabled = true
 	var err: Error = NetworkManager.join_game(address, player_name)
 	if err != OK:
+		join_button.disabled = false
 		status_label.text = "Error al conectar (%s)" % error_string(err)
+		return
+	_arm_join_timeout()
+
+
+func _arm_join_timeout() -> void:
+	_join_timeout = get_tree().create_timer(12.0)
+	_join_timeout.timeout.connect(_on_join_timeout)
+
+
+func _on_join_timeout() -> void:
+	if get_tree().current_scene != self:
+		return
+	# Si ya entramos al lobby, esta escena ya no es current
+	if not join_button.disabled:
+		return
+	join_button.disabled = false
+	if NetworkManager.last_reject_reason != "":
+		status_label.text = NetworkManager.last_reject_reason
+	else:
+		status_label.text = "Tiempo agotado. Revisa wss://botgame.renace.tech/ws y recarga."
+	NetworkManager.disconnect_from_game()
 
 
 func _on_host_pressed() -> void:
@@ -399,10 +432,12 @@ func _on_server_started() -> void:
 
 
 func _on_connected() -> void:
+	join_button.disabled = false
 	get_tree().change_scene_to_file(LOBBY_SCENE)
 
 
 func _on_connection_failed() -> void:
+	join_button.disabled = false
 	if NetworkManager.last_reject_reason != "":
 		status_label.text = NetworkManager.last_reject_reason
 	else:

@@ -2,25 +2,25 @@
 
 Juego hub multijugador / local (Godot 4.3) — **CHADRINE**.
 
-**Versión:** 1.2.0 · Renace Tech / Expertos TI  
+**Versión:** 1.2.1 · Renace Tech / Expertos TI  
 **Legal:** [LEGAL.md](LEGAL.md) · **Assets:** [assets/CREDITS.md](assets/CREDITS.md)
 
 ## Modos
 
 | Modo | Descripción |
 |------|-------------|
-| **Asimétrico** | Bestia vs Robots · online / campaña |
-| **Platformer** | Starter Kit Kenney 3D (local) |
-| **FPS** | Starter Kit Kenney FPS (local) |
-| **City Builder** | Starter Kit Kenney City (local) |
+| **Asimétrico** | Bestia vs Robots · online / campaña (core) |
+| **Platformer** | Starter Kit Kenney 3D (capa opcional) |
+| **FPS** | Starter Kit Kenney FPS (capa opcional) |
+| **City Builder** | Starter Kit Kenney City (capa opcional) |
 
 Mapas asimétricos: neon, contenedores, ruinas, reactor, skybridge, **castillo**, **cueva**, **bosque**.  
-Personajes: cápsulas + Blocky/KayKit (catálogo en lobby).
+Personajes: Blocky/KayKit en lobby (roster GLB).
 
 ## Controles (asimétrico)
 
 **PC:** WASD · Click · Q arma · 1–4 habilidades · G dash · Esc pausa  
-Submodos Kenney: ver overlay **← Hub CHADRINE** / Esc.
+Submodos Kenney: overlay **← Hub CHADRINE** / Esc (si el pack está instalado).
 
 ## Deploy (Renace)
 
@@ -29,7 +29,7 @@ Submodos Kenney: ver overlay **← Hub CHADRINE** / Esc.
 git push origin main
 
 # VPS
-cd /opt/botgame && ./deploy.sh update
+cd /opt/botgame && FORCE_GODOT_EXPORT=1 ./deploy.sh update
 ```
 
-Forzar re-export Godot: `FORCE_GODOT_EXPORT=1 ./deploy.sh start`
+El export en VPS incluye **vídeo intro + roster + props**; `modes/` queda fuera del PCK (botones N/A hasta capa modes). Timeout ~20 min la primera vez con GLB.

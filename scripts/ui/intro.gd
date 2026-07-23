@@ -1,6 +1,7 @@
 extends Control
 
-## Intro al arrancar; Skip → hub. Fallback a keyart si el MP4 no carga.
+## Intro al arrancar; Skip → hub.
+## Web: preferir WebM (MP4 suele fallar en HTML5). Fallback keyart.
 
 
 func _ready() -> void:
@@ -9,20 +10,35 @@ func _ready() -> void:
 		return
 	var skip_btn := $SkipButton as Button
 	skip_btn.pressed.connect(_finish)
-	var path := "res://assets/video/intro/chadrine_intro.mp4"
 	var player := $Video as VideoStreamPlayer
 	var ok := false
-	if ResourceLoader.exists(path):
+	var candidates: Array[String] = []
+	if OS.has_feature("web") or OS.get_name() == "Web":
+		candidates = [
+			"res://assets/video/intro/chadrine_intro.webm",
+			"res://assets/video/intro/chadrine_intro.mp4",
+		]
+	else:
+		candidates = [
+			"res://assets/video/intro/chadrine_intro.mp4",
+			"res://assets/video/intro/chadrine_intro.webm",
+		]
+	for path in candidates:
+		if not ResourceLoader.exists(path):
+			continue
 		var stream = load(path)
-		if stream != null and player:
-			player.stream = stream
-			if not player.finished.is_connected(_finish):
-				player.finished.connect(_finish)
-			player.play()
-			ok = player.is_playing()
+		if stream == null or player == null:
+			continue
+		player.stream = stream
+		if not player.finished.is_connected(_finish):
+			player.finished.connect(_finish)
+		player.play()
+		ok = player.is_playing()
+		if ok:
+			break
 	if not ok:
 		_show_keyart_fallback()
-		get_tree().create_timer(2.5).timeout.connect(_finish)
+		get_tree().create_timer(3.0).timeout.connect(_finish)
 
 
 func _show_keyart_fallback() -> void:

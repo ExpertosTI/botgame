@@ -224,36 +224,69 @@ run_godot_timeout() {
   timeout --signal=KILL "${secs}" "$GODOT_BIN" --audio-driver Dummy "$@" >"$logfile" 2>&1
 }
 
-# En este VPS el export "completo" se cuelga (CPU 0, .godot~2MB).
-# Por defecto SLIM: aparca modos Kenney + GLB de roster/props + vídeo.
-# Hub asimétrico sigue jugable (cápsulas). Full: BOTGAME_FULL_EXPORT=1
+# Core jugable: vídeo intro + roster + props SIEMPRE van al export.
+# Solo aparcamos modes Kenney + junk pesado (cinemática ref / keyart_2).
+# Full con modes embebidos: BOTGAME_FULL_EXPORT=1
+ensure_intro_webm() {
+  local mp4="$ROOT/assets/video/intro/chadrine_intro.mp4"
+  local webm="$ROOT/assets/video/intro/chadrine_intro.webm"
+  [ -f "$mp4" ] || return 0
+  [ -f "$webm" ] && { log "Intro WebM OK"; return 0; }
+  if ! command -v ffmpeg >/dev/null 2>&1; then
+    if command -v apt-get >/dev/null 2>&1; then
+      log "Instalando ffmpeg para intro Web (HTML5)…"
+      apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ffmpeg || true
+    fi
+  fi
+  if command -v ffmpeg >/dev/null 2>&1; then
+    log "Generando chadrine_intro.webm (VP9)…"
+    ffmpeg -y -i "$mp4" -c:v libvpx-vp9 -b:v 1M -c:a libopus -row-mt 1 "$webm" \
+      >/tmp/botgame-ffmpeg-intro.log 2>&1 || log "AVISO: ffmpeg falló — mira /tmp/botgame-ffmpeg-intro.log"
+  else
+    log "AVISO: sin ffmpeg — en Web el intro puede caer a keyart"
+  fi
+}
+
 park_heavy_media() {
   PARK_DIR="${PARK_DIR:-/var/cache/botgame-godot/parked-media}"
   mkdir -p "$PARK_DIR"
-  local slim="${BOTGAME_SLIM_EXPORT:-1}"
-  if [ "${BOTGAME_FULL_EXPORT:-0}" = "1" ]; then
-    slim=0
+
+  # Recuperar core si un slim viejo lo aparcó
+  local core_item
+  local restored=0
+  for core_item in \
+    assets/video/intro/chadrine_intro.mp4 \
+    assets/video/intro/chadrine_intro.webm \
+    assets/characters/roster \
+    assets/kenney/props
+  do
+    if [ -e "$PARK_DIR/$core_item" ] && [ ! -e "$ROOT/$core_item" ]; then
+      mkdir -p "$ROOT/$(dirname "$core_item")"
+      mv -f "$PARK_DIR/$core_item" "$ROOT/$core_item"
+      log "Restaurado al core: $core_item"
+      restored=1
+    fi
+  done
+  if [ "$restored" = "1" ]; then
+    log "Core restaurado → se invalida .godot para reimportar"
+    rm -rf "$ROOT/.godot"
   fi
 
   local items=(
-    assets/video/intro/chadrine_intro.mp4
     assets/video/cinematics/estilo_visual.mp4
     assets/art/chadrine_keyart_2.png
   )
-  if [ "$slim" = "1" ]; then
-    log "SLIM export (default en VPS) — sin modes/ roster GLB / props. BOTGAME_FULL_EXPORT=1 para todo."
-    items+=(
-      modes
-      assets/characters/roster
-      assets/kenney/props
-    )
+  if [ "${BOTGAME_FULL_EXPORT:-0}" = "1" ]; then
+    log "FULL export — incluye modes/"
+  else
+    log "Core export — sin modes/ (Platformer/FPS/City opcionales). BOTGAME_FULL_EXPORT=1 para embeberlos."
+    items+=(modes)
   fi
 
   local f
   for f in "${items[@]}"; do
     if [ -e "$ROOT/$f" ]; then
       mkdir -p "$PARK_DIR/$(dirname "$f")"
-      # Si ya estaba aparcado de un intento previo, no pises
       if [ -e "$PARK_DIR/$f" ]; then
         rm -rf "$ROOT/$f"
       else
@@ -290,6 +323,7 @@ restore_heavy_media() {
 run_export() {
   [ -f "$ROOT/export_presets.cfg" ] || die "Falta export_presets.cfg"
   prune_import_junk
+  ensure_intro_webm
   park_heavy_media
   trap 'restore_heavy_media' EXIT
 
@@ -323,7 +357,7 @@ run_export() {
     log "Reusando .godot (${gsz}MB). Sin --import separado."
   fi
 
-  local export_timeout="${GODOT_EXPORT_TIMEOUT:-900}"
+  local export_timeout="${GODOT_EXPORT_TIMEOUT:-1200}"
 
   set_status "EXPORT_WEB"
   log "Export Web → export/web/index.html (timeout=${export_timeout}s)"
