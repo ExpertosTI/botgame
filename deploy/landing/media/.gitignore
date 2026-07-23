@@ -1,0 +1,7 @@
+# Binarios staged en deploy — no versionar
+*.png
+*.jpg
+*.jpeg
+*.mp4
+*.webm
+!.gitkeep

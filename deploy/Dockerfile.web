@@ -8,17 +8,11 @@ RUN rm -rf /usr/share/nginx/html/*
 # Juego Godot (no pisa el index de la landing)
 COPY export/web/ /usr/share/nginx/html/play/
 
-# Homepage landing
+# Homepage landing (+ media staged por scripts/stage_landing_media.sh)
 COPY deploy/landing/index.html /usr/share/nginx/html/index.html
 COPY deploy/landing/landing.css /usr/share/nginx/html/landing.css
 COPY deploy/landing/landing.js /usr/share/nginx/html/landing.js
-
-# Media para hero / galería
-RUN mkdir -p /usr/share/nginx/html/media
-COPY assets/art/chadrine_keyart.png /usr/share/nginx/html/media/chadrine_keyart.png
-COPY assets/art/chadrine_keyart_2.png /usr/share/nginx/html/media/chadrine_keyart_2.png
-COPY assets/art/chadrine_ref.jpeg /usr/share/nginx/html/media/chadrine_ref.jpeg
-COPY assets/video/intro/chadrine_intro.mp4 /usr/share/nginx/html/media/chadrine_intro.mp4
+COPY deploy/landing/media/ /usr/share/nginx/html/media/
 
 COPY deploy/privacy.html /usr/share/nginx/html/privacy.html
 COPY LEGAL.md /usr/share/nginx/html/LEGAL.md
@@ -35,6 +29,10 @@ RUN set -e; \
     fi; \
     if [ ! -f /usr/share/nginx/html/index.html ]; then \
       echo "ERROR: falta landing index.html"; \
+      exit 1; \
+    fi; \
+    if [ ! -f /usr/share/nginx/html/media/chadrine_keyart.png ]; then \
+      echo "ERROR: falta media staging (scripts/stage_landing_media.sh)"; \
       exit 1; \
     fi
 

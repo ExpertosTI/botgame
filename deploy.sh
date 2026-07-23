@@ -64,8 +64,11 @@ ensure_renacenet() {
 
 build_images() {
     log "→ Export Godot en servidor (si hace falta)"
-    chmod +x scripts/export_godot_linux.sh 2>/dev/null || true
+    chmod +x scripts/export_godot_linux.sh scripts/stage_landing_media.sh 2>/dev/null || true
     bash scripts/export_godot_linux.sh
+
+    log "→ Staging media landing → deploy/landing/media/"
+    bash scripts/stage_landing_media.sh
 
     log "→ Build images (GIT_SHA=$GIT_SHA)"
     docker compose -f "$COMPOSE_FILE" build
