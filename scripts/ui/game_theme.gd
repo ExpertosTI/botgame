@@ -47,11 +47,11 @@ static func font_ui() -> Font:
 
 
 static func _ensure_fonts() -> void:
-	if _font_title == null:
+	if _font_title == null and ResourceLoader.exists("res://assets/fonts/Orbitron-Bold.ttf"):
 		_font_title = load("res://assets/fonts/Orbitron-Bold.ttf") as FontFile
-	if _font_ui == null:
+	if _font_ui == null and ResourceLoader.exists("res://assets/fonts/Rajdhani-Regular.ttf"):
 		_font_ui = load("res://assets/fonts/Rajdhani-Regular.ttf") as FontFile
-	if _font_ui_bold == null:
+	if _font_ui_bold == null and ResourceLoader.exists("res://assets/fonts/Rajdhani-SemiBold.ttf"):
 		_font_ui_bold = load("res://assets/fonts/Rajdhani-SemiBold.ttf") as FontFile
 
 
