@@ -214,28 +214,52 @@ run_godot_timeout() {
   # usage: run_godot_timeout <secs> <logfile> <args...>
   local secs="$1"; shift
   local logfile="$1"; shift
+  # Audio dummy evita cuelgues headless en VPS sin Pulse/ALSA
+  export SDL_AUDIODRIVER="${SDL_AUDIODRIVER:-dummy}"
+  export PULSE_SERVER="${PULSE_SERVER:-}"
   if [ "${secs}" = "0" ] || ! command -v timeout >/dev/null 2>&1; then
-    "$GODOT_BIN" "$@" >"$logfile" 2>&1
+    "$GODOT_BIN" --audio-driver Dummy "$@" >"$logfile" 2>&1
     return $?
   fi
-  timeout --signal=KILL "${secs}" "$GODOT_BIN" "$@" >"$logfile" 2>&1
+  timeout --signal=KILL "${secs}" "$GODOT_BIN" --audio-driver Dummy "$@" >"$logfile" 2>&1
 }
 
-# MP4 en headless Linux a menudo cuelga el import (codecs). Se aparcan durante el export;
-# el intro ya tiene fallback si no existe el video.
+# En este VPS el export "completo" se cuelga (CPU 0, .godot~2MB).
+# Por defecto SLIM: aparca modos Kenney + GLB de roster/props + vídeo.
+# Hub asimétrico sigue jugable (cápsulas). Full: BOTGAME_FULL_EXPORT=1
 park_heavy_media() {
   PARK_DIR="${PARK_DIR:-/var/cache/botgame-godot/parked-media}"
   mkdir -p "$PARK_DIR"
-  local f
-  for f in \
-    assets/video/intro/chadrine_intro.mp4 \
-    assets/video/cinematics/estilo_visual.mp4 \
+  local slim="${BOTGAME_SLIM_EXPORT:-1}"
+  if [ "${BOTGAME_FULL_EXPORT:-0}" = "1" ]; then
+    slim=0
+  fi
+
+  local items=(
+    assets/video/intro/chadrine_intro.mp4
+    assets/video/cinematics/estilo_visual.mp4
     assets/art/chadrine_keyart_2.png
-  do
-    if [ -f "$ROOT/$f" ]; then
+  )
+  if [ "$slim" = "1" ]; then
+    log "SLIM export (default en VPS) — sin modes/ roster GLB / props. BOTGAME_FULL_EXPORT=1 para todo."
+    items+=(
+      modes
+      assets/characters/roster
+      assets/kenney/props
+    )
+  fi
+
+  local f
+  for f in "${items[@]}"; do
+    if [ -e "$ROOT/$f" ]; then
       mkdir -p "$PARK_DIR/$(dirname "$f")"
-      mv -f "$ROOT/$f" "$PARK_DIR/$f"
-      log "Aparcado (anti-hang): $f"
+      # Si ya estaba aparcado de un intento previo, no pises
+      if [ -e "$PARK_DIR/$f" ]; then
+        rm -rf "$ROOT/$f"
+      else
+        mv -f "$ROOT/$f" "$PARK_DIR/$f"
+      fi
+      log "Aparcado: $f"
     fi
   done
 }
@@ -244,11 +268,23 @@ restore_heavy_media() {
   PARK_DIR="${PARK_DIR:-/var/cache/botgame-godot/parked-media}"
   [ -d "$PARK_DIR" ] || return 0
   local f
+  # Restaurar dirs/archivos (find sigue symlinks no)
+  while IFS= read -r -d '' f; do
+    local rel="${f#"$PARK_DIR"/}"
+    [ -n "$rel" ] || continue
+    mkdir -p "$ROOT/$(dirname "$rel")"
+    if [ -e "$ROOT/$rel" ]; then
+      rm -rf "$ROOT/$rel"
+    fi
+    mv -f "$f" "$ROOT/$rel" 2>/dev/null || true
+  done < <(find "$PARK_DIR" -mindepth 1 -maxdepth 3 \( -type f -o -type d \) -print0 2>/dev/null)
+  # Segunda pasada: todo lo que quede
   while IFS= read -r -d '' f; do
     local rel="${f#"$PARK_DIR"/}"
     mkdir -p "$ROOT/$(dirname "$rel")"
     mv -f "$f" "$ROOT/$rel" 2>/dev/null || true
   done < <(find "$PARK_DIR" -type f -print0 2>/dev/null)
+  find "$PARK_DIR" -type d -empty -delete 2>/dev/null || true
 }
 
 run_export() {
@@ -287,13 +323,29 @@ run_export() {
     log "Reusando .godot (${gsz}MB). Sin --import separado."
   fi
 
-  local export_timeout="${GODOT_EXPORT_TIMEOUT:-1200}"
+  local export_timeout="${GODOT_EXPORT_TIMEOUT:-600}"
 
   set_status "EXPORT_WEB"
   log "Export Web → export/web/index.html (timeout=${export_timeout}s)"
+  log "  (si .godot no crece en 2 min: Ctrl+C y avisa)"
+  # Heartbeat en paralelo mientras Godot corre
+  (
+    local i=0
+    while [ "$i" -lt "$export_timeout" ]; do
+      sleep 30
+      i=$((i + 30))
+      local sz
+      sz="$(du -sh "$ROOT/.godot" 2>/dev/null | awk '{print $1}')" || sz="—"
+      echo "[export-godot] … ${i}s · .godot=$sz · $(pgrep -c -f 'Godot_v.*export' 2>/dev/null || echo 0) proc"
+    done
+  ) &
+  local hb_pid=$!
+
   local rc=0
   run_godot_timeout "${export_timeout}" /tmp/botgame-export-web.log \
     --headless --path "$ROOT" --export-release "Web" "$ROOT/export/web/index.html" || rc=$?
+  kill "$hb_pid" 2>/dev/null || true
+  wait "$hb_pid" 2>/dev/null || true
   if [ "$rc" -ne 0 ]; then
     set_status "ERROR_WEB"
     echo "----- /tmp/botgame-export-web.log (tail) -----" >&2
