@@ -221,8 +221,8 @@ func _move_toward(world_pos: Vector3, speed: float, delta: float) -> void:
 		mult = (body as PlayerBase).combat.speed_mult
 	body.velocity.x = dir.x * speed * mult
 	body.velocity.z = dir.z * speed * mult
-	if body is PlayerBase and (body as PlayerBase).crew:
-		(body as PlayerBase).crew.set_moving(true)
+	if body is PlayerBase:
+		(body as PlayerBase).set_locomotion(true, speed > 5.5)
 	body.move_and_slide()
 
 
@@ -231,8 +231,8 @@ func _brake(delta: float) -> void:
 		body.velocity.y -= ProjectSettings.get_setting("physics/3d/default_gravity") * delta
 	body.velocity.x = move_toward(body.velocity.x, 0, 20.0 * delta)
 	body.velocity.z = move_toward(body.velocity.z, 0, 20.0 * delta)
-	if body is PlayerBase and (body as PlayerBase).crew:
-		(body as PlayerBase).crew.set_moving(false)
+	if body is PlayerBase:
+		(body as PlayerBase).set_locomotion(false)
 	body.move_and_slide()
 
 

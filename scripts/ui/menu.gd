@@ -431,8 +431,26 @@ func _update_3d_stage_preview() -> void:
 		container.remove_child(ch)
 		ch.free()
 
-	var attached := CharacterCatalog.attach_mesh(container, _pick_skin, 0.95 if _pick_role != "beast" else 1.05)
+	var attached := CharacterCatalog.attach_mesh(container, _pick_skin, 1.0)
 	if attached != null:
+		CharacterCatalog.fit_for_showcase(attached, 2.1)
+		# Walk en el hangar: se ve vivo, no maniquí estático
+		CharacterCatalog.play_locomotion(attached, true)
+		# Luces más fuertes para que el modelo no se vea “plano”
+		var key := world.get_node_or_null("KeyLight") as DirectionalLight3D
+		if key:
+			key.light_energy = 1.55
+		var fill := world.get_node_or_null("Fill") as OmniLight3D
+		if fill:
+			fill.light_energy = 3.2
+		var rim := world.get_node_or_null("Rim") as OmniLight3D
+		if rim:
+			rim.light_energy = 2.8
+		var cam := world.get_node_or_null("Camera3D") as Camera3D
+		if cam:
+			cam.position = Vector3(0, 1.35, 3.6)
+			cam.look_at(Vector3(0, 0.95, 0))
+			cam.fov = 38.0
 		return
 
 	# Fallback procedural tintado (crew sin GLB)
@@ -489,20 +507,16 @@ func _add_hscroll(vbox: VBoxContainer, row_name: String) -> HBoxContainer:
 
 
 func _menu_explorer_indices() -> Array:
-	## Roster 3D primero; cápsulas viejas al final (como la landing).
+	## Solo roster 3D — sin cápsulas legacy en el hangar.
 	var with_mesh: Array = []
-	var legacy: Array = []
 	for idx in CharacterCatalog.explorer_indices():
 		var i := int(idx)
 		var mesh := str(CharacterCatalog.get_entry(i).get("mesh", ""))
 		if not mesh.is_empty() and ResourceLoader.exists(mesh):
 			with_mesh.append(i)
-		else:
-			legacy.append(i)
-	var out: Array = []
-	out.append_array(with_mesh)
-	out.append_array(legacy)
-	return out
+	if with_mesh.is_empty():
+		return CharacterCatalog.explorer_indices()
+	return with_mesh
 
 
 func _menu_beast_indices() -> Array:

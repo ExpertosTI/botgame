@@ -46,9 +46,16 @@ func _attach_beast_mesh(cat_idx: int) -> void:
 		existing.free()
 	var attached := CharacterCatalog.attach_mesh(mesh_parent, cat_idx, 1.1)
 	if attached and crew:
-		for c in crew.get_children():
-			if c is MeshInstance3D:
-				(c as MeshInstance3D).visible = false
+		crew.visible = false
+		var tag := Label3D.new()
+		tag.name = "CatalogName"
+		tag.text = str(NetworkManager.players.get(peer_id, {}).get("name", "Bestia"))
+		tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		tag.font_size = 48
+		tag.outline_size = 8
+		tag.modulate = Color(1.0, 0.35, 0.35)
+		tag.position = Vector3(0, 2.2, 0)
+		attached.add_child(tag)
 
 
 func _resolve_beast_catalog_index() -> int:

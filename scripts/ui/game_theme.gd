@@ -133,6 +133,21 @@ static func _btn(bg: Color, border: Color, radius: float) -> StyleBoxFlat:
 	return s
 
 
+static func style_touch(btn: Button, accent: Color = C_CYAN) -> void:
+	## Controles táctiles: vidrio + borde (no cuadrados planos opacos).
+	var bg := Color(0.04, 0.08, 0.1, 0.55)
+	var hover := Color(accent.r, accent.g, accent.b, 0.35).lerp(bg, 0.35)
+	var press := Color(accent.r, accent.g, accent.b, 0.55).lerp(Color(0.02, 0.04, 0.05, 0.75), 0.3)
+	btn.add_theme_stylebox_override("normal", _btn(bg, accent.darkened(0.15), 16))
+	btn.add_theme_stylebox_override("hover", _btn(hover, accent, 16))
+	btn.add_theme_stylebox_override("pressed", _btn(press, Color.WHITE, 16))
+	btn.add_theme_color_override("font_color", Color(0.92, 0.98, 0.98, 0.95))
+	btn.add_theme_color_override("font_hover_color", Color.WHITE)
+	btn.add_theme_color_override("font_pressed_color", accent.lightened(0.35))
+	if font_ui():
+		btn.add_theme_font_override("font", font_ui())
+
+
 static func style_primary(btn: Button) -> void:
 	btn.add_theme_stylebox_override("normal", _btn(C_PRIMARY, C_CYAN, 10))
 	btn.add_theme_stylebox_override("hover", _btn(C_PRIMARY_HOVER, Color.WHITE, 10))

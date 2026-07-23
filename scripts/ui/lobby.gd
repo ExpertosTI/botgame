@@ -289,17 +289,13 @@ func _wire_card(card: PanelContainer, cb: Callable) -> void:
 
 func _rebuild_skins() -> void:
 	_clear_row(skin_row)
-	var with_mesh: Array = []
-	var legacy: Array = []
+	var indices: Array = []
 	for cat_i in CharacterCatalog.explorer_indices():
 		var mesh := str(CharacterCatalog.get_entry(int(cat_i)).get("mesh", ""))
 		if not mesh.is_empty() and ResourceLoader.exists(mesh):
-			with_mesh.append(int(cat_i))
-		else:
-			legacy.append(int(cat_i))
-	var indices: Array = []
-	indices.append_array(with_mesh)
-	indices.append_array(legacy)
+			indices.append(int(cat_i))
+	if indices.is_empty():
+		indices = CharacterCatalog.explorer_indices()
 	for cat_i in indices:
 		var locked := not CharacterCatalog.is_unlocked(int(cat_i))
 		var card := VisualPicker.make_skin_card(int(cat_i), int(cat_i) == _skin, locked)

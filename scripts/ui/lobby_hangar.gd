@@ -193,9 +193,11 @@ func _rebuild_crew(is_beast: bool, skin: int) -> void:
 			crew_n.apply_colors(tint, Color(0.75, 0.95, 1.0), tint.lightened(0.15))
 			crew_n.set_player_name(CharacterCatalog.display_name(cat_idx))
 	else:
+		CharacterCatalog.fit_for_showcase(attached, 1.85)
+		CharacterCatalog.play_locomotion(attached, false)
 		var tag := Label3D.new()
 		tag.text = CharacterCatalog.display_name(cat_idx)
 		tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		tag.font_size = 48
-		tag.position = Vector3(0, 1.7, 0)
+		tag.font_size = 42
+		tag.position = Vector3(0, 1.85, 0)
 		wrap.add_child(tag)

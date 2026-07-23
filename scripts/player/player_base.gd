@@ -113,10 +113,31 @@ func _authority_move(delta: float) -> void:
 		velocity.x = move_toward(velocity.x, 0, speed)
 		velocity.z = move_toward(velocity.z, 0, speed)
 
-	if crew:
-		crew.set_moving(direction.length() > 0.1)
+	set_locomotion(direction.length() > 0.1, InputManager.sprint_held)
 
 	move_and_slide()
+
+
+func set_locomotion(moving: bool, sprint: bool = false) -> void:
+	## Propaga walk/idle al GLB del catálogo y al fallback CrewVisual.
+	if crew and is_instance_valid(crew):
+		if crew.visible:
+			crew.set_moving(moving)
+	var cat := _catalog_mesh()
+	if cat:
+		CharacterCatalog.play_locomotion(cat, moving, sprint)
+
+
+func _catalog_mesh() -> Node3D:
+	if mesh == null:
+		return null
+	return mesh.get_node_or_null("CatalogMesh") as Node3D
+
+
+func _process(delta: float) -> void:
+	var cat := _catalog_mesh()
+	if cat:
+		CharacterCatalog.tick_locomotion(cat, delta)
 
 
 func _maybe_sync(delta: float) -> void:
@@ -126,7 +147,12 @@ func _maybe_sync(delta: float) -> void:
 	if _sync_accum < 1.0 / SYNC_HZ:
 		return
 	_sync_accum = 0.0
-	var moving := crew != null and crew.is_moving()
+	var cat := _catalog_mesh()
+	var moving := false
+	if cat and bool(cat.get_meta("cat_moving", false)):
+		moving = true
+	elif crew != null and crew.visible:
+		moving = crew.is_moving()
 	_recv_state.rpc(global_position, rotation.y, velocity, moving)
 
 
@@ -137,8 +163,7 @@ func _recv_state(pos: Vector3, yaw: float, vel: Vector3, moving: bool) -> void:
 	_remote_yaw = yaw
 	velocity = vel
 	_has_remote = true
-	if crew:
-		crew.set_moving(moving)
+	set_locomotion(moving, vel.length() > move_speed * 1.2)
 
 
 func _apply_remote_pose(delta: float) -> void:

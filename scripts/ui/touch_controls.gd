@@ -43,19 +43,28 @@ func _ready() -> void:
 
 func _style_buttons() -> void:
 	GameTheme.style_danger(btn_action)
-	GameTheme.style_primary(btn_dash)
-	btn_action.text = "🔫\nDISPARO"
-	btn_sprint.text = "💨"
-	btn_jump.text = "⬆"
-	btn_dash.text = "⚡"
-	btn_grenade.text = "💣"
-	btn_weapon.text = "🔄"
+	GameTheme.style_touch(btn_dash, GameTheme.C_CYAN)
+	GameTheme.style_touch(btn_sprint, GameTheme.C_AMBER)
+	GameTheme.style_touch(btn_jump, GameTheme.C_CYAN)
+	GameTheme.style_touch(btn_grenade, GameTheme.C_AMBER)
+	GameTheme.style_touch(btn_weapon, GameTheme.C_MUTED)
+	GameTheme.style_touch(btn_a2, GameTheme.C_CYAN)
+	GameTheme.style_touch(btn_a3, GameTheme.C_CYAN)
+	GameTheme.style_touch(btn_a4, GameTheme.C_CYAN)
+	btn_action.text = "FIRE"
+	btn_sprint.text = "RUN"
+	btn_jump.text = "JUMP"
+	btn_dash.text = "DASH"
+	btn_grenade.text = "NADE"
+	btn_weapon.text = "GUN"
 	btn_a2.text = "2"
 	btn_a3.text = "3"
 	btn_a4.text = "4"
-	btn_action.add_theme_font_size_override("font_size", 18)
+	btn_action.add_theme_font_size_override("font_size", 20)
 	for b in [btn_sprint, btn_jump, btn_dash, btn_grenade, btn_weapon, btn_a2, btn_a3, btn_a4]:
-		b.add_theme_font_size_override("font_size", 22)
+		b.add_theme_font_size_override("font_size", 16)
+	stick_base.modulate = Color(0.15, 0.9, 0.85, 0.55)
+	stick_knob.modulate = Color(0.85, 1.0, 0.98, 0.92)
 
 
 func _layout_for_screen() -> void:

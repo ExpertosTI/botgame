@@ -147,7 +147,7 @@ func attach_mesh(parent: Node3D, index: int, scale_mult: float = 1.0) -> Node3D:
 
 
 func _prepare_runtime_mesh(root: Node) -> void:
-	## Web: sin sombras / GI; idle anim si existe.
+	## Web: sin sombras / GI; cachea clips idle/walk/sprint.
 	var web := OS.has_feature("web") or OS.get_name() == "Web"
 	for n in root.find_children("*", "GeometryInstance3D", true, false):
 		var gi := n as GeometryInstance3D
@@ -157,17 +157,126 @@ func _prepare_runtime_mesh(root: Node) -> void:
 			else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		)
 		gi.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
-	for ap_n in root.find_children("*", "AnimationPlayer", true, false):
-		var ap := ap_n as AnimationPlayer
-		if ap == null:
-			continue
-		var idle := ""
-		for anim in ap.get_animation_list():
-			var low := str(anim).to_lower()
-			if "idle" in low or "stand" in low or "wait" in low:
-				idle = str(anim)
-				break
-		if idle.is_empty() and not ap.get_animation_list().is_empty():
-			idle = str(ap.get_animation_list()[0])
+		# Materiales un poco más “sólidos” bajo luz Compatibility/WebGL
+		if gi.material_override is StandardMaterial3D:
+			var m := gi.material_override as StandardMaterial3D
+			m.roughness = clampf(m.roughness * 0.85, 0.25, 0.95)
+	var ap := find_animation_player(root)
+	if ap:
+		var idle := _pick_anim(ap, ["idle", "stand", "wait", "static"])
+		var walk := _pick_anim(ap, ["walk", "run", "move"])
+		var sprint := _pick_anim(ap, ["sprint", "run-fast", "run"])
+		root.set_meta("cat_ap", ap.get_path())
+		root.set_meta("cat_idle", idle)
+		root.set_meta("cat_walk", walk if not walk.is_empty() else idle)
+		root.set_meta("cat_sprint", sprint if not sprint.is_empty() else (walk if not walk.is_empty() else idle))
 		if not idle.is_empty():
 			ap.play(idle)
+	root.set_meta("cat_moving", false)
+
+
+func find_animation_player(root: Node) -> AnimationPlayer:
+	if root == null:
+		return null
+	for ap_n in root.find_children("*", "AnimationPlayer", true, false):
+		var ap := ap_n as AnimationPlayer
+		if ap and not ap.get_animation_list().is_empty():
+			return ap
+	return null
+
+
+func _pick_anim(ap: AnimationPlayer, keys: Array) -> String:
+	var list := ap.get_animation_list()
+	for key in keys:
+		var k := str(key).to_lower()
+		for anim in list:
+			var low := str(anim).to_lower()
+			if low == k or k in low:
+				return str(anim)
+	return ""
+
+
+## Idle ↔ walk/sprint según movimiento (Blocky/Kenney). Kay sin clips: bob procedural.
+func play_locomotion(root: Node, moving: bool, sprint: bool = false) -> void:
+	if root == null or not is_instance_valid(root):
+		return
+	var was: bool = bool(root.get_meta("cat_moving", false))
+	root.set_meta("cat_moving", moving)
+	var ap: AnimationPlayer = null
+	if root.has_meta("cat_ap"):
+		ap = root.get_node_or_null(root.get_meta("cat_ap")) as AnimationPlayer
+	if ap == null:
+		ap = find_animation_player(root)
+	if ap:
+		var clip := ""
+		if moving:
+			clip = str(root.get_meta("cat_sprint" if sprint else "cat_walk", ""))
+		else:
+			clip = str(root.get_meta("cat_idle", ""))
+		if clip.is_empty():
+			return
+		var cur := str(ap.current_animation)
+		if cur != clip:
+			ap.play(clip)
+		return
+	# Sin AnimationPlayer: balanceo suave al caminar
+	if moving != was or moving:
+		root.set_meta("cat_bob_t", float(root.get_meta("cat_bob_t", 0.0)))
+
+
+func tick_locomotion(root: Node, delta: float) -> void:
+	if root == null or not is_instance_valid(root):
+		return
+	if find_animation_player(root) != null:
+		return
+	if not bool(root.get_meta("cat_moving", false)):
+		root.rotation.x = move_toward(root.rotation.x, 0.0, delta * 4.0)
+		root.position.y = move_toward(root.position.y, float(root.get_meta("cat_base_y", root.position.y)), delta * 4.0)
+		return
+	if not root.has_meta("cat_base_y"):
+		root.set_meta("cat_base_y", root.position.y)
+	var t := float(root.get_meta("cat_bob_t", 0.0)) + delta * 9.0
+	root.set_meta("cat_bob_t", t)
+	var base_y := float(root.get_meta("cat_base_y", 0.0))
+	root.position.y = base_y + sin(t) * 0.04
+	root.rotation.x = sin(t * 0.5) * 0.06
+
+
+## Encuadre showcase (menú / lobby): altura objetivo + pies en el pedestal.
+func fit_for_showcase(node: Node3D, target_height: float = 2.05) -> void:
+	if node == null:
+		return
+	var aabb := _mesh_aabb(node)
+	if aabb.size.length() < 0.01:
+		return
+	var h := maxf(aabb.size.y, 0.05)
+	var s := target_height / h
+	node.scale *= s
+	aabb = _mesh_aabb(node)
+	var c := aabb.get_center()
+	node.position.x -= c.x
+	node.position.z -= c.z
+	node.position.y -= aabb.position.y
+	node.set_meta("cat_base_y", node.position.y)
+
+
+func _mesh_aabb(root: Node3D) -> AABB:
+	var out := AABB()
+	var first := true
+	for n in root.find_children("*", "VisualInstance3D", true, false):
+		var vi := n as VisualInstance3D
+		if vi == null:
+			continue
+		var local := vi.get_aabb()
+		var xf := vi.global_transform
+		# Esquinas del AABB en espacio de root
+		for i in 8:
+			var corner := local.get_endpoint(i)
+			var world := xf * corner
+			var local_root := root.global_transform.affine_inverse() * world
+			if first:
+				out = AABB(local_root, Vector3.ZERO)
+				first = false
+			else:
+				out = out.expand(local_root)
+	return out

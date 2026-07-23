@@ -55,11 +55,18 @@ func _attach_catalog_mesh(cat_idx: int, scale_mult: float) -> void:
 		existing.free()
 	var attached := CharacterCatalog.attach_mesh(mesh_parent, cat_idx, scale_mult)
 	if attached and crew:
-		for c in crew.get_children():
-			if c is MeshInstance3D:
-				(c as MeshInstance3D).visible = false
+		# Ocultar cápsula vieja por completo: solo el GLB 3D
+		crew.visible = false
 		if crew.name_label:
-			crew.name_label.visible = true
+			# Etiqueta sobre el mesh
+			var tag := Label3D.new()
+			tag.name = "CatalogName"
+			tag.text = str(NetworkManager.players.get(peer_id, {}).get("name", "Robot"))
+			tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			tag.font_size = 48
+			tag.outline_size = 8
+			tag.position = Vector3(0, 2.05, 0)
+			attached.add_child(tag)
 
 
 func is_alive() -> bool:
