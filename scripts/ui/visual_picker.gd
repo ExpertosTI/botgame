@@ -167,6 +167,12 @@ static func make_map_card(map_id: String, selected: bool, locked: bool = false) 
 		"ruins":
 			accent = Color(0.7, 0.3, 0.55)
 			sub = "Vertical"
+		"reactor_pit":
+			accent = Color(1.0, 0.35, 0.12)
+			sub = "Zona caliente"
+		"skybridge":
+			accent = Color(0.4, 0.7, 1.0)
+			sub = "Puentes"
 		_:
 			accent = Color(0.2, 0.7, 0.85)
 			sub = "Arena abierta"

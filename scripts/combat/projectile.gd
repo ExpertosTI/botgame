@@ -83,7 +83,9 @@ func _on_body_entered(body: Node3D) -> void:
 			_impact(body.global_position)
 			return
 		if hurts_explorers and body is ExplorerPlayer:
-			(body as ExplorerPlayer).apply_projectile_hit.rpc((body as ExplorerPlayer).peer_id, damage, slow_amount, slow_duration)
+			(body as ExplorerPlayer).apply_projectile_hit.rpc(
+				(body as ExplorerPlayer).peer_id, damage, slow_amount, slow_duration, owner_peer
+			)
 			_impact(body.global_position)
 			return
 	_impact(global_position)

@@ -361,6 +361,10 @@ func _update_map_hint() -> void:
 			map_hint.text = "Pasillos de contenedores — emboscadas cercanas."
 		"ruins":
 			map_hint.text = "Ruinas — plataforma alta y combate vertical."
+		"reactor_pit":
+			map_hint.text = "Pozo reactor — zona de daño central y pulsos."
+		"skybridge":
+			map_hint.text = "Puentes elevados — flancos peligrosos y núcleos altos."
 		_:
 			map_hint.text = "Laboratorio neon — arena abierta y luces frías."
 	if ProgressionManager.campaign_mode or NetworkManager.is_solo_practice:

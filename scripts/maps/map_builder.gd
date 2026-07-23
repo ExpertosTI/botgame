@@ -22,9 +22,48 @@ func build(map_id: String, objectives_parent: Node3D) -> void:
 			_build_containers()
 		"ruins":
 			_build_ruins()
+		"reactor_pit":
+			_build_reactor_pit()
+		"skybridge":
+			_build_skybridge()
 		_:
 			_build_lab_neon()
 	map_ready.emit()
+
+
+func attach_systems(parent: Node3D, map_id: String) -> Dictionary:
+	## Devuelve {hazards, powerups} montados bajo parent.
+	var hazards: HazardSystem = load("res://scripts/maps/hazard_system.gd").new() as HazardSystem
+	hazards.name = "Hazards"
+	parent.add_child(hazards)
+	var powerups: PowerupSpawner = load("res://scripts/maps/powerup_spawner.gd").new() as PowerupSpawner
+	powerups.name = "Powerups"
+	parent.add_child(powerups)
+	_seed_hazards(hazards, map_id)
+	powerups.seed_for_map(map_id)
+	return {"hazards": hazards, "powerups": powerups}
+
+
+func _seed_hazards(hazards: HazardSystem, map_id: String) -> void:
+	match map_id:
+		"reactor_pit":
+			hazards.add_damage_zone(Vector3(0, 0.1, 0), 4.5, 18.0, Color(1.0, 0.35, 0.1))
+			hazards.add_pulse_zone(Vector3(0, 0.1, 0), 7.0, 22.0, 4.0, Color(1.0, 0.2, 0.55))
+			hazards.add_slow_zone(Vector3(-12, 0.1, 0), 3.5, 0.45)
+			hazards.add_slow_zone(Vector3(12, 0.1, 0), 3.5, 0.45)
+		"skybridge":
+			hazards.add_pulse_zone(Vector3(0, 0.1, 0), 3.0, 14.0, 4.5, Color(0.45, 0.7, 1.0))
+			hazards.add_slow_zone(Vector3(-8, 0.1, 0), 2.8, 0.35, Color(0.5, 0.8, 1.0))
+			hazards.add_slow_zone(Vector3(8, 0.1, 0), 2.8, 0.35, Color(0.5, 0.8, 1.0))
+			hazards.add_damage_zone(Vector3(-16, 0.1, 0), 2.5, 22.0, Color(0.6, 0.2, 0.9))
+			hazards.add_damage_zone(Vector3(16, 0.1, 0), 2.5, 22.0, Color(0.6, 0.2, 0.9))
+		"ruins":
+			hazards.add_pulse_zone(Vector3(0, 0.1, 0), 5.0, 12.0, 5.0, Color(0.85, 0.2, 0.7))
+		"containers":
+			hazards.add_slow_zone(Vector3(0, 0.1, -6), 3.0, 0.3)
+			hazards.add_slow_zone(Vector3(0, 0.1, 8), 3.0, 0.3)
+		_:
+			hazards.add_pulse_zone(Vector3(0, 0.1, 0), 3.5, 10.0, 6.0, Color(0.2, 0.9, 0.85))
 
 
 func _env(sky_top: Color, sky_h: Color, ambient: Color, fog: Color, fog_dens: float = 0.012) -> void:
@@ -229,4 +268,60 @@ func _build_ruins() -> void:
 		Vector3(-14, 0.5, -12), Vector3(14, 0.5, -12),
 		Vector3(-14, 0.5, 12), Vector3(14, 0.5, 12),
 		Vector3(0, 3.6, 0),
+	])
+
+
+func _build_reactor_pit() -> void:
+	_env(Color(0.12, 0.05, 0.04), Color(0.45, 0.18, 0.08), Color(0.7, 0.35, 0.22), Color(0.5, 0.15, 0.08), 0.018)
+	_floor(Vector3(46, 0.3, 46), Color(0.16, 0.1, 0.08))
+	_wall(Vector3(0, 3, -23), Vector3(46, 6, 0.6), Color(0.28, 0.12, 0.1))
+	_wall(Vector3(0, 3, 23), Vector3(46, 6, 0.6), Color(0.28, 0.12, 0.1))
+	_wall(Vector3(23, 3, 0), Vector3(0.6, 6, 46), Color(0.28, 0.12, 0.1))
+	_wall(Vector3(-23, 3, 0), Vector3(0.6, 6, 46), Color(0.28, 0.12, 0.1))
+	# Anillo reactor
+	_box(Vector3(0, 0.4, 0), Vector3(14, 0.8, 14), Color(0.35, 0.12, 0.08), 0.4)
+	_box(Vector3(0, 1.2, 0), Vector3(8, 0.4, 8), Color(0.55, 0.18, 0.08), 0.5)
+	_neon_tube(Vector3(0, 0.9, 0), Vector3(10, 0.12, 10), Color(1.0, 0.35, 0.08))
+	# Torres perimetrales
+	for ang in [0.0, 1.57, 3.14, 4.71]:
+		var p := Vector3(cos(ang) * 14.0, 2.0, sin(ang) * 14.0)
+		_box(p, Vector3(2.2, 4.0, 2.2), Color(0.4, 0.2, 0.12), 0.35)
+		_neon_tube(p + Vector3(0, 2.2, 0), Vector3(0.1, 0.1, 2.5), Color(1.0, 0.45, 0.15))
+	_box(Vector3(-8, 1.0, 10), Vector3(3, 2, 2), Color(0.3, 0.15, 0.1), 0.3)
+	_box(Vector3(8, 1.0, -10), Vector3(3, 2, 2), Color(0.3, 0.15, 0.1), 0.3)
+	_accent_light(Vector3(0, 4.0, 0), Color(1.0, 0.4, 0.15), 4.0, 16.0)
+	_spawn("beast_spawn", Vector3(0, 1.2, -17))
+	_explorer_spawns_ring(17.0)
+	_set_objectives([
+		Vector3(-16, 0.5, -10), Vector3(16, 0.5, -10),
+		Vector3(-16, 0.5, 10), Vector3(16, 0.5, 10),
+		Vector3(0, 1.6, 0), Vector3(0, 0.5, -12),
+	])
+
+
+func _build_skybridge() -> void:
+	_env(Color(0.08, 0.12, 0.22), Color(0.35, 0.45, 0.65), Color(0.55, 0.65, 0.85), Color(0.2, 0.3, 0.5), 0.01)
+	# Puentes elevados (el vacío es hazard)
+	_floor(Vector3(12, 0.4, 36), Color(0.18, 0.22, 0.3))
+	_box(Vector3(-10, 0.2, 0), Vector3(8, 0.4, 10), Color(0.2, 0.24, 0.32), 0.2)
+	_box(Vector3(10, 0.2, 0), Vector3(8, 0.4, 10), Color(0.2, 0.24, 0.32), 0.2)
+	_box(Vector3(0, 0.2, -12), Vector3(18, 0.4, 6), Color(0.22, 0.26, 0.34), 0.2)
+	_box(Vector3(0, 0.2, 12), Vector3(18, 0.4, 6), Color(0.22, 0.26, 0.34), 0.2)
+	# Torres
+	_box(Vector3(-14, 2.5, -14), Vector3(3, 5, 3), Color(0.25, 0.3, 0.4), 0.35)
+	_box(Vector3(14, 2.5, 14), Vector3(3, 5, 3), Color(0.25, 0.3, 0.4), 0.35)
+	_box(Vector3(-14, 2.5, 14), Vector3(3, 5, 3), Color(0.25, 0.3, 0.4), 0.35)
+	_box(Vector3(14, 2.5, -14), Vector3(3, 5, 3), Color(0.25, 0.3, 0.4), 0.35)
+	_neon_tube(Vector3(0, 2.2, 0), Vector3(20, 0.06, 0.06), Color(0.45, 0.85, 1.0))
+	_neon_tube(Vector3(0, 2.2, -12), Vector3(14, 0.06, 0.06), Color(0.3, 0.7, 1.0))
+	_neon_tube(Vector3(0, 2.2, 12), Vector3(14, 0.06, 0.06), Color(0.3, 0.7, 1.0))
+	_accent_light(Vector3(0, 5.0, 0), Color(0.5, 0.8, 1.0), 3.2, 18.0)
+	_wall(Vector3(0, 2, -20), Vector3(40, 1, 0.4), Color(0.15, 0.18, 0.25))
+	_wall(Vector3(0, 2, 20), Vector3(40, 1, 0.4), Color(0.15, 0.18, 0.25))
+	_spawn("beast_spawn", Vector3(0, 1.2, -15))
+	_explorer_spawns_ring(15.0)
+	_set_objectives([
+		Vector3(-10, 0.5, 0), Vector3(10, 0.5, 0),
+		Vector3(0, 0.5, -12), Vector3(0, 0.5, 12),
+		Vector3(-14, 5.2, -14), Vector3(14, 5.2, 14),
 	])

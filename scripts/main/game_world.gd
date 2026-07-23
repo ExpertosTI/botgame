@@ -27,6 +27,7 @@ func _ready() -> void:
 	map_root.add_child(_builder)
 	await _builder.build(NetworkManager.selected_map, objectives_root)
 	GameManager.current_map = NetworkManager.selected_map
+	_builder.attach_systems(map_root, NetworkManager.selected_map)
 
 	# Esperar un frame tras construir el mapa (Web GL Compatibility)
 	await get_tree().process_frame
@@ -110,10 +111,16 @@ func _sync_match_setup(roles: Dictionary, beast_variant: int, map_id: String) ->
 func _spawn_objectives_local(positions: Array) -> void:
 	for child in objectives_root.get_children():
 		child.queue_free()
+	var map_id := GameManager.current_map
+	var i := 0
 	for pos in positions:
 		var obj := OBJECTIVE_SCENE.instantiate()
 		obj.position = pos if pos is Vector3 else Vector3(pos[0], pos[1], pos[2])
 		objectives_root.add_child(obj)
+		if obj is BeastObjective:
+			var v := ObjectiveVariants.for_map(map_id, i)
+			(obj as BeastObjective).call_deferred("apply_variant", v)
+		i += 1
 
 
 @rpc("authority", "call_local", "reliable")

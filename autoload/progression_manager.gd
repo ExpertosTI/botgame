@@ -6,16 +6,20 @@ signal progress_changed
 
 const SAVE_PATH := "user://botgame_progress.cfg"
 
-## 8 niveles de campaña (reutiliza 3 mapas con reglas crecientes).
+## 12 niveles — 5 mapas + reglas crecientes.
 const CAMPAIGN := [
 	{"id": 1, "name": "Nivel 1 · Primer Hangar", "map": "lab_neon", "time": 240, "cores": 3, "beast_hp": 0.9, "unlock_loadout": 1, "tip": "Mantén pulsado cerca de un núcleo para sabotear."},
 	{"id": 2, "name": "Nivel 2 · Contenedores", "map": "containers", "time": 220, "cores": 4, "beast_hp": 1.0, "unlock_loadout": 1, "tip": "Usa pasillos estrechos para emboscar o escapar."},
 	{"id": 3, "name": "Nivel 3 · Ruinas", "map": "ruins", "time": 200, "cores": 4, "beast_hp": 1.1, "unlock_loadout": 2, "tip": "Combate vertical: mira arriba y abajo."},
-	{"id": 4, "name": "Nivel 4 · Neon Pressure", "map": "lab_neon", "time": 180, "cores": 5, "beast_hp": 1.2, "unlock_loadout": 2, "tip": "Coordina: uno distrae, otro sabotea."},
-	{"id": 5, "name": "Nivel 5 · Laberinto", "map": "containers", "time": 160, "cores": 5, "beast_hp": 1.35, "unlock_loadout": 3, "tip": "La bestia es más dura: prioriza distancia."},
-	{"id": 6, "name": "Nivel 6 · Cumbre", "map": "ruins", "time": 150, "cores": 5, "beast_hp": 1.45, "unlock_loadout": 3, "tip": "Dash (G) salva vidas. Guárdalo para escape."},
-	{"id": 7, "name": "Nivel 7 · Overclock", "map": "lab_neon", "time": 130, "cores": 6, "beast_hp": 1.55, "unlock_loadout": 3, "tip": "Reloj corto: no pelees de más."},
-	{"id": 8, "name": "Nivel 8 · Protocolo Final", "map": "ruins", "time": 110, "cores": 6, "beast_hp": 1.7, "unlock_loadout": 3, "tip": "Último nivel: sabotea y sobrevive."},
+	{"id": 4, "name": "Nivel 4 · Neon Pressure", "map": "lab_neon", "time": 180, "cores": 5, "beast_hp": 1.2, "unlock_loadout": 2, "tip": "Coordina: uno distrae, otro sabotea. Recoge powerups."},
+	{"id": 5, "name": "Nivel 5 · Pozo Reactor", "map": "reactor_pit", "time": 170, "cores": 5, "beast_hp": 1.3, "unlock_loadout": 2, "tip": "El núcleo central quema. Rodéalo, no lo cruce."},
+	{"id": 6, "name": "Nivel 6 · Laberinto", "map": "containers", "time": 160, "cores": 5, "beast_hp": 1.4, "unlock_loadout": 3, "tip": "La bestia es más dura: prioriza distancia."},
+	{"id": 7, "name": "Nivel 7 · Skybridge", "map": "skybridge", "time": 150, "cores": 5, "beast_hp": 1.45, "unlock_loadout": 3, "tip": "Puentes estrechos. Cuidado con las zonas violeta."},
+	{"id": 8, "name": "Nivel 8 · Cumbre", "map": "ruins", "time": 140, "cores": 5, "beast_hp": 1.5, "unlock_loadout": 3, "tip": "Dash (G) salva vidas. Guárdalo para escape."},
+	{"id": 9, "name": "Nivel 9 · Overclock", "map": "lab_neon", "time": 125, "cores": 6, "beast_hp": 1.55, "unlock_loadout": 3, "tip": "Reloj corto: no pelees de más."},
+	{"id": 10, "name": "Nivel 10 · Fusión", "map": "reactor_pit", "time": 115, "cores": 6, "beast_hp": 1.65, "unlock_loadout": 3, "tip": "Pulsos del reactor. Muévete entre oleadas."},
+	{"id": 11, "name": "Nivel 11 · Vacío Alto", "map": "skybridge", "time": 105, "cores": 6, "beast_hp": 1.75, "unlock_loadout": 3, "tip": "Núcleos en torres. Railgun ayuda a distancia."},
+	{"id": 12, "name": "Nivel 12 · Protocolo Final", "map": "reactor_pit", "time": 95, "cores": 7, "beast_hp": 1.9, "unlock_loadout": 3, "tip": "Último protocolo: sabotea, sobrevive, gana."},
 ]
 
 var campaign_index := 0  # máximo desbloqueado (0-based)
@@ -28,6 +32,7 @@ var unlocked_loadouts: Array = [0, 1]
 var unlocked_beasts: Array = [0, 1]
 var last_unlock_message := ""
 var campaign_mode := false
+var best_score := 0
 
 
 func _ready() -> void:
@@ -45,6 +50,7 @@ func load_progress() -> void:
 	wins_total = int(cfg.get_value("meta", "wins_total", 0))
 	matches_played = int(cfg.get_value("meta", "matches_played", 0))
 	campaign_complete = bool(cfg.get_value("meta", "campaign_complete", false))
+	best_score = int(cfg.get_value("meta", "best_score", 0))
 	unlocked_maps = cfg.get_value("unlock", "maps", ["lab_neon"])
 	unlocked_loadouts = cfg.get_value("unlock", "loadouts", [0, 1])
 	unlocked_beasts = cfg.get_value("unlock", "beasts", [0, 1])
@@ -58,6 +64,7 @@ func save_progress() -> void:
 	cfg.set_value("meta", "wins_total", wins_total)
 	cfg.set_value("meta", "matches_played", matches_played)
 	cfg.set_value("meta", "campaign_complete", campaign_complete)
+	cfg.set_value("meta", "best_score", best_score)
 	cfg.set_value("unlock", "maps", unlocked_maps)
 	cfg.set_value("unlock", "loadouts", unlocked_loadouts)
 	cfg.set_value("unlock", "beasts", unlocked_beasts)
@@ -70,6 +77,7 @@ func _defaults() -> void:
 	wins_total = 0
 	matches_played = 0
 	campaign_complete = false
+	best_score = 0
 	unlocked_maps = ["lab_neon"]
 	unlocked_loadouts = [0, 1]
 	unlocked_beasts = [0, 1]
@@ -145,12 +153,18 @@ func apply_level_rules() -> void:
 func on_match_ended(winner: String, map_id: String) -> void:
 	matches_played += 1
 	last_unlock_message = ""
+	var mvp := MatchStats.mvp_peer()
+	if mvp > 0 and MatchStats.peers.has(mvp):
+		var sc := int(MatchStats.peers[mvp]["score"])
+		if sc > best_score:
+			best_score = sc
 	var robots_won := winner == "explorers"
 	if robots_won:
 		wins_total += 1
 		_unlock_rewards(map_id)
 		if campaign_mode:
 			_advance_campaign()
+		AudioDirector.play_ui("unlock")
 	elif campaign_mode and winner == "beast":
 		last_unlock_message = "La Bestia gana — reintenta el nivel para avanzar"
 	save_progress()
@@ -159,7 +173,7 @@ func on_match_ended(winner: String, map_id: String) -> void:
 
 func _unlock_rewards(map_id: String) -> void:
 	var msgs: PackedStringArray = []
-	var order := ["lab_neon", "containers", "ruins"]
+	var order := ["lab_neon", "containers", "ruins", "reactor_pit", "skybridge"]
 	var idx := order.find(map_id)
 	if idx >= 0 and idx + 1 < order.size():
 		var nxt: String = order[idx + 1]
@@ -195,7 +209,7 @@ func _advance_campaign() -> void:
 		last_unlock_message = "¡Nivel %d desbloqueado! %s" % [campaign_index + 1, lv.get("name", "")]
 	else:
 		campaign_complete = true
-		last_unlock_message = "¡Campaña completada! Modo libre desbloqueado al máximo."
+		last_unlock_message = "¡Campaña completada! Modo libre al máximo."
 
 
 func force_campaign_map() -> String:

@@ -26,12 +26,16 @@ const MAPS := {
 	"lab_neon": "res://assets/ui/map_neon.jpg",
 	"containers": "res://assets/ui/map_containers.jpg",
 	"ruins": "res://assets/ui/map_ruins.jpg",
+	"reactor_pit": "res://assets/ui/map_neon.jpg",
+	"skybridge": "res://assets/ui/map_ruins.jpg",
 }
 
 const MAP_EMOJI := {
 	"lab_neon": "🧪",
 	"containers": "📦",
 	"ruins": "🏚️",
+	"reactor_pit": "☢️",
+	"skybridge": "🌉",
 }
 
 const MENU_HERO := "res://assets/ui/menu_hero.jpg"

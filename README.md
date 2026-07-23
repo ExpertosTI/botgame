@@ -2,7 +2,7 @@
 
 Juego multijugador asimétrico 3D (Godot 4) — **CHADRINE**: Bestia vs Robots, campaña y online.
 
-**Versión:** 1.0.0 · **Editor:** Renace Tech · **Dev:** Expertos TI / Renace  
+**Versión:** 1.1.0 · **Editor:** Renace Tech · **Dev:** Expertos TI / Renace  
 **Legal:** [LEGAL.md](LEGAL.md) · **Privacidad:** [PRIVACY.md](PRIVACY.md) / https://botgame.renace.tech/privacy
 
 ## Cómo se juega
@@ -12,8 +12,9 @@ Juego multijugador asimétrico 3D (Godot 4) — **CHADRINE**: Bestia vs Robots, 
 | **Bestia** (1) | Eliminar robots (2 vidas cada uno) |
 | **Robots** (1–3) | Sabotear núcleos antes de que los cacen |
 
-- **Online** (VPS) o **Campaña solitaria** (8 niveles vs bots)
-- 3 mapas · arsenales desbloqueables · pausa / ajustes
+- **Online** (VPS) o **Campaña solitaria** (12 niveles vs bots)
+- 5 mapas · powerups · hazards · scoreboard MVP
+- Arsenales con railgun / vacío / minas · audio procedural
 - Controles táctiles en móvil/Web
 
 ## Controles
@@ -35,15 +36,16 @@ git push origin main
 cd /opt/botgame && FORCE_GODOT_EXPORT=1 ./deploy.sh update
 ```
 
-## Tiendas (checklist MVP)
+## Tiendas (checklist)
 
 - [x] Nombre **CHADRINE**, versión, autor
 - [x] Créditos + disclaimer in-game
 - [x] Privacidad pública (`/privacy`)
 - [x] Pausa + mute + sensibilidad
-- [x] Campaña 8 niveles
+- [x] Campaña 12 niveles + 5 mapas
+- [x] Stats / MVP / VFX / audio procedural
 - [ ] Export Android/iOS (keystore / Apple team)
-- [ ] Audio SFX/música definitivos
+- [ ] Audio SFX/música con assets finales
 
 ## Notas legales
 

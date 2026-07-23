@@ -76,6 +76,34 @@ func _build() -> void:
 	mute.toggled.connect(func(on: bool): SettingsManager.set_muted(on))
 	col.add_child(mute)
 
+	var sfx_l := Label.new()
+	sfx_l.text = "Volumen SFX"
+	col.add_child(sfx_l)
+	var sfx := HSlider.new()
+	sfx.min_value = 0.0
+	sfx.max_value = 1.0
+	sfx.step = 0.05
+	sfx.value = SettingsManager.sfx_volume
+	sfx.value_changed.connect(func(v: float):
+		SettingsManager.sfx_volume = v
+		SettingsManager.save_settings()
+	)
+	col.add_child(sfx)
+
+	var mus_l := Label.new()
+	mus_l.text = "Volumen música"
+	col.add_child(mus_l)
+	var mus := HSlider.new()
+	mus.min_value = 0.0
+	mus.max_value = 1.0
+	mus.step = 0.05
+	mus.value = SettingsManager.music_volume
+	mus.value_changed.connect(func(v: float):
+		SettingsManager.music_volume = v
+		SettingsManager.save_settings()
+	)
+	col.add_child(mus)
+
 	var resume := Button.new()
 	resume.text = "▶  CONTINUAR"
 	resume.custom_minimum_size = Vector2(0, 52)

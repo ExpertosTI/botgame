@@ -87,6 +87,8 @@ func fire(aim_origin: Vector3, aim_dir: Vector3) -> bool:
 	var id: int = current_weapon_id()
 	weapon_cds[weapon_index] = float(WeaponDefs.weapon_data(id).get("cooldown", 1.0))
 	cooldowns_updated.emit()
+	MatchStats.record_shot(owner_player.peer_id)
+	AudioDirector.play_shot(is_beast)
 	CombatFx.request_weapon_fire(id, aim_origin, aim_dir, owner_player.peer_id, is_beast)
 	return true
 
@@ -177,7 +179,10 @@ func use_ability(index: int) -> bool:
 	var data: Dictionary = WeaponDefs.ability_data(id)
 	ability_cds[index] = float(data.get("cooldown", 5.0))
 	cooldowns_updated.emit()
-	CombatFx.request_ability(id, owner_player.peer_id if owner_player else 0)
+	var peer := owner_player.peer_id if owner_player else 0
+	MatchStats.record_ability(peer)
+	AudioDirector.play_ability()
+	CombatFx.request_ability(id, peer)
 	ability_used.emit(data.get("name", "?"))
 	return true
 
@@ -191,15 +196,19 @@ func apply_ability_effects(ability_id: int) -> void:
 	if owner_player == null:
 		return
 	var data: Dictionary = WeaponDefs.ability_data(ability_id)
+	var fx_color: Color = data.get("color", Color(0.5, 0.9, 1.0))
+	CombatVfx.flash(owner_player, owner_player.global_position + Vector3.UP, fx_color, 0.4)
 	match ability_id:
 		WeaponDefs.AbilityId.DASH:
 			if owner_player.is_multiplayer_authority():
 				var dir := -owner_player.global_transform.basis.z
 				owner_player.velocity += dir * 16.0
 				owner_player.velocity.y = maxf(owner_player.velocity.y, 2.5)
+			CombatVfx.burst(owner_player, owner_player.global_position, Color(0.4, 0.9, 1.0), 1.5, 8)
 		WeaponDefs.AbilityId.SHIELD:
 			_set_buff("shield", float(data.get("duration", 3.0)))
 			shielded = true
+			CombatVfx.ring(owner_player, owner_player.global_position, Color(0.4, 0.8, 1.0), 2.2)
 		WeaponDefs.AbilityId.EMP:
 			if multiplayer.is_server():
 				var radius: float = float(data.get("radius", 7.0))
@@ -207,6 +216,7 @@ func apply_ability_effects(ability_id: int) -> void:
 					if node is BeastPlayer and owner_player.global_position.distance_to(node.global_position) <= radius:
 						(node as BeastPlayer).apply_damage.rpc(5.0, 0.7, float(data.get("duration", 2.0)), owner_player.peer_id)
 				CombatFx.replicate_explosion(owner_player.global_position, radius, 5.0, owner_player.peer_id, false, true)
+			CombatVfx.ring(owner_player, owner_player.global_position, Color(0.7, 0.3, 1.0), 5.0)
 		WeaponDefs.AbilityId.SPEED_BOOST:
 			_set_buff("speed", float(data.get("duration", 3.5)))
 			speed_mult = float(data.get("mult", 1.55))
@@ -218,6 +228,7 @@ func apply_ability_effects(ability_id: int) -> void:
 			_set_buff("rage", float(data.get("duration", 4.0)))
 			damage_mult = float(data.get("mult", 1.4))
 			speed_mult = 1.25
+			CombatVfx.burst(owner_player, owner_player.global_position, Color(1.0, 0.2, 0.15), 2.0, 14)
 		WeaponDefs.AbilityId.CLOAK:
 			_set_buff("cloak", float(data.get("duration", 3.5)))
 			cloaked = true
@@ -231,10 +242,41 @@ func apply_ability_effects(ability_id: int) -> void:
 					float(data.get("damage", 25)),
 					owner_player.peer_id, true, false
 				)
+			CombatVfx.ring(owner_player, owner_player.global_position, Color(0.9, 0.35, 0.1), 3.5)
+		WeaponDefs.AbilityId.HEAL_PULSE:
+			if owner_player is ExplorerPlayer:
+				(owner_player as ExplorerPlayer).hp = mini((owner_player as ExplorerPlayer).hp + 35.0, 100.0)
+			elif owner_player is BeastPlayer:
+				var b := owner_player as BeastPlayer
+				b.hp = mini(b.hp + 28.0, BeastPlayer.MAX_HP * GameManager.level_beast_hp_mult)
+			CombatVfx.ring(owner_player, owner_player.global_position, Color(0.3, 1.0, 0.5), 2.8)
+		WeaponDefs.AbilityId.TRAP_MINE:
+			if multiplayer.is_server():
+				CombatFx.replicate_explosion(
+					owner_player.global_position - owner_player.global_transform.basis.z * 2.5,
+					float(data.get("radius", 3.2)),
+					float(data.get("damage", 28)),
+					owner_player.peer_id, not is_beast, is_beast
+				)
 
 
 func _set_buff(key: String, duration: float) -> void:
 	_buff_timers[key] = duration
+
+
+func apply_buff(key: String, duration: float) -> void:
+	match key:
+		"shield":
+			shielded = true
+			_set_buff("shield", duration)
+		"speed":
+			speed_mult = maxf(speed_mult, 1.55)
+			_set_buff("speed", duration)
+		"overcharge":
+			damage_mult = maxf(damage_mult, 1.45)
+			_set_buff("overcharge", duration)
+		_:
+			_set_buff(key, duration)
 
 
 func clear_buff(key: String) -> void:
@@ -249,9 +291,10 @@ func _clear_buff(key: String) -> void:
 		"speed", "slow":
 			speed_mult = 1.0
 			slowed = false
-		"rage":
+		"rage", "overcharge":
 			damage_mult = 1.0
-			speed_mult = 1.0
+			if key == "rage":
+				speed_mult = 1.0
 		"cloak":
 			cloaked = false
 			if owner_player and owner_player.crew:

@@ -180,6 +180,7 @@ func _local_explosion(pos: Vector3, radius: float, damage: float, peer: int, vs_
 
 
 func _local_muzzle(pos: Vector3, color: Color) -> void:
+	CombatVfx.flash(self, pos, color, 0.22)
 	var mesh := MeshInstance3D.new()
 	var sphere := SphereMesh.new()
 	sphere.radius = 0.22

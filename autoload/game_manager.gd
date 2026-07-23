@@ -96,6 +96,8 @@ func setup_match(roles: Dictionary) -> void:
 func start_match() -> void:
 	match_active = true
 	_timer_sync_accum = 0.0
+	MatchStats.begin_match()
+	AudioDirector.start_match_music()
 	if multiplayer.has_multiplayer_peer() and multiplayer.is_server():
 		_sync_timer.rpc(match_timer)
 	match_started.emit()
@@ -169,7 +171,10 @@ func _apply_end_match(winner: String) -> void:
 	if not match_active:
 		return
 	match_active = false
+	MatchStats.end_match(winner)
 	ProgressionManager.on_match_ended(winner, current_map)
+	AudioDirector.play_win(winner == "explorers")
+	AudioDirector.start_menu_music()
 	match_ended.emit(winner)
 
 

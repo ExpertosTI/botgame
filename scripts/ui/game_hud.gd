@@ -24,6 +24,9 @@ var _pause: Node
 var _pause_btn: Button
 var _tip_label: Label
 var _disconnect_shown := false
+var _kill_feed: KillFeed
+var _combo: ComboTracker
+var _combo_label: Label
 
 
 func _ready() -> void:
@@ -58,7 +61,49 @@ func _ready() -> void:
 
 	_make_pause_button()
 	_make_tip()
+	_kill_feed = KillFeed.new()
+	match_panel.add_child(_kill_feed)
+	_combo = ComboTracker.new()
+	add_child(_combo)
+	_combo.combo_changed.connect(_on_combo)
+	_combo_label = Label.new()
+	_combo_label.visible = false
+	_combo_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_combo_label.set_anchors_preset(Control.PRESET_CENTER)
+	_combo_label.offset_left = -120
+	_combo_label.offset_right = 120
+	_combo_label.offset_top = -40
+	_combo_label.offset_bottom = 10
+	_combo_label.add_theme_font_size_override("font_size", 28)
+	_combo_label.add_theme_color_override("font_color", GameTheme.C_AMBER)
+	match_panel.add_child(_combo_label)
+	MatchStats.damage_recorded.connect(_on_damage_recorded)
+	MatchStats.elimination_recorded.connect(_on_elim_recorded)
 	NetworkManager.server_lost.connect(_on_server_lost)
+
+
+func _on_damage_recorded(from_peer: int, _to: int, amount: float) -> void:
+	if _combo:
+		_combo.register_hit(from_peer, amount)
+
+
+func _on_elim_recorded(killer: int, _victim: int) -> void:
+	if _combo:
+		_combo.register_ko(killer)
+
+
+func _on_combo(count: int, label: String) -> void:
+	if _combo_label == null:
+		return
+	if count < 3 or label.is_empty():
+		_combo_label.visible = false
+		return
+	_combo_label.text = label
+	_combo_label.visible = true
+	_combo_label.modulate.a = 1.0
+	var tw := create_tween()
+	tw.tween_property(_combo_label, "scale", Vector2(1.15, 1.15), 0.08)
+	tw.tween_property(_combo_label, "scale", Vector2.ONE, 0.12)
 
 
 func _make_pause_button() -> void:
@@ -182,6 +227,8 @@ func _show_level_tip() -> void:
 	if tip.is_empty() and not SettingsManager.tutorial_seen:
 		tip = "Robots: sabotea núcleos. Bestia: elimina robots. Esc/⏸ = pausa."
 	if tip.is_empty():
+		tip = TipBank.random_general()
+	if tip.is_empty():
 		_tip_label.visible = false
 		return
 	_tip_label.text = "💡 " + tip
@@ -224,23 +271,36 @@ func show_result(winner: String) -> void:
 	if GameTheme.font_title():
 		result_label.add_theme_font_override("font", GameTheme.font_title())
 		result_label.add_theme_font_size_override("font_size", 36)
+	var mvp := MatchStats.mvp_name()
+	var board := MatchStats.scoreboard_lines()
+	var stats_block := ""
+	if not board.is_empty():
+		stats_block = "\n".join(board)
+		if not mvp.is_empty():
+			stats_block = "MVP · %s\n%s" % [mvp, stats_block]
 	if unlock_label:
 		var msg := ProgressionManager.last_unlock_message
 		if ProgressionManager.campaign_complete and msg.is_empty():
 			msg = "¡Campaña completada!"
+		if not stats_block.is_empty():
+			msg = (msg + "\n\n" if not msg.is_empty() else "") + stats_block
 		unlock_label.text = msg
 		unlock_label.visible = not msg.is_empty()
+		unlock_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	if level_label:
+		var dur := int(MatchStats.duration_seconds())
 		if NetworkManager.is_solo_practice or ProgressionManager.campaign_mode:
-			level_label.text = "%s · v%s · wins %d" % [
+			level_label.text = "%s · %ds · v%s · best %d" % [
 				ProgressionManager.level_name(),
+				dur,
 				GameBrand.VERSION,
-				ProgressionManager.wins_total,
+				ProgressionManager.best_score,
 			]
 		else:
-			level_label.text = "Partidas %d · victorias %d · v%s" % [
+			level_label.text = "Partidas %d · victorias %d · %ds · v%s" % [
 				ProgressionManager.matches_played,
 				ProgressionManager.wins_total,
+				dur,
 				GameBrand.VERSION,
 			]
 	if NetworkManager.is_solo_practice:

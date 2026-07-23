@@ -46,18 +46,24 @@ func _physics_process(delta: float) -> void:
 
 
 @rpc("any_peer", "call_local", "reliable")
-func apply_damage(amount: float, slow: float = 0.0, slow_dur: float = 0.0, _from_peer: int = 0) -> void:
+func apply_damage(amount: float, slow: float = 0.0, slow_dur: float = 0.0, from_peer: int = 0) -> void:
 	if combat and combat.shielded:
 		amount *= 0.25
 	if combat and combat.cloaked:
 		combat.clear_buff("cloak")
 	hp = maxf(hp - amount, 0.0)
+	MatchStats.record_damage(from_peer, peer_id, amount)
+	AudioDirector.play_hit()
+	if is_multiplayer_authority() and camera:
+		CombatVfx.shake_camera(camera, 0.12, 0.14)
 	if crew:
 		crew.play_hit()
 	if slow > 0.0 and combat:
 		combat.apply_slow(slow, slow_dur)
 	if hp <= 0.0:
 		_on_defeated()
+		if from_peer > 0:
+			MatchStats.record_elimination(from_peer, peer_id)
 
 
 func _on_defeated() -> void:

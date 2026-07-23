@@ -7,7 +7,7 @@ config_version=5
 
 config/name="CHADRINE"
 config/description="CHADRINE · asimétrico Bestia vs Robots · campaña y online. © Renace Tech."
-config/version="1.0.0"
+config/version="1.1.0"
 config/author="Renace Tech / Expertos TI"
 run/main_scene="res://scenes/main/menu.tscn"
 config/features=PackedStringArray("4.3", "GL Compatibility")
@@ -21,6 +21,8 @@ InputManager="*res://autoload/input_manager.gd"
 CombatFx="*res://autoload/combat_fx.gd"
 ProgressionManager="*res://autoload/progression_manager.gd"
 SettingsManager="*res://autoload/settings_manager.gd"
+MatchStats="*res://autoload/match_stats.gd"
+AudioDirector="*res://autoload/audio_director.gd"
 PresenceHttp="*res://autoload/presence_http.gd"
 OnlineInvite="*res://autoload/online_invite.gd"
 

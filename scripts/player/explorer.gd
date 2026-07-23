@@ -108,6 +108,11 @@ func _try_sabotage() -> void:
 	if not _looking_at_core():
 		return
 	is_sabotaging = true
+	var mult := 1.0
+	var collider := interact_ray.get_collider()
+	if collider is BeastObjective:
+		mult = float((collider as BeastObjective).sabotage_time_mult)
+	sabotage_timer.wait_time = sabotage_time * mult
 	sabotage_timer.start()
 	_start_sabotage_vfx.rpc()
 
@@ -137,6 +142,8 @@ func _on_sabotage_complete() -> void:
 		return
 	var collider := interact_ray.get_collider()
 	if collider is BeastObjective and collider.is_active:
+		MatchStats.record_core(peer_id)
+		AudioDirector.play_core()
 		collider.sabotage.rpc()
 
 
@@ -144,11 +151,14 @@ func _on_sabotage_complete() -> void:
 func take_hit(target_peer_id: int) -> void:
 	if target_peer_id != peer_id:
 		return
-	_lose_life()
+	var killer := _find_beast_peer()
+	MatchStats.record_damage(killer, peer_id, 50.0)
+	AudioDirector.play_hit()
+	_lose_life(killer)
 
 
 @rpc("any_peer", "call_local", "reliable")
-func apply_projectile_hit(target_peer_id: int, damage: float, slow: float, slow_dur: float) -> void:
+func apply_projectile_hit(target_peer_id: int, damage: float, slow: float, slow_dur: float, from_peer: int = 0) -> void:
 	if target_peer_id != peer_id or not alive:
 		return
 	if combat and combat.shielded:
@@ -158,16 +168,20 @@ func apply_projectile_hit(target_peer_id: int, damage: float, slow: float, slow_
 			combat.apply_slow(slow, slow_dur)
 		return
 	hp -= damage
+	MatchStats.record_damage(from_peer, peer_id, damage)
+	AudioDirector.play_hit()
+	if is_multiplayer_authority() and camera:
+		CombatVfx.shake_camera(camera, 0.1, 0.12)
 	if crew:
 		crew.play_hit()
 	if slow > 0.0 and combat:
 		combat.apply_slow(slow, slow_dur)
 	if hp <= 0.0:
 		hp = 100.0
-		_lose_life()
+		_lose_life(from_peer)
 
 
-func _lose_life() -> void:
+func _lose_life(killer_peer: int = 0) -> void:
 	if not alive:
 		return
 	if combat and combat.shielded:
@@ -181,11 +195,20 @@ func _lose_life() -> void:
 		crew.play_hit()
 	_knockback()
 	if lives <= 0:
+		if killer_peer > 0:
+			MatchStats.record_elimination(killer_peer, peer_id)
+		AudioDirector.play_death()
 		_die()
 	else:
 		hp = 100.0
 		_respawn_fx()
 
+
+func _find_beast_peer() -> int:
+	for n in get_tree().get_nodes_in_group("player_characters"):
+		if n is BeastPlayer:
+			return (n as BeastPlayer).peer_id
+	return 0
 
 func _knockback() -> void:
 	var knock_dir := -global_transform.basis.z

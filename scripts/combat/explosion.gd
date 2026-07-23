@@ -34,6 +34,9 @@ func setup(pos: Vector3, p_radius: float, p_damage: float, peer: int, vs_explore
 
 
 func _spawn_vfx() -> void:
+	CombatVfx.burst(self, global_position, Color(1.0, 0.55, 0.1), radius * 0.9, 12)
+	CombatVfx.ring(self, global_position, Color(1.0, 0.4, 0.05), radius)
+	AudioDirector.play_explosion()
 	var mesh := MeshInstance3D.new()
 	var sphere := SphereMesh.new()
 	sphere.radius = 0.3
@@ -64,4 +67,4 @@ func _apply_damage() -> void:
 		elif body is ExplorerPlayer and hurts_explorers:
 			var e := body as ExplorerPlayer
 			if e.peer_id != owner_peer:
-				e.apply_projectile_hit.rpc(e.peer_id, damage, 0.0, 0.0)
+				e.apply_projectile_hit.rpc(e.peer_id, damage, 0.0, 0.0, owner_peer)
