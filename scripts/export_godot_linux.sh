@@ -265,8 +265,11 @@ run_export() {
   # --import standalone se cuelga en este VPS (CPU 0, .godot ~2MB).
   # Solo se usa con FORCE_GODOT_IMPORT=1 + BOTGAME_ALLOW_SLOW_IMPORT=1.
   # En todos los demás casos: borrar cache rota y dejar que --export-release importe.
-  local gsz
-  gsz="$(du -sm "$ROOT/.godot" 2>/dev/null | awk '{print $1}')"
+  local gsz=0
+  if [ -d "$ROOT/.godot" ]; then
+    gsz="$(du -sm "$ROOT/.godot" 2>/dev/null | awk '{print $1}')" || gsz=0
+  fi
+  gsz="${gsz:-0}"
   if [ "${FORCE_GODOT_IMPORT:-0}" = "1" ] && [ "${BOTGAME_ALLOW_SLOW_IMPORT:-0}" = "1" ]; then
     log "ALLOW_SLOW_IMPORT: --import con timeout ${IMPORT_TIMEOUT}s"
     rm -rf "$ROOT/.godot"
@@ -277,8 +280,8 @@ run_export() {
       set_status "ERROR_IMPORT_TIMEOUT"
       die "Import superó ${IMPORT_TIMEOUT}s"
     fi
-  elif [ "${gsz:-0}" -lt 12 ]; then
-    log "Cache .godot=${gsz:-0}MB incompleta → se descarta; export hará import incremental"
+  elif [ "$gsz" -lt 12 ]; then
+    log "Cache .godot=${gsz}MB incompleta → se descarta; export hará import incremental"
     rm -rf "$ROOT/.godot"
   else
     log "Reusando .godot (${gsz}MB). Sin --import separado."
