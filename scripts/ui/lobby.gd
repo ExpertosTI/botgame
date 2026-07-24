@@ -54,6 +54,8 @@ func _ready() -> void:
 	GameTheme.apply(self)
 	_style_ui()
 	_setup_atmosphere()
+	if main_scroll:
+		main_scroll.scroll_deadzone = 40
 
 	ready_button.pressed.connect(_on_ready_pressed)
 	start_button.pressed.connect(_on_start_pressed)
@@ -276,14 +278,12 @@ func _clear_row(row: HBoxContainer) -> void:
 		c.queue_free()
 
 
-func _wire_card(card: PanelContainer, cb: Callable) -> void:
-	card.gui_input.connect(func(ev: InputEvent):
+func _wire_card(card: Button, cb: Callable) -> void:
+	card.pressed.connect(func():
 		if card.get_meta("locked", false):
 			return
-		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
-			cb.call()
-		elif ev is InputEventScreenTouch and ev.pressed:
-			cb.call()
+		AudioDirector.play_ui("click")
+		cb.call()
 	)
 
 

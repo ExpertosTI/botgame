@@ -184,8 +184,12 @@ func _style_ui() -> void:
 	join_button.add_theme_font_size_override("font_size", 24 if _mobile else 22)
 	solo_start_button.custom_minimum_size = Vector2(0, 76 if _mobile else 58)
 	solo_start_button.add_theme_font_size_override("font_size", 24 if _mobile else 22)
-	online_mode_button.custom_minimum_size = Vector2(0, 58 if _mobile else 52)
-	solo_mode_button.custom_minimum_size = Vector2(0, 58 if _mobile else 52)
+	online_mode_button.custom_minimum_size = Vector2(0, 64 if _mobile else 54)
+	solo_mode_button.custom_minimum_size = Vector2(0, 64 if _mobile else 54)
+	online_mode_button.add_theme_font_size_override("font_size", 20 if _mobile else 18)
+	solo_mode_button.add_theme_font_size_override("font_size", 20 if _mobile else 18)
+	online_mode_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	solo_mode_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_input.custom_minimum_size = Vector2(0, 58 if _mobile else 44)
 	name_input.add_theme_font_size_override("font_size", 20 if _mobile else 16)
 	name_input.placeholder_text = "Callsign"
@@ -295,23 +299,24 @@ func _build_hub_modes() -> void:
 		parent.move_child(row, idx + 1)
 
 
+func _style_mode_toggle(active: Button, idle: Button) -> void:
+	GameTheme.style_primary(active)
+	GameTheme.style_touch(idle, GameTheme.C_MUTED)
+	active.add_theme_font_size_override("font_size", 20 if _mobile else 18)
+	idle.add_theme_font_size_override("font_size", 20 if _mobile else 18)
+
+
 func _set_mode(mode: String) -> void:
 	_mode = mode
 	var online := mode == "online"
 	online_panel.visible = online
 	solo_panel.visible = not online
 	if online:
-		GameTheme.style_primary(online_mode_button)
-		solo_mode_button.remove_theme_stylebox_override("normal")
-		solo_mode_button.remove_theme_stylebox_override("hover")
-		solo_mode_button.remove_theme_stylebox_override("pressed")
+		_style_mode_toggle(online_mode_button, solo_mode_button)
 		subtitle.text = "ONLINE · 1 Bestia vs 1–3 Robots"
 		status_label.text = ""
 	else:
-		GameTheme.style_primary(solo_mode_button)
-		online_mode_button.remove_theme_stylebox_override("normal")
-		online_mode_button.remove_theme_stylebox_override("hover")
-		online_mode_button.remove_theme_stylebox_override("pressed")
+		_style_mode_toggle(solo_mode_button, online_mode_button)
 		subtitle.text = "CAMPAÑA · elige teatro · lanza con bots"
 		var lv := ProgressionManager.level_name()
 		status_label.text = "%s · %d victorias" % [lv, ProgressionManager.wins_total]
@@ -496,12 +501,13 @@ func _add_hscroll(vbox: VBoxContainer, row_name: String) -> HBoxContainer:
 	scroll.name = row_name + "Scroll"
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_ALWAYS
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.custom_minimum_size = Vector2(0, 156 if _mobile else 148)
+	scroll.scroll_deadzone = 48 if _mobile else 28
+	scroll.custom_minimum_size = Vector2(0, 178 if _mobile else 156)
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox.add_child(scroll)
 	var row := HBoxContainer.new()
 	row.name = row_name
-	row.add_theme_constant_override("separation", 10)
+	row.add_theme_constant_override("separation", 12)
 	scroll.add_child(row)
 	return row
 
@@ -548,10 +554,10 @@ func _rebuild_dynamic_pickers() -> void:
 
 	for idx in _menu_explorer_indices():
 		var i := int(idx)
-		var locked := not CharacterCatalog.is_unlocked(i)
+		# Solo: todo desbloqueado para probar. Online: progresión.
+		var locked := false if _mode == "solo" else not CharacterCatalog.is_unlocked(i)
 		var selected := i == _pick_skin and _pick_role == "explorer"
 		var card := VisualPicker.make_skin_card(i, selected, locked)
-		card.custom_minimum_size = Vector2(92, 130)
 		card.set_meta("picked", selected)
 		_wire_menu_card(card, func(): _on_pick_robot(i))
 		_dyn_robots.add_child(card)
@@ -559,10 +565,9 @@ func _rebuild_dynamic_pickers() -> void:
 
 	for idx in _menu_beast_indices():
 		var i := int(idx)
-		var locked := not CharacterCatalog.is_unlocked(i)
+		var locked := false if _mode == "solo" else not CharacterCatalog.is_unlocked(i)
 		var selected := _pick_role == "beast" and i == _pick_skin
 		var card := VisualPicker.make_skin_card(i, selected, locked)
-		card.custom_minimum_size = Vector2(100, 130)
 		card.set_meta("picked", selected)
 		_wire_menu_card(card, func(): _on_pick_beast_entry(i))
 		_dyn_beasts.add_child(card)
@@ -570,15 +575,9 @@ func _rebuild_dynamic_pickers() -> void:
 
 	for mi in NetworkManager.MAP_IDS.size():
 		var mid: String = NetworkManager.MAP_IDS[mi]
-		var locked := false
-		if _mode == "solo":
-			# Campaña solitaria: todos los teatros para probar
-			locked = false
-		else:
-			locked = not ProgressionManager.is_map_unlocked(mid)
+		var locked := false if _mode == "solo" else not ProgressionManager.is_map_unlocked(mid)
 		var selected := mi == _pick_map_idx
 		var card := VisualPicker.make_map_card(mid, selected, locked)
-		card.custom_minimum_size = Vector2(118, 130)
 		card.set_meta("picked", selected)
 		_wire_menu_card(card, func(): _on_pick_map(mi))
 		_dyn_maps.add_child(card)
@@ -595,21 +594,20 @@ func _beast_variant_for_entry(e: Dictionary) -> int:
 			return GameManager.BeastVariant.CLASSIC
 
 
-func _wire_menu_card(card: PanelContainer, cb: Callable) -> void:
-	card.gui_input.connect(func(ev: InputEvent):
+func _wire_menu_card(card: Button, cb: Callable) -> void:
+	## Button.pressed funciona en móvil; gui_input + ScrollContainer no.
+	card.pressed.connect(func():
 		if card.get_meta("locked", false):
+			if _dyn_status:
+				_dyn_status.text = "BLOQUEADO · desbloquéalo jugando online"
 			return
-		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
-			AudioDirector.play_ui("click")
-			cb.call()
-		elif ev is InputEventScreenTouch and ev.pressed:
-			AudioDirector.play_ui("click")
-			cb.call()
+		AudioDirector.play_ui("click")
+		cb.call()
 	)
 
 
 func _on_pick_robot(skin: int) -> void:
-	if not CharacterCatalog.is_unlocked(skin):
+	if _mode != "solo" and not CharacterCatalog.is_unlocked(skin):
 		return
 	_pick_role = "explorer"
 	_pick_skin = skin
@@ -619,7 +617,7 @@ func _on_pick_robot(skin: int) -> void:
 
 
 func _on_pick_beast_entry(catalog_i: int) -> void:
-	if not CharacterCatalog.is_unlocked(catalog_i):
+	if _mode != "solo" and not CharacterCatalog.is_unlocked(catalog_i):
 		return
 	_pick_role = "beast"
 	_pick_skin = catalog_i

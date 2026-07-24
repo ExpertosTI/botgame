@@ -18,6 +18,7 @@ var combat: CombatKit
 
 ## Sync de red (WebSocket): ~15 Hz, unreliable_ordered
 const SYNC_HZ := 15.0
+const VOID_Y := -25.0
 var _sync_accum := 0.0
 var _remote_pos := Vector3.ZERO
 var _remote_yaw := 0.0
@@ -82,6 +83,7 @@ func _apply_look(rel: Vector2) -> void:
 
 func _physics_process(delta: float) -> void:
 	if has_meta("is_bot") and get_meta("is_bot"):
+		_check_void_fall()
 		return  # PracticeAI controla movimiento
 	if is_multiplayer_authority():
 		_authority_move(delta)
@@ -116,6 +118,26 @@ func _authority_move(delta: float) -> void:
 	set_locomotion(direction.length() > 0.1, InputManager.sprint_held)
 
 	move_and_slide()
+	_check_void_fall()
+
+
+func _check_void_fall() -> void:
+	if global_position.y >= VOID_Y:
+		return
+	global_position = _void_spawn_position()
+	velocity = Vector3.ZERO
+
+
+func _void_spawn_position() -> Vector3:
+	if self is BeastPlayer:
+		var beast_spawns := get_tree().get_nodes_in_group("beast_spawn")
+		if not beast_spawns.is_empty():
+			return beast_spawns[0].global_position + Vector3(0, 0.5, 0)
+	var spawns := get_tree().get_nodes_in_group("explorer_spawns")
+	if not spawns.is_empty():
+		var idx := abs(peer_id) % spawns.size()
+		return spawns[idx].global_position + Vector3(0, 0.5, 0)
+	return Vector3(0, 2, 0)
 
 
 func set_locomotion(moving: bool, sprint: bool = false) -> void:
