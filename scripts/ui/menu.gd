@@ -339,9 +339,9 @@ func _fill_dynamic_stage(stage_wrap: Control) -> void:
 	var sv := stage_wrap.get_node_or_null("VBox/StageView/SubViewport") as SubViewport
 	if view and sv:
 		view.visible = true
-		view.custom_minimum_size = Vector2(0, 280 if _mobile else 340)
+		view.custom_minimum_size = Vector2(0, 360 if _mobile else 400)
 		sv.render_target_update_mode = SubViewport.UPDATE_WHEN_VISIBLE
-		sv.size = Vector2i(640, 400)
+		sv.size = Vector2i(720 if _mobile else 800, 450 if _mobile else 480)
 		sv.transparent_bg = false
 
 	var vbox := stage_wrap.get_node_or_null("VBox") as VBoxContainer
@@ -365,20 +365,84 @@ func _fill_dynamic_stage(stage_wrap: Control) -> void:
 	_dyn_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	if GameTheme.font_title():
 		_dyn_status.add_theme_font_override("font", GameTheme.font_title())
-	_dyn_status.add_theme_font_size_override("font_size", 15 if _mobile else 16)
+	_dyn_status.add_theme_font_size_override("font_size", 16 if _mobile else 17)
 	_dyn_status.add_theme_color_override("font_color", GameTheme.C_CYAN)
 	vbox.add_child(_dyn_status)
 
-	vbox.add_child(_section_label("DynLblRobots", "ROBOTS"))
-	_dyn_robots = _add_hscroll(vbox, "DynRobots")
-	vbox.add_child(_section_label("DynLblBeasts", "BESTIAS"))
-	_dyn_beasts = _add_hscroll(vbox, "DynBeasts")
-	vbox.add_child(_section_label("DynLblMaps", "TEATRO"))
-	_dyn_maps = _add_hscroll(vbox, "DynMaps")
+	# Móvil: una sola fila a la vez (tabs) — más claro
+	if _mobile:
+		_build_picker_tabs(vbox)
+	else:
+		vbox.add_child(_section_label("DynLblRobots", "ROBOTS"))
+		_dyn_robots = _add_hscroll(vbox, "DynRobots")
+		vbox.add_child(_section_label("DynLblBeasts", "BESTIAS"))
+		_dyn_beasts = _add_hscroll(vbox, "DynBeasts")
+		vbox.add_child(_section_label("DynLblMaps", "TEATRO"))
+		_dyn_maps = _add_hscroll(vbox, "DynMaps")
 
 	_rebuild_dynamic_pickers()
 	_update_pick_status()
 	call_deferred("_update_3d_stage_preview")
+
+
+var _picker_tab := 0
+var _tab_robots_btn: Button
+var _tab_beasts_btn: Button
+var _tab_maps_btn: Button
+
+
+func _build_picker_tabs(vbox: VBoxContainer) -> void:
+	var tabs := HBoxContainer.new()
+	tabs.name = "DynTabs"
+	tabs.add_theme_constant_override("separation", 8)
+	tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_child(tabs)
+	_tab_robots_btn = Button.new()
+	_tab_robots_btn.text = "ROBOTS"
+	_tab_robots_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_tab_robots_btn.custom_minimum_size = Vector2(0, 48)
+	_tab_beasts_btn = Button.new()
+	_tab_beasts_btn.text = "BESTIAS"
+	_tab_beasts_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_tab_beasts_btn.custom_minimum_size = Vector2(0, 48)
+	_tab_maps_btn = Button.new()
+	_tab_maps_btn.text = "TEATRO"
+	_tab_maps_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_tab_maps_btn.custom_minimum_size = Vector2(0, 48)
+	tabs.add_child(_tab_robots_btn)
+	tabs.add_child(_tab_beasts_btn)
+	tabs.add_child(_tab_maps_btn)
+	_tab_robots_btn.pressed.connect(func(): _set_picker_tab(0))
+	_tab_beasts_btn.pressed.connect(func(): _set_picker_tab(1))
+	_tab_maps_btn.pressed.connect(func(): _set_picker_tab(2))
+
+	_dyn_robots = _add_hscroll(vbox, "DynRobots")
+	_dyn_beasts = _add_hscroll(vbox, "DynBeasts")
+	_dyn_maps = _add_hscroll(vbox, "DynMaps")
+	_set_picker_tab(0)
+
+
+func _set_picker_tab(tab: int) -> void:
+	_picker_tab = tab
+	if _dyn_robots:
+		_dyn_robots.get_parent().visible = tab == 0
+	if _dyn_beasts:
+		_dyn_beasts.get_parent().visible = tab == 1
+	if _dyn_maps:
+		_dyn_maps.get_parent().visible = tab == 2
+	if _tab_robots_btn and _tab_beasts_btn and _tab_maps_btn:
+		if tab == 0:
+			GameTheme.style_primary(_tab_robots_btn)
+			GameTheme.style_touch(_tab_beasts_btn, GameTheme.C_MUTED)
+			GameTheme.style_touch(_tab_maps_btn, GameTheme.C_MUTED)
+		elif tab == 1:
+			GameTheme.style_touch(_tab_robots_btn, GameTheme.C_MUTED)
+			GameTheme.style_primary(_tab_beasts_btn)
+			GameTheme.style_touch(_tab_maps_btn, GameTheme.C_MUTED)
+		else:
+			GameTheme.style_touch(_tab_robots_btn, GameTheme.C_MUTED)
+			GameTheme.style_touch(_tab_beasts_btn, GameTheme.C_MUTED)
+			GameTheme.style_primary(_tab_maps_btn)
 
 
 func _update_3d_stage_preview() -> void:
@@ -422,7 +486,7 @@ func _update_3d_stage_preview() -> void:
 
 	var attached := CharacterCatalog.attach_mesh(container, _pick_skin, 1.0)
 	if attached != null:
-		CharacterCatalog.fit_for_showcase(attached, 2.1)
+		CharacterCatalog.fit_for_showcase(attached, 2.35 if _mobile else 2.15)
 		CharacterCatalog.attach_showcase_loadout(attached, _pick_role)
 		CharacterCatalog.play_showcase_motion(attached)
 		# Luces más fuertes para que el modelo no se vea “plano”
@@ -437,9 +501,10 @@ func _update_3d_stage_preview() -> void:
 			rim.light_energy = 2.8
 		var cam := world.get_node_or_null("Camera3D") as Camera3D
 		if cam:
-			cam.position = Vector3(0, 1.35, 3.6)
-			cam.look_at(Vector3(0, 0.95, 0))
-			cam.fov = 38.0
+			# Vista de lado, cerca — el modelo llena el marco
+			cam.position = Vector3(2.1, 1.15, 2.4)
+			cam.look_at_from_position(cam.position, Vector3(0, 0.85, 0), Vector3.UP)
+			cam.fov = 34.0 if _mobile else 36.0
 		return
 
 	# Fallback procedural tintado (crew sin GLB)
@@ -486,7 +551,7 @@ func _add_hscroll(vbox: VBoxContainer, row_name: String) -> HBoxContainer:
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_ALWAYS
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.scroll_deadzone = 48 if _mobile else 28
-	scroll.custom_minimum_size = Vector2(0, 192 if _mobile else 168)
+	scroll.custom_minimum_size = Vector2(0, 210 if _mobile else 172)
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox.add_child(scroll)
 	var row := HBoxContainer.new()

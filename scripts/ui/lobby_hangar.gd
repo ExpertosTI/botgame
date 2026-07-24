@@ -88,10 +88,10 @@ func _setup_3d() -> void:
 	world.add_child(fill)
 
 	var cam := Camera3D.new()
-	cam.position = Vector3(0, 1.05, 2.55)
+	cam.position = Vector3(1.8, 1.05, 2.0)
+	cam.fov = 34.0
 	world.add_child(cam)
-	cam.look_at(Vector3(0, 0.75, 0))
-	cam.fov = 38.0
+	cam.look_at_from_position(cam.position, Vector3(0, 0.8, 0), Vector3.UP)
 
 	var pad := MeshInstance3D.new()
 	var cyl := CylinderMesh.new()

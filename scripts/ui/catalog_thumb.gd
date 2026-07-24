@@ -1,7 +1,7 @@
 class_name CatalogThumb
 extends SubViewportContainer
 
-## Mini preview 3D del roster (sin JPG planos).
+## Mini preview 3D del roster.
 
 
 var _pivot: Node3D
@@ -16,7 +16,7 @@ func setup(catalog_index: int, px: float = 96.0, spin: bool = false) -> void:
 	_do_spin = spin
 
 	var sv := SubViewport.new()
-	var res := int(clampf(px * 1.5, 96.0, 160.0))
+	var res := int(clampf(px * 2.0, 128.0, 256.0))
 	sv.size = Vector2i(res, res)
 	sv.transparent_bg = true
 	sv.own_world_3d = true
@@ -30,23 +30,24 @@ func setup(catalog_index: int, px: float = 96.0, spin: bool = false) -> void:
 	sv.add_child(world)
 
 	var key := DirectionalLight3D.new()
-	key.rotation_degrees = Vector3(-40, 30, 0)
-	key.light_energy = 1.2
+	key.rotation_degrees = Vector3(-35, 25, 0)
+	key.light_energy = 1.45
 	key.shadow_enabled = false
 	world.add_child(key)
 
 	var fill := OmniLight3D.new()
-	fill.position = Vector3(-1.0, 1.4, 1.2)
-	fill.light_color = Color(0.4, 0.85, 0.9)
-	fill.light_energy = 1.2
+	fill.position = Vector3(-0.8, 1.2, 1.0)
+	fill.light_color = Color(0.45, 0.9, 0.95)
+	fill.light_energy = 1.6
 	fill.omni_range = 6.0
 	world.add_child(fill)
 
+	# Cámara de lado y cerca (más legible en móvil)
 	var cam := Camera3D.new()
-	cam.position = Vector3(0, 0.95, 2.35)
-	cam.fov = 36.0
+	cam.position = Vector3(1.55, 0.95, 1.65)
+	cam.fov = 32.0
 	world.add_child(cam)
-	cam.look_at(Vector3(0, 0.7, 0))
+	cam.look_at_from_position(cam.position, Vector3(0, 0.75, 0), Vector3.UP)
 
 	_pivot = Node3D.new()
 	world.add_child(_pivot)
@@ -55,7 +56,7 @@ func setup(catalog_index: int, px: float = 96.0, spin: bool = false) -> void:
 	var is_beast := str(entry.get("role", "")) == "beast"
 	var attached := CharacterCatalog.attach_mesh(_pivot, catalog_index, 1.0 if is_beast else 0.95)
 	if attached:
-		CharacterCatalog.fit_for_showcase(attached, 1.7)
+		CharacterCatalog.fit_for_showcase(attached, 1.55)
 		CharacterCatalog.attach_showcase_loadout(attached, "beast" if is_beast else "explorer")
 		if spin:
 			CharacterCatalog.play_showcase_motion(attached)
@@ -64,7 +65,7 @@ func setup(catalog_index: int, px: float = 96.0, spin: bool = false) -> void:
 	else:
 		_add_fallback_capsule(entry, is_beast)
 
-	_pivot.rotation.y = _spin
+	_pivot.rotation.y = deg_to_rad(-25.0) + _spin * 0.15
 	set_process(spin)
 
 
@@ -84,5 +85,5 @@ func _add_fallback_capsule(entry: Dictionary, is_beast: bool) -> void:
 func _process(delta: float) -> void:
 	if not _do_spin or not is_instance_valid(_pivot):
 		return
-	_spin += delta * 0.85
-	_pivot.rotation.y = _spin
+	_spin += delta * 0.7
+	_pivot.rotation.y = deg_to_rad(-25.0) + _spin

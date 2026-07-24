@@ -23,6 +23,8 @@ var _sync_accum := 0.0
 var _remote_pos := Vector3.ZERO
 var _remote_yaw := 0.0
 var _has_remote := false
+## Móvil / Web: cámara lateral fija (mejor jugabilidad táctil)
+var _side_cam := false
 
 
 func _ready() -> void:
@@ -37,10 +39,24 @@ func _ready() -> void:
 		camera.current = false
 		set_process_input(false)
 	else:
-		# Web también captura al hacer click (ver _input)
-		if not DisplayServer.is_touchscreen_available() and not OS.has_feature("mobile"):
+		_side_cam = (
+			DisplayServer.is_touchscreen_available()
+			or OS.has_feature("mobile")
+			or OS.has_feature("web")
+		)
+		if _side_cam:
+			_apply_side_camera_rig()
+		elif not DisplayServer.is_touchscreen_available() and not OS.has_feature("mobile"):
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		InputManager.look_delta.connect(_on_touch_look)
+
+
+func _apply_side_camera_rig() -> void:
+	## Cámara a un costado, cerca, mirando al personaje.
+	camera_pivot.rotation = Vector3(0, 0, 0)
+	camera.position = Vector3(5.2, 2.0, 0.0)
+	camera.fov = 58.0
+	camera.look_at_from_position(camera.global_position, global_position + Vector3(0, 1.05, 0), Vector3.UP)
 
 
 func _exit_tree() -> void:
@@ -51,10 +67,10 @@ func _exit_tree() -> void:
 func _input(event: InputEvent) -> void:
 	if not is_multiplayer_authority():
 		return
-	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not _side_cam:
 		var sens := mouse_sensitivity * SettingsManager.look_sensitivity
 		_apply_look(event.relative * sens)
-	if event.is_action_pressed("ui_cancel"):
+	if event.is_action_pressed("ui_cancel") and not _side_cam:
 		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		else:
@@ -71,11 +87,22 @@ func _input(event: InputEvent) -> void:
 
 
 func _on_touch_look(delta: Vector2) -> void:
-	if is_multiplayer_authority():
-		_apply_look(delta * touch_look_sensitivity * SettingsManager.look_sensitivity)
+	if not is_multiplayer_authority():
+		return
+	if _side_cam:
+		# Solo pitch suave; el yaw lo marca el stick de movimiento
+		camera_pivot.rotation.x = clampf(
+			camera_pivot.rotation.x - delta.y * touch_look_sensitivity * 0.35 * SettingsManager.look_sensitivity,
+			-0.35,
+			0.28
+		)
+		return
+	_apply_look(delta * touch_look_sensitivity * SettingsManager.look_sensitivity)
 
 
 func _apply_look(rel: Vector2) -> void:
+	if _side_cam:
+		return
 	rotate_y(-rel.x)
 	camera_pivot.rotate_x(-rel.y)
 	camera_pivot.rotation.x = clampf(camera_pivot.rotation.x, -1.2, 0.8)
@@ -87,9 +114,21 @@ func _physics_process(delta: float) -> void:
 		return  # PracticeAI controla movimiento
 	if is_multiplayer_authority():
 		_authority_move(delta)
+		if _side_cam:
+			_update_side_camera()
 		_maybe_sync(delta)
 	else:
 		_apply_remote_pose(delta)
+
+
+func _update_side_camera() -> void:
+	## Mantiene la cámara al costado del jugador mirando el torso.
+	if camera == null or camera_pivot == null:
+		return
+	var target := global_position + Vector3(0, 1.1, 0)
+	var desired_local := Vector3(5.2, 2.0 + camera_pivot.rotation.x * -1.2, 0.0)
+	camera.position = camera.position.lerp(desired_local, 0.2)
+	camera.look_at_from_position(camera.global_position, target, Vector3.UP)
 
 
 func _authority_move(delta: float) -> void:
@@ -102,7 +141,24 @@ func _authority_move(delta: float) -> void:
 		velocity.y = jump_velocity
 
 	var input_dir := InputManager.move_vector
-	var direction := (transform.basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()
+	var direction := Vector3.ZERO
+	if _side_cam:
+		var right := camera.global_transform.basis.x
+		var fwd := -camera.global_transform.basis.z
+		right.y = 0.0
+		fwd.y = 0.0
+		if right.length_squared() > 0.001:
+			right = right.normalized()
+		if fwd.length_squared() > 0.001:
+			fwd = fwd.normalized()
+		direction = right * input_dir.x + fwd * (-input_dir.y)
+		if direction.length() > 0.15:
+			direction = direction.normalized()
+			rotation.y = lerp_angle(rotation.y, atan2(direction.x, direction.z), clampf(delta * 14.0, 0.0, 1.0))
+		else:
+			direction = Vector3.ZERO
+	else:
+		direction = (transform.basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()
 
 	var speed := move_speed * (combat.speed_mult if combat else 1.0)
 	if InputManager.sprint_held:
