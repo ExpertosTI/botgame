@@ -138,25 +138,9 @@ func _on_cinematic_loop() -> void:
 
 
 func _setup_keyart_bg() -> void:
-	var art_path := "res://assets/art/chadrine_keyart.png"
-	if not ResourceLoader.exists(art_path):
-		return
-	var tex := load(art_path) as Texture2D
-	if tex == null:
-		return
-	var tr := TextureRect.new()
-	tr.name = "KeyartBg"
-	tr.texture = tex
-	tr.set_anchors_preset(Control.PRESET_FULL_RECT)
-	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	tr.modulate = Color(1, 1, 1, 0.85)
-	tr.z_index = -2
-	add_child(tr)
-	move_child(tr, 0)
+	## Sin keyart AI de fondo: solo atmósfera del tema.
 	if atmosphere:
-		atmosphere.modulate = Color(1, 1, 1, 0.5)
+		atmosphere.modulate = Color(1, 1, 1, 1.0)
 		atmosphere.z_index = -1
 
 

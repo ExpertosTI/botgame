@@ -42,19 +42,27 @@ func _ready() -> void:
 
 
 func _show_keyart_fallback() -> void:
-	var art_path := "res://assets/art/chadrine_keyart.png"
+	## Icono del juego centrado (no keyart AI).
+	var art_path := "res://assets/ui/splash_chadrine.png"
+	if not ResourceLoader.exists(art_path):
+		art_path = "res://icon.svg"
 	if not ResourceLoader.exists(art_path):
 		return
 	var tex := load(art_path) as Texture2D
 	if tex == null:
 		return
+	var wrap := CenterContainer.new()
+	wrap.set_anchors_preset(Control.PRESET_FULL_RECT)
+	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(wrap)
+	move_child(wrap, 1)
 	var tr := TextureRect.new()
 	tr.texture = tex
-	tr.set_anchors_preset(Control.PRESET_FULL_RECT)
+	tr.custom_minimum_size = Vector2(220, 220)
 	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	add_child(tr)
-	move_child(tr, 1)
+	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrap.add_child(tr)
 
 
 func _unhandled_input(event: InputEvent) -> void:
