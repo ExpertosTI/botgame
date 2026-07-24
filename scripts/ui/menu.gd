@@ -502,7 +502,7 @@ func _add_hscroll(vbox: VBoxContainer, row_name: String) -> HBoxContainer:
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_ALWAYS
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.scroll_deadzone = 48 if _mobile else 28
-	scroll.custom_minimum_size = Vector2(0, 178 if _mobile else 156)
+	scroll.custom_minimum_size = Vector2(0, 192 if _mobile else 168)
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox.add_child(scroll)
 	var row := HBoxContainer.new()

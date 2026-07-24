@@ -206,23 +206,18 @@ static func make_player_card(name_text: String, role: String, ready: bool, skin:
 	)
 	row.add_child(portrait_wrap)
 
-	var portrait := TextureRect.new()
-	portrait.custom_minimum_size = Vector2(52, 52)
-	portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	var cat_idx := 0
 	if is_beast:
-		var bid := CharacterCatalog.index_of_id("beast_classic")
+		cat_idx = CharacterCatalog.index_of_id("beast_classic")
 		if GameManager.beast_variant == GameManager.BeastVariant.MECHA:
-			bid = CharacterCatalog.index_of_id("beast_mecha")
+			cat_idx = CharacterCatalog.index_of_id("beast_mecha")
 		elif GameManager.beast_variant == GameManager.BeastVariant.SHADOW:
-			bid = CharacterCatalog.index_of_id("beast_shadow")
-		portrait.texture = UiIcons.catalog_tex(bid)
+			cat_idx = CharacterCatalog.index_of_id("beast_shadow")
 	elif role == "explorer":
-		portrait.texture = UiIcons.catalog_tex(skin)
-	else:
-		portrait.modulate = Color(0.5, 0.5, 0.55)
-		portrait.texture = UiIcons.catalog_tex(0)
-	portrait_wrap.add_child(portrait)
+		cat_idx = skin
+	var thumb := CatalogThumb.new()
+	thumb.setup(cat_idx, 52.0, false)
+	portrait_wrap.add_child(thumb)
 
 	var col := VBoxContainer.new()
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
