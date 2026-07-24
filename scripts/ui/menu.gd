@@ -434,8 +434,8 @@ func _update_3d_stage_preview() -> void:
 	var attached := CharacterCatalog.attach_mesh(container, _pick_skin, 1.0)
 	if attached != null:
 		CharacterCatalog.fit_for_showcase(attached, 2.1)
-		# Walk en el hangar: se ve vivo, no maniquí estático
-		CharacterCatalog.play_locomotion(attached, true)
+		CharacterCatalog.attach_showcase_loadout(attached, _pick_role)
+		CharacterCatalog.play_showcase_motion(attached)
 		# Luces más fuertes para que el modelo no se vea “plano”
 		var key := world.get_node_or_null("KeyLight") as DirectionalLight3D
 		if key:

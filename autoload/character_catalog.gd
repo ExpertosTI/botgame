@@ -224,6 +224,94 @@ func play_locomotion(root: Node, moving: bool, sprint: bool = false) -> void:
 		root.set_meta("cat_bob_t", float(root.get_meta("cat_bob_t", 0.0)))
 
 
+## Hangar: arma (o garras) + pose de movimiento al seleccionar.
+func attach_showcase_loadout(root: Node3D, role: String = "explorer") -> void:
+	if root == null:
+		return
+	var old := root.get_node_or_null("ShowcaseWeapon")
+	if old:
+		old.queue_free()
+	var gear := Node3D.new()
+	gear.name = "ShowcaseWeapon"
+	if role == "beast":
+		_build_claw_mesh(gear)
+		gear.position = Vector3(0.55, 0.95, 0.2)
+		gear.rotation_degrees = Vector3(10, 0, -25)
+	else:
+		_build_blaster_mesh(gear)
+		gear.position = Vector3(0.48, 0.92, 0.28)
+		gear.rotation_degrees = Vector3(8, 15, -8)
+	root.add_child(gear)
+
+
+func play_showcase_motion(root: Node) -> void:
+	## Prefiere walk; si hay holding-right + walk, usa walk (arma es mesh aparte).
+	if root == null:
+		return
+	play_locomotion(root, true, false)
+	var ap := find_animation_player(root)
+	if ap == null:
+		return
+	# Algunas skins tienen “holding-right”: prioriza walk con arma visible
+	var walk := _pick_anim(ap, ["walk", "run", "move"])
+	if not walk.is_empty() and ap.current_animation != walk:
+		ap.play(walk)
+
+
+func _build_blaster_mesh(parent: Node3D) -> void:
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.15, 0.2, 0.25)
+	mat.metallic = 0.85
+	mat.roughness = 0.25
+	mat.emission_enabled = true
+	mat.emission = Color(0.15, 0.85, 0.75)
+	mat.emission_energy_multiplier = 0.55
+	var body := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3(0.14, 0.16, 0.58)
+	body.mesh = box
+	body.material_override = mat
+	parent.add_child(body)
+	var barrel := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = 0.035
+	cyl.bottom_radius = 0.045
+	cyl.height = 0.28
+	barrel.mesh = cyl
+	barrel.rotation_degrees.x = 90
+	barrel.position = Vector3(0, 0.02, -0.4)
+	var bmat := mat.duplicate() as StandardMaterial3D
+	bmat.albedo_color = Color(0.25, 0.9, 0.85)
+	barrel.material_override = bmat
+	parent.add_child(barrel)
+	var sight := MeshInstance3D.new()
+	var sbox := BoxMesh.new()
+	sbox.size = Vector3(0.04, 0.08, 0.1)
+	sight.mesh = sbox
+	sight.position = Vector3(0, 0.12, -0.05)
+	sight.material_override = bmat
+	parent.add_child(sight)
+
+
+func _build_claw_mesh(parent: Node3D) -> void:
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.85, 0.2, 0.22)
+	mat.metallic = 0.4
+	mat.roughness = 0.35
+	mat.emission_enabled = true
+	mat.emission = Color(1.0, 0.25, 0.2)
+	mat.emission_energy_multiplier = 0.4
+	for i in 3:
+		var claw := MeshInstance3D.new()
+		var box := BoxMesh.new()
+		box.size = Vector3(0.06, 0.08, 0.42)
+		claw.mesh = box
+		claw.material_override = mat
+		claw.position = Vector3((i - 1) * 0.09, 0, -0.12)
+		claw.rotation_degrees = Vector3(-15 + i * 5, 0, (i - 1) * 12)
+		parent.add_child(claw)
+
+
 func tick_locomotion(root: Node, delta: float) -> void:
 	if root == null or not is_instance_valid(root):
 		return

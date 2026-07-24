@@ -12,6 +12,11 @@ config/author="Renace Tech / Expertos TI"
 run/main_scene="res://scenes/main/intro.tscn"
 config/features=PackedStringArray("4.3", "GL Compatibility")
 config/icon="res://icon.svg"
+boot_splash/bg_color=Color(0.027451, 0.0431373, 0.0627451, 1)
+boot_splash/image="res://assets/ui/splash_chadrine.png"
+boot_splash/fullsize=false
+boot_splash/use_filter=true
+boot_splash/minimum_display_time=1200
 
 [autoload]
 
