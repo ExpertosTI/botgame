@@ -131,6 +131,8 @@ func start_dedicated_server(port: int = -1) -> Error:
 	peer = ws
 	multiplayer.multiplayer_peer = ws
 	print("[Server] WebSocket escuchando en 0.0.0.0:", port)
+	# stderr suele ir línea-a-línea (verify/docker logs lo ven sin stdbuf).
+	printerr("[Server] WebSocket OK port=", port)
 	server_started.emit()
 	return OK
 

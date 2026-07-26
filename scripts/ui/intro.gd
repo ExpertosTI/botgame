@@ -6,7 +6,8 @@ extends Control
 
 func _ready() -> void:
 	if NetworkManager.is_dedicated_server:
-		get_tree().change_scene_to_file("res://scenes/main/server_main.tscn")
+		# call_deferred: change_scene en _ready pega remove_child ("Parent busy").
+		get_tree().change_scene_to_file.call_deferred("res://scenes/main/server_main.tscn")
 		return
 	var skip_btn := $SkipButton as Button
 	skip_btn.pressed.connect(_finish)

@@ -142,28 +142,51 @@ verify_linux_server() {
   fi
   log "Verificando server headless (scripts + WS)…"
   local logf="/tmp/botgame-server-verify.log"
+  local vport=17777
   rm -f "$logf"
+  # stdbuf: sin PTY Godot bufferiza stdout y el grep no ve "WebSocket escuchando".
+  local runner=(env BOTGAME_WS_PORT="$vport")
+  if command -v stdbuf >/dev/null 2>&1; then
+    runner+=(stdbuf -oL -eL)
+  fi
   (
     cd "$ROOT/export/server"
-    BOTGAME_WS_PORT=17777 ./BestiaVsRobots.x86_64 --headless --display-driver headless --audio-driver Dummy -- --server
+    "${runner[@]}" ./BestiaVsRobots.x86_64 --headless --display-driver headless --audio-driver Dummy -- --server
   ) >"$logf" 2>&1 &
   local pid=$!
   local i ok=0
-  for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+  for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
     sleep 1
     if ! kill -0 "$pid" 2>/dev/null; then
       break
     fi
-    if grep -qE 'WebSocket escuchando|Presence\] HTTP lobby' "$logf" 2>/dev/null; then
+    if grep -qE 'WebSocket escuchando|WebSocket OK port|Presence\] HTTP lobby' "$logf" 2>/dev/null; then
       ok=1
       break
     fi
+    # Puerto abierto = create_server OK aunque el log aún no flusheó.
+    if ss -ltn 2>/dev/null | grep -qE ":${vport}\\b"; then
+      ok=1
+      break
+    fi
+    if command -v curl >/dev/null 2>&1; then
+      local ws_code
+      ws_code=$(curl -sS -m 1 -o /dev/null -w '%{http_code}' \
+        -H "Connection: Upgrade" -H "Upgrade: websocket" \
+        -H "Sec-WebSocket-Version: 13" -H "Sec-WebSocket-Key: c2hha2VzcGVhcmUxMjM0" \
+        "http://127.0.0.1:${vport}/" 2>/dev/null || echo "000")
+      if [ "$ws_code" = "101" ]; then
+        ok=1
+        break
+      fi
+    fi
   done
   kill "$pid" 2>/dev/null || true
+  sleep 0.5
   wait "$pid" 2>/dev/null || true
   if grep -qiE 'SCRIPT ERROR|Parse Error|Compile Error|Failed to load script' "$logf" 2>/dev/null; then
     echo "----- $logf (tail) -----" >&2
-    tail -60 "$logf" >&2 || true
+    tail -80 "$logf" >&2 || true
     die "Server export tiene errores de GDScript (ver log)"
   fi
   if [ "$ok" = "1" ]; then
@@ -175,7 +198,7 @@ verify_linux_server() {
     return 0
   fi
   echo "----- $logf (tail) -----" >&2
-  tail -60 "$logf" >&2 || true
+  tail -80 "$logf" >&2 || true
   die "Server export no abrió WebSocket/Presence a tiempo"
 }
 
