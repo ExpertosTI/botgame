@@ -1,0 +1,24 @@
+# Solo deploy/ y export/ entran a las imágenes (ver deploy/Dockerfile.*).
+# Todo lo demás (fuente Godot, .git, kits sin usar) infla el contexto de
+# build y el cache de buildkit en el VPS — eso ayudó a llenar el disco.
+.git
+.godot
+.import
+addons
+assets
+config
+modes
+scenes
+scripts
+shaders
+autoload
+_tmp_kits
+*.import
+*.uid
+*.md
+!LEGAL.md
+!PRIVACY.md
+project.godot
+export_presets.cfg
+icon.svg
+icon.svg.import

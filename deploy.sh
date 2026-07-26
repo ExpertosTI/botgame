@@ -62,7 +62,31 @@ ensure_renacenet() {
     fi
 }
 
+# Imágenes botgame-web/botgame-server viejas (por GIT_SHA) y cache de build
+# nunca se liberaban → disco lleno ("no space left on device"). Se corre
+# ANTES de build (libera espacio para el build) y DESPUÉS (recorta lo nuevo).
+docker_gc() {
+    log "→ Limpieza Docker (imágenes/cache viejos)"
+    df -h / 2>/dev/null | tail -1 | awk '{print "  disco: " $3 " usados / " $2 " (" $5 " lleno)"}' || true
+    for repo in botgame-web botgame-server; do
+        local keep=("${repo}:latest" "${repo}:${GIT_SHA:-__none__}")
+        local old_ids
+        old_ids="$(docker images "$repo" --format '{{.Tag}} {{.ID}}' \
+            | awk -v k1="${keep[0]#*:}" -v k2="${keep[1]#*:}" '$1!=k1 && $1!=k2 {print $2}' \
+            | sort -u)"
+        if [ -n "$old_ids" ]; then
+            # shellcheck disable=SC2086
+            docker rmi $old_ids >/dev/null 2>&1 || true
+        fi
+    done
+    docker container prune -f >/dev/null 2>&1 || true
+    docker image prune -f >/dev/null 2>&1 || true
+    docker builder prune -f --filter "until=24h" >/dev/null 2>&1 || true
+}
+
 build_images() {
+    docker_gc
+
     log "→ Export Godot en servidor (si hace falta)"
     chmod +x scripts/export_godot_linux.sh scripts/stage_landing_media.sh 2>/dev/null || true
     bash scripts/export_godot_linux.sh
@@ -74,6 +98,8 @@ build_images() {
     docker compose -f "$COMPOSE_FILE" build
     docker tag "botgame-web:${GIT_SHA}" "botgame-web:latest" 2>/dev/null || true
     docker tag "botgame-server:${GIT_SHA}" "botgame-server:latest" 2>/dev/null || true
+
+    docker_gc
 }
 
 stack_deploy() {
@@ -189,6 +215,14 @@ cmd_stop() {
     docker stack rm "$STACK_NAME"
 }
 
+cmd_gc() {
+    load_env
+    refresh_git_sha
+    docker_gc
+    log "→ Espacio libre tras limpieza:"
+    df -h / 2>/dev/null || true
+}
+
 usage() {
     cat <<EOF
 Uso: ./deploy.sh <comando>
@@ -200,6 +234,7 @@ Uso: ./deploy.sh <comando>
   restart   force update servicios
   stop      baja el stack
   health    curl HTTPS
+  gc        limpia imágenes/cache Docker viejos (libera disco ya)
 
 Flujo Renace (sin rsync / sin passwords):
   1) En Mac:  git push origin main
@@ -220,5 +255,6 @@ case "${1:-}" in
     restart) cmd_restart ;;
     stop)    cmd_stop ;;
     health)  load_env; health ;;
+    gc)      cmd_gc ;;
     *)       usage; exit 1 ;;
 esac

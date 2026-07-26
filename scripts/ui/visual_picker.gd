@@ -1,7 +1,9 @@
 class_name VisualPicker
 extends RefCounted
 
-## Tarjetas claras y grandes. En móvil: marca de color (legible). Desktop: preview 3D.
+## Tarjetas Button, claras y baratas (badge de color, no SubViewports 3D
+## por tarjeta — eso disparaba consumo de memoria/GPU con 10+ tarjetas vivas).
+## El único preview 3D en vivo es el stage grande del hangar (una instancia).
 
 
 static func make_card(
@@ -94,8 +96,8 @@ static func _narrow() -> bool:
 	return tre != null and tre.root != null and tre.root.get_visible_rect().size.x < 900
 
 
-static func _clear_mark(accent: Color, h: float, title: String) -> Control:
-	## Marca grande y legible (móvil): color + inicial.
+## Badge de color + inicial. Barato: sin viewport, sin animación, sin GPU extra.
+static func badge_mark(accent: Color, h: float, title: String) -> Control:
 	var box := PanelContainer.new()
 	box.custom_minimum_size = Vector2(h, h)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -116,15 +118,6 @@ static func _clear_mark(accent: Color, h: float, title: String) -> Control:
 	return box
 
 
-static func _skin_visual(skin: int, selected: bool, h: float, title: String, accent: Color) -> Control:
-	# Móvil / estrecho: marca clara. Desktop: 3D.
-	if _narrow():
-		return _clear_mark(accent, h, title)
-	var thumb := CatalogThumb.new()
-	thumb.setup(skin, h, selected)
-	return thumb
-
-
 static func make_skin_card(skin: int, selected: bool, locked: bool = false) -> Button:
 	var entry := CharacterCatalog.get_entry(skin) if Engine.get_main_loop() else {}
 	var tint: Color = entry.get("tint", Color(0.25, 0.55, 1.0)) if not entry.is_empty() else Color(0.25, 0.55, 1.0)
@@ -132,10 +125,10 @@ static func make_skin_card(skin: int, selected: bool, locked: bool = false) -> B
 	var sub := "LISTO" if selected else ("BESTIA" if str(entry.get("role", "")) == "beast" else "ROBOT")
 	var m := _narrow()
 	var h := 110.0 if m else 88.0
-	var visual := _skin_visual(skin, selected and not locked, h, title, tint)
+	var mark := badge_mark(tint, h, title)
 	return make_card(
 		title, sub, tint, selected, null, "",
-		Vector2(148 if m else 118, 188 if m else 158), h, locked, visual
+		Vector2(148 if m else 118, 188 if m else 158), h, locked, mark
 	)
 
 
@@ -146,7 +139,7 @@ static func make_loadout_card(loadout: int, selected: bool, locked: bool = false
 	var name_s := WeaponDefs.explorer_loadout_name(loadout)
 	var m := _narrow()
 	var h := 88.0 if m else 72.0
-	var mark := _clear_mark(accents[i], h, name_s)
+	var mark := badge_mark(accents[i], h, name_s)
 	return make_card(name_s, hints[i], accents[i], selected, null, "", Vector2(130 if m else 112, 160 if m else 136), h, locked, mark)
 
 
@@ -171,7 +164,7 @@ static func make_map_card(map_id: String, selected: bool, locked: bool = false) 
 	var m := _narrow()
 	var name_s := str(NetworkManager.MAP_NAMES.get(map_id, map_id))
 	var h := 96.0 if m else 78.0
-	var mark := _clear_mark(accent, h, name_s)
+	var mark := badge_mark(accent, h, name_s)
 	return make_card(
 		name_s, sub, accent, selected, null, "",
 		Vector2(150 if m else 124, 170 if m else 140), h, locked, mark
@@ -182,14 +175,12 @@ static func make_beast_card(variant: int, selected: bool, locked: bool = false) 
 	var accent := Color(0.85, 0.15, 0.2)
 	var title := "Clásica"
 	var sub := "Garras"
-	var cat_id := "beast_classic"
 	match variant:
 		GameManager.BeastVariant.MECHA:
-			accent = Color(0.55, 0.55, 0.6); title = "Mecha"; sub = "Slam"; cat_id = "beast_mecha"
+			accent = Color(0.55, 0.55, 0.6); title = "Mecha"; sub = "Slam"
 		GameManager.BeastVariant.SHADOW:
-			accent = Color(0.45, 0.2, 0.7); title = "Sombra"; sub = "Cloak"; cat_id = "beast_shadow"
-	var idx := CharacterCatalog.index_of_id(cat_id)
+			accent = Color(0.45, 0.2, 0.7); title = "Sombra"; sub = "Cloak"
 	var m := _narrow()
 	var h := 110.0 if m else 84.0
-	var visual := _skin_visual(idx if idx >= 0 else 0, selected and not locked, h, title, accent)
-	return make_card(title, sub, accent, selected, null, "", Vector2(148 if m else 118, 180 if m else 150), h, locked, visual)
+	var mark := badge_mark(accent, h, title)
+	return make_card(title, sub, accent, selected, null, "", Vector2(148 if m else 118, 180 if m else 150), h, locked, mark)

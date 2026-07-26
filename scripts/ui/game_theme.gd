@@ -215,9 +215,11 @@ static func make_player_card(name_text: String, role: String, ready: bool, skin:
 			cat_idx = CharacterCatalog.index_of_id("beast_shadow")
 	elif role == "explorer":
 		cat_idx = skin
-	var thumb := CatalogThumb.new()
-	thumb.setup(cat_idx, 52.0, false)
-	portrait_wrap.add_child(thumb)
+	# Badge de color (no SubViewport 3D por jugador: se acumulan y no se
+	# liberan a tiempo en cada refresh de la lista, disparando GPU/RAM).
+	var e := CharacterCatalog.get_entry(cat_idx)
+	var tint: Color = e.get("tint", edge) if not e.is_empty() else edge
+	portrait_wrap.add_child(VisualPicker.badge_mark(tint, 52.0, CharacterCatalog.display_name(cat_idx)))
 
 	var col := VBoxContainer.new()
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL

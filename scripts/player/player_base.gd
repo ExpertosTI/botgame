@@ -273,8 +273,12 @@ func _handle_combat_input() -> void:
 
 
 func get_aim_origin() -> Vector3:
+	if _side_cam:
+		return global_position + Vector3(0, 1.15, 0) + (-transform.basis.z * 0.55)
 	return camera.global_position + (-camera.global_transform.basis.z * 0.8)
 
 
 func get_aim_dir() -> Vector3:
+	if _side_cam:
+		return -transform.basis.z
 	return -camera.global_transform.basis.z
