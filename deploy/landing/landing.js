@@ -3,8 +3,8 @@
 const CACHE = "9153815b"; // bump al redesplegar media
 
 const ROSTER = [
-  { id: "blocky_a", name: "Blocky A", file: `/media/roster/blocky_a.glb?v=${CACHE}`, thumb: "/media/ui/robot_azul.png", scale: 1.15 },
-  { id: "blocky_b", name: "Blocky B", file: `/media/roster/blocky_b.glb?v=${CACHE}`, thumb: "/media/ui/robot_rosa.png", scale: 1.15 },
+  { id: "blocky_a", name: "Unidad Alfa", file: `/media/roster/blocky_a.glb?v=${CACHE}`, thumb: "/media/ui/robot_azul.png", scale: 1.15 },
+  { id: "blocky_b", name: "Unidad Bravo", file: `/media/roster/blocky_b.glb?v=${CACHE}`, thumb: "/media/ui/robot_rosa.png", scale: 1.15 },
   { id: "kay_knight", name: "Caballero", file: `/media/roster/kay_knight.glb?v=${CACHE}`, thumb: "/media/ui/robot_verde.png", scale: 1.0 },
   { id: "kay_mage", name: "Mago", file: `/media/roster/kay_mage.glb?v=${CACHE}`, thumb: "/media/ui/robot_amarillo.png", scale: 1.0 },
   { id: "kay_barbarian", name: "Bárbaro", file: `/media/roster/kay_barbarian.glb?v=${CACHE}`, thumb: "/media/ui/robot_azul.png", scale: 1.0 },

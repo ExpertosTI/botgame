@@ -88,3 +88,13 @@ func _roster_and_theaters_are_named() -> void:
 
 	gt(float(CharacterCatalog.explorer_indices().size()), 3.0, "faltan robots jugables")
 	gt(float(CharacterCatalog.beast_indices().size()), 2.0, "faltan variantes de bestia")
+	## Cara pública hangar: sin fantasy / Kenney en nombres de teatro.
+	ok(CharacterCatalog.has_method("hangar_explorer_indices"), "API hangar explorers")
+	ok(CharacterCatalog.has_method("hangar_beast_indices"), "API hangar beasts")
+	eq(CharacterCatalog.hangar_beast_indices().size(), 3, "hangar: exactamente 3 bestias")
+	for idx in CharacterCatalog.hangar_explorer_indices():
+		var hid := str(CharacterCatalog.get_entry(int(idx)).get("id", ""))
+		ok(not hid.begins_with("kay_"), "hangar no incluye KayKit (%s)" % hid)
+	for mid in NetworkManager.MAP_IDS:
+		var nm := str(NetworkManager.MAP_NAMES.get(mid, ""))
+		ok(not nm.contains("Kenney"), "teatro %s no debe decir Kenney en UI" % mid)

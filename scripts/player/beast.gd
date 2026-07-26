@@ -2,10 +2,12 @@ class_name BeastPlayer
 extends PlayerBase
 
 const MAX_HP := 120.0
+const DEFEAT_IFRAMES := 2.2
 
 @onready var attack_area: Area3D = $AttackArea
 
 var hp := MAX_HP
+var _defeat_iframes := 0.0
 
 
 func _ready() -> void:
@@ -77,6 +79,8 @@ func _resolve_beast_catalog_index() -> int:
 
 
 func _physics_process(delta: float) -> void:
+	if _defeat_iframes > 0.0:
+		_defeat_iframes = maxf(_defeat_iframes - delta, 0.0)
 	super._physics_process(delta)
 	if has_meta("is_bot") and get_meta("is_bot"):
 		return
@@ -96,6 +100,9 @@ func _physics_process(delta: float) -> void:
 
 @rpc("any_peer", "call_local", "reliable")
 func apply_damage(amount: float, slow: float = 0.0, slow_dur: float = 0.0, from_peer: int = 0) -> void:
+	## Escopeta / hazards no deben multi-KO durante el stun.
+	if _defeat_iframes > 0.0:
+		return
 	if combat and combat.shielded:
 		amount *= 0.25
 	if combat and combat.cloaked:
@@ -110,19 +117,23 @@ func apply_damage(amount: float, slow: float = 0.0, slow_dur: float = 0.0, from_
 	if slow > 0.0 and combat:
 		combat.apply_slow(slow, slow_dur)
 	if hp <= 0.0:
-		_on_defeated()
-		if from_peer > 0:
-			MatchStats.record_elimination(from_peer, peer_id)
+		_on_defeated(from_peer)
 
 
-func _on_defeated() -> void:
-	# Stun temporal + regen (no elimina a la bestia)
-	hp = MAX_HP * 0.35
+func _on_defeated(from_peer: int = 0) -> void:
+	if _defeat_iframes > 0.0:
+		return
+	_defeat_iframes = DEFEAT_IFRAMES
+	## Stun regen respeta el mult de campaña (si no, knockdown borra casi toda la vida).
+	var max_hp := MAX_HP * maxf(GameManager.level_beast_hp_mult, 0.1)
+	hp = max_hp * 0.35
 	if combat:
 		combat.apply_slow(0.6, 3.0)
 	visible = true
 	if crew:
 		crew.play_hit()
+	if from_peer > 0:
+		MatchStats.record_elimination(from_peer, peer_id)
 
 
 func get_hp_ratio() -> float:

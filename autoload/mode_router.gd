@@ -32,7 +32,7 @@ func mode_title(mode_id: String) -> String:
 		MODE_PLATFORMER: return "Platformer"
 		MODE_FPS: return "FPS"
 		MODE_CITY: return "City Builder"
-		_: return "Asimétrico · Bestia vs Robots"
+		_: return "Asimétrico · CHADRINE"
 
 
 func start_mode(mode_id: String) -> void:
@@ -40,6 +40,8 @@ func start_mode(mode_id: String) -> void:
 	mode_changed.emit(mode_id)
 	if mode_id == MODE_ASYMMETRIC:
 		return
+	if GameManager.has_method("abort_match"):
+		GameManager.abort_match()
 	if NetworkManager.has_method("disconnect_from_game"):
 		NetworkManager.disconnect_from_game()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -80,6 +82,8 @@ func return_to_hub() -> void:
 	current_mode = MODE_ASYMMETRIC
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	get_tree().paused = false
+	if GameManager.has_method("abort_match"):
+		GameManager.abort_match()
 	if NetworkManager.has_method("disconnect_from_game"):
 		NetworkManager.disconnect_from_game()
 	get_tree().change_scene_to_file(HUB_SCENE)

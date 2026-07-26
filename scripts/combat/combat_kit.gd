@@ -111,21 +111,40 @@ func fire(aim_origin: Vector3, aim_dir: Vector3) -> bool:
 	weapon_cds[weapon_index] = float(WeaponDefs.weapon_data(id).get("cooldown", 1.0))
 	cooldowns_updated.emit()
 	MatchStats.record_shot(owner_player.peer_id)
-	AudioDirector.play_shot(is_beast)
+	var wdata: Dictionary = WeaponDefs.weapon_data(id)
+	var fast := float(wdata.get("cooldown", 1.0)) < 0.35
+	AudioDirector.play_shot(is_beast, fast)
 	CombatFx.request_weapon_fire(id, aim_origin, aim_dir, owner_player.peer_id, is_beast)
 	return true
 
 
 func execute_server_fire(weapon_id: int, origin: Vector3, dir: Vector3, peer: int, beast: bool) -> void:
+	## Rate-limit solo para RPC remoto. fire() local (host/solo/bots) ya
+	## aplicó can_fire()+CD; re-chequear aquí abortaba el disparo.
+	var from_remote := multiplayer.get_remote_sender_id() != 0
+	var idx := weapons.find(weapon_id)
+	if idx < 0:
+		for i in weapons.size():
+			if int(weapons[i]) == weapon_id:
+				idx = i
+				break
+	if from_remote:
+		if idx >= 0 and float(weapon_cds.get(idx, 0.0)) > 0.05:
+			return
+		if idx >= 0:
+			weapon_cds[idx] = float(WeaponDefs.weapon_data(weapon_id).get("cooldown", 1.0))
 	_server_fire(weapon_id, origin, dir, peer, beast)
 
 
 func _server_fire(weapon_id: int, origin: Vector3, dir: Vector3, peer: int, beast: bool) -> void:
-	var data: Dictionary = WeaponDefs.weapon_data(weapon_id)
+	var data: Dictionary = WeaponDefs.weapon_data(weapon_id).duplicate()
+	## OVERCHARGE / RAGE viven en damage_mult del kit del servidor. Sin esto el
+	## orbe de sobrecarga solo reiniciaba CDs y el daño seguía siendo base.
+	data["damage"] = float(data.get("damage", 10)) * damage_mult
 	var vs_explorers := beast
 	var type_s := str(data.get("type", ""))
 	if type_s in ["projectile", "shotgun", "grenade"]:
-		CombatFx.replicate_muzzle(origin, data.get("color", Color.WHITE))
+		CombatFx.replicate_muzzle(origin, data.get("color", Color.WHITE), peer)
 	match type_s:
 		"melee":
 			CombatFx.replicate_melee(peer, weapon_id, beast)
@@ -155,7 +174,7 @@ func _server_fire(weapon_id: int, origin: Vector3, dir: Vector3, peer: int, beas
 				CombatFx.replicate_explosion(
 					owner_player.global_position,
 					float(data.get("radius", 5.0)),
-					float(data.get("damage", 30)) * damage_mult,
+					float(data.get("damage", 30)),
 					peer, vs_explorers, not vs_explorers
 				)
 			CombatFx.replicate_melee(peer, weapon_id, beast)
@@ -167,7 +186,7 @@ func apply_melee_hits(weapon_id: int) -> void:
 	var data: Dictionary = WeaponDefs.weapon_data(weapon_id)
 	if owner_player and owner_player.crew:
 		owner_player.crew.play_attack()
-	if not multiplayer.is_server() or owner_player == null:
+	if not NetworkManager.is_match_authority() or owner_player == null:
 		return
 	var dmg: float = float(data.get("damage", 1)) * damage_mult
 	var attack_area := owner_player.get_node_or_null("AttackArea") as Area3D
@@ -177,7 +196,12 @@ func apply_melee_hits(weapon_id: int) -> void:
 		if is_beast and body is ExplorerPlayer:
 			var e := body as ExplorerPlayer
 			if e.is_alive():
-				e.take_hit.rpc(e.peer_id)
+				## Modo fácil: el melee pega a HP (≈3 zarpazos por vida), no
+				## borra una vida entera de un golpe.
+				if GameManager.easy_beast_mode:
+					e.apply_projectile_hit.rpc(e.peer_id, 38.0 * damage_mult, 0.15, 0.4, owner_player.peer_id)
+				else:
+					e.take_hit.rpc(e.peer_id)
 		elif not is_beast and body is BeastPlayer:
 			(body as BeastPlayer).apply_damage.rpc(dmg * 15.0, 0.0, 0.0, owner_player.peer_id)
 
@@ -186,7 +210,7 @@ func apply_roar_hits(weapon_id: int) -> void:
 	var data: Dictionary = WeaponDefs.weapon_data(weapon_id)
 	if owner_player and owner_player.crew:
 		owner_player.crew.play_attack()
-	if not multiplayer.is_server() or owner_player == null:
+	if not NetworkManager.is_match_authority() or owner_player == null:
 		return
 	var radius: float = float(data.get("radius", 10.0))
 	var slow: float = float(data.get("slow", 0.45))
@@ -214,6 +238,19 @@ func use_ability(index: int) -> bool:
 
 
 func execute_server_ability(ability_id: int) -> void:
+	## Rate-limit solo RPC remoto (mismo patrón que armas).
+	var from_remote := multiplayer.get_remote_sender_id() != 0
+	var idx := abilities.find(ability_id)
+	if idx < 0:
+		for i in abilities.size():
+			if int(abilities[i]) == ability_id:
+				idx = i
+				break
+	if from_remote:
+		if idx >= 0 and float(ability_cds.get(idx, 0.0)) > 0.05:
+			return
+		if idx >= 0:
+			ability_cds[idx] = float(WeaponDefs.ability_data(ability_id).get("cooldown", 5.0))
 	if owner_player:
 		CombatFx.replicate_ability(owner_player.peer_id, ability_id)
 
@@ -236,7 +273,7 @@ func apply_ability_effects(ability_id: int) -> void:
 			shielded = true
 			CombatVfx.ring(owner_player, owner_player.global_position, Color(0.4, 0.8, 1.0), 2.2)
 		WeaponDefs.AbilityId.EMP:
-			if multiplayer.is_server():
+			if NetworkManager.is_match_authority():
 				var radius: float = float(data.get("radius", 7.0))
 				for node in owner_player.get_tree().get_nodes_in_group("player_characters"):
 					if node is BeastPlayer and owner_player.global_position.distance_to(node.global_position) <= radius:
@@ -258,10 +295,10 @@ func apply_ability_effects(ability_id: int) -> void:
 		WeaponDefs.AbilityId.CLOAK:
 			_set_buff("cloak", float(data.get("duration", 3.5)))
 			cloaked = true
-			if owner_player.crew:
-				owner_player.crew.modulate_alpha(0.25)
+			if owner_player:
+				owner_player.set_cloak_visual(0.22)
 		WeaponDefs.AbilityId.GROUND_SPIKES:
-			if multiplayer.is_server():
+			if NetworkManager.is_match_authority():
 				CombatFx.replicate_explosion(
 					owner_player.global_position,
 					float(data.get("radius", 4.0)),
@@ -270,24 +307,57 @@ func apply_ability_effects(ability_id: int) -> void:
 				)
 			CombatVfx.ring(owner_player, owner_player.global_position, Color(0.9, 0.35, 0.1), 3.5)
 		WeaponDefs.AbilityId.HEAL_PULSE:
-			if owner_player is ExplorerPlayer:
-				(owner_player as ExplorerPlayer).hp = mini((owner_player as ExplorerPlayer).hp + 35.0, 100.0)
-			elif owner_player is BeastPlayer:
-				var b := owner_player as BeastPlayer
-				b.hp = mini(b.hp + 28.0, BeastPlayer.MAX_HP * GameManager.level_beast_hp_mult)
+			_heal_pulse_apply(35.0 if not is_beast else 28.0)
 			CombatVfx.ring(owner_player, owner_player.global_position, Color(0.3, 1.0, 0.5), 2.8)
 		WeaponDefs.AbilityId.TRAP_MINE:
-			if multiplayer.is_server():
-				CombatFx.replicate_explosion(
-					owner_player.global_position - owner_player.global_transform.basis.z * 2.5,
-					float(data.get("radius", 3.2)),
+			if NetworkManager.is_match_authority():
+				var drop := owner_player.global_position - owner_player.global_transform.basis.z * 2.2
+				drop.y = owner_player.global_position.y
+				CombatFx.spawn_trap_mine(
+					drop,
+					owner_player.peer_id,
 					float(data.get("damage", 28)),
-					owner_player.peer_id, not is_beast, is_beast
+					float(data.get("radius", 3.2)),
+					is_beast,       # vs_explorers: mina bestia pega a robots
+					not is_beast    # vs_beast: mina robot pega a bestia
 				)
+			CombatVfx.flash(owner_player, owner_player.global_position, Color(1.0, 0.4, 0.15), 0.35)
+
+
+func _heal_pulse_apply(amount: float) -> void:
+	_heal_one(owner_player, amount)
+	## Pulso: cura aliados cercanos del mismo bando (antes solo se curaba a sí).
+	var radius := 5.5
+	for node in owner_player.get_tree().get_nodes_in_group("player_characters"):
+		if node == owner_player:
+			continue
+		if owner_player.global_position.distance_to(node.global_position) > radius:
+			continue
+		if is_beast and node is BeastPlayer:
+			_heal_one(node, amount * 0.7)
+		elif not is_beast and node is ExplorerPlayer and (node as ExplorerPlayer).alive:
+			_heal_one(node, amount * 0.7)
+
+
+func _heal_one(target: Node, amount: float) -> void:
+	if target is ExplorerPlayer:
+		var e := target as ExplorerPlayer
+		e.hp = mini(e.hp + amount, 100.0)
+	elif target is BeastPlayer:
+		var b := target as BeastPlayer
+		b.hp = mini(b.hp + amount, BeastPlayer.MAX_HP * GameManager.level_beast_hp_mult)
 
 
 func _set_buff(key: String, duration: float) -> void:
 	_buff_timers[key] = duration
+
+
+func reset_weapon_cooldowns() -> void:
+	for k in weapon_cds.keys():
+		weapon_cds[k] = 0.0
+	for k in ability_cds.keys():
+		ability_cds[k] = 0.0
+	cooldowns_updated.emit()
 
 
 func apply_buff(key: String, duration: float) -> void:
@@ -323,8 +393,8 @@ func _clear_buff(key: String) -> void:
 				speed_mult = 1.0
 		"cloak":
 			cloaked = false
-			if owner_player and owner_player.crew:
-				owner_player.crew.modulate_alpha(1.0)
+			if owner_player:
+				owner_player.set_cloak_visual(1.0)
 
 
 func apply_slow(amount: float, duration: float) -> void:
@@ -336,15 +406,15 @@ func apply_slow(amount: float, duration: float) -> void:
 func get_hud_text() -> String:
 	var wname := current_weapon_name()
 	var wcd: float = weapon_cds.get(weapon_index, 0.0)
-	var lines := "Arma: %s" % wname
+	var lines := "ARMA %s" % wname
 	if wcd > 0.05:
-		lines += " (%.1fs)" % wcd
+		lines += "  %.1fs" % wcd
 	lines += "\n"
 	for i in abilities.size():
 		var aname: String = WeaponDefs.ability_data(abilities[i]).get("name", "?")
 		var acd: float = ability_cds.get(i, 0.0)
 		if acd > 0.05:
-			lines += "[%d]%s %.0fs " % [i + 1, aname, acd]
+			lines += "%d·%s %.0fs  " % [i + 1, aname, acd]
 		else:
-			lines += "[%d]%s " % [i + 1, aname]
+			lines += "%d·%s  " % [i + 1, aname]
 	return lines

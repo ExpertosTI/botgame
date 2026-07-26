@@ -1,8 +1,8 @@
 # CHADRINE
 
-Juego hub multijugador / local (Godot 4.3) — **CHADRINE**.
+Juego hub multijugador / local (Godot **4.6** + Jolt Physics) — **CHADRINE**.
 
-**Versión:** 1.4.0 · Renace Tech / Expertos TI  
+**Versión:** 1.5.0 · Renace Tech / Expertos TI  
 La versión sale de [autoload/game_brand.gd](autoload/game_brand.gd); `project.godot`
 y este README deben coincidir (lo vigila `tests/cases/identity_test.gd`).
 
@@ -13,13 +13,13 @@ y este README deben coincidir (lo vigila `tests/cases/identity_test.gd`).
 
 | Modo | Descripción |
 |------|-------------|
-| **Asimétrico** | Bestia vs Robots · online / campaña (core) |
+| **Asimétrico** | CHADRINE · Bestia vs tripulación · online / campaña (core) |
 | **Platformer** | Starter Kit Kenney 3D (capa opcional) |
 | **FPS** | Starter Kit Kenney FPS (capa opcional) |
 | **City Builder** | Starter Kit Kenney City (capa opcional) |
 
 Mapas asimétricos: neon, contenedores, ruinas, reactor, skybridge, **castillo**, **cueva**, **bosque**.  
-Personajes: Blocky/KayKit en lobby (roster GLB).
+Personajes: unidades hangar + 3 bestias (roster GLB). Fantasy KayKit queda fuera del hangar.
 
 ## Controles (asimétrico)
 
@@ -35,7 +35,7 @@ Submodos Kenney: overlay **← Hub CHADRINE** / Esc (si el pack está instalado)
 ./scripts/run_tests.sh fx_pool  # una sola suite
 ```
 
-Necesita Godot **4.3**: un binario más nuevo invalida `.godot/`, se pone a
+Necesita Godot **4.6**: un binario de otra serie invalida `.godot/`, se pone a
 reimportar los assets y la corrida se queda minutos sin decir nada. El script
 comprueba la serie y se niega a arrancar con otra, y corta a los 180 s
 (`TEST_TIMEOUT`) si algo se cuelga. El mismo gate corre en CI y bloquea el

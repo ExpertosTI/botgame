@@ -102,7 +102,7 @@ Clientes (WebApp / APK) conectan a `wss://botgame.renace.tech/ws` ([`config/serv
 ## Checklist antes de jugar con las niñas
 
 1. [ ] DNS `botgame.renace.tech` apuntando al VPS  
-2. [ ] `export/web/` y `export/server/` generados en Godot 4.3+  
+2. [ ] `export/web/` y `export/server/` generados en Godot **4.6**  
 3. [ ] `./deploy.sh update` → servicios `1/1`  
 4. [ ] Abrir https://botgame.renace.tech → menú  
 5. [ ] 2 dispositivos → Bestia + Robot → partida  

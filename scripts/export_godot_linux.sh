@@ -12,10 +12,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-GODOT_VER="${GODOT_VER:-4.3-stable}"
+GODOT_VER="${GODOT_VER:-4.6-stable}"
 CACHE="${BOTGAME_GODOT_CACHE:-/var/cache/botgame-godot}"
 GODOT_BIN="$CACHE/Godot_v${GODOT_VER}_linux.x86_64"
-TPL_DEST="$HOME/.local/share/godot/export_templates/4.3.stable"
+TPL_DEST="$HOME/.local/share/godot/export_templates/4.6.stable"
 STAMP_FILE="$CACHE/export.stamp"
 IMPORT_TIMEOUT="${GODOT_IMPORT_TIMEOUT:-900}"
 
@@ -111,7 +111,9 @@ fingerprint() {
     2>/dev/null | wc -c | tr -d ' ')"
   # mtime reciente de assets usados + modes
   local mt
-  mt="$(find assets/characters assets/kenney/props assets/art assets/ui assets/fonts assets/video/intro modes \
+  # assets/audio entra aquí porque si no, cambiar solo un sonido no movía la
+  # huella y el export se saltaba: el juego se publicaba con el audio viejo.
+  mt="$(find assets/characters assets/kenney/props assets/art assets/ui assets/fonts assets/audio assets/video/intro modes \
     scripts autoload scenes \
     -type f 2>/dev/null | head -5000 | xargs stat -c %Y 2>/dev/null | sort -n | tail -1 || echo 0)"
   printf '%s|files:%s|mt:%s|godot:%s' "$sha" "$files" "$mt" "$GODOT_VER"

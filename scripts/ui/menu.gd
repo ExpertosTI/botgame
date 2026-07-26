@@ -58,6 +58,7 @@ func _ready() -> void:
 	_build_hub_modes()
 
 	join_button.pressed.connect(_on_join_pressed)
+	_ensure_quick_play_button()
 	host_button.pressed.connect(_on_host_pressed)
 	online_mode_button.pressed.connect(func(): AudioDirector.play_ui("click"); _set_mode("online"))
 	solo_mode_button.pressed.connect(func(): AudioDirector.play_ui("click"); _set_mode("solo"))
@@ -78,6 +79,47 @@ func _ready() -> void:
 	title_label.text = "HANGAR"
 	_pick_skin = _default_mesh_skin()
 	_set_mode("online")
+	_setup_how_to_play()
+
+
+func _ensure_quick_play_button() -> void:
+	if online_panel.get_node_or_null("QuickPlayButton") != null:
+		return
+	var qp := Button.new()
+	qp.name = "QuickPlayButton"
+	qp.text = "PARTIDA RÁPIDA"
+	qp.custom_minimum_size = Vector2(0, 76 if _mobile else 58)
+	GameTheme.style_primary(qp)
+	qp.pressed.connect(_on_quick_play_pressed)
+	## Encima de ENTRAR: es la vía principal para jugar sin pensar.
+	var idx := join_button.get_index()
+	online_panel.add_child(qp)
+	online_panel.move_child(qp, idx)
+
+
+func _setup_how_to_play() -> void:
+	var help := Button.new()
+	help.name = "HowToPlayButton"
+	help.text = "¿CÓMO SE JUEGA?"
+	help.custom_minimum_size = Vector2(0, 48 if _mobile else 40)
+	GameTheme.style_touch(help, GameTheme.C_MUTED)
+	help.pressed.connect(_on_how_to_play_pressed)
+	var host := credits_button.get_parent()
+	if host != null:
+		host.add_child(help)
+		host.move_child(help, credits_button.get_index())
+	else:
+		add_child(help)
+
+	# La primera vez se abre sola: llegar al 3D sin saber qué es un núcleo era la
+	# forma más rápida de perder a un jugador nuevo.
+	if not SettingsManager.tutorial_seen:
+		call_deferred("_on_how_to_play_pressed")
+
+
+func _on_how_to_play_pressed() -> void:
+	AudioDirector.play_ui("click")
+	HowToPlay.present(self)
 
 
 func _default_mesh_skin() -> int:
@@ -161,8 +203,15 @@ func _style_ui() -> void:
 	join_button.text = "ENTRAR AL COMBATE"
 	host_button.text = "Sala LAN"
 	solo_start_button.text = "LANZAR MISIÓN"
+	var qp := online_panel.get_node_or_null("QuickPlayButton") as Button
+	if qp:
+		qp.text = "PARTIDA RÁPIDA"
+		GameTheme.style_primary(qp)
+		qp.custom_minimum_size = Vector2(0, 76 if _mobile else 58)
+		qp.add_theme_font_size_override("font_size", 22 if _mobile else 20)
 	online_mode_button.text = "ONLINE"
-	solo_mode_button.text = "CAMPAÑA"
+	# «CAMPAÑA» escondía el único modo que se puede jugar sin nadie más conectado.
+	solo_mode_button.text = "SOLO · BOTS"
 	status_label.add_theme_color_override("font_color", GameTheme.C_AMBER)
 	join_button.custom_minimum_size = Vector2(0, 76 if _mobile else 58)
 	join_button.add_theme_font_size_override("font_size", 24 if _mobile else 22)
@@ -297,11 +346,13 @@ func _set_mode(mode: String) -> void:
 	solo_panel.visible = not online
 	if online:
 		_style_mode_toggle(online_mode_button, solo_mode_button)
-		subtitle.text = "ONLINE · 1 Bestia vs 1–3 Robots"
+		# Decir que hace falta gente evita la decepción de entrar a una sala
+		# vacía creyendo que el juego está roto.
+		subtitle.text = "ONLINE · 1 Bestia vs 1–4 Robots · sala con otros jugadores"
 		status_label.text = ""
 	else:
 		_style_mode_toggle(solo_mode_button, online_mode_button)
-		subtitle.text = "CAMPAÑA · elige teatro · lanza con bots"
+		subtitle.text = "SOLO · juegas ya contra bots · sin esperar a nadie"
 		var lv := ProgressionManager.level_name()
 		status_label.text = "%s · %d victorias" % [lv, ProgressionManager.wins_total]
 		solo_hint.text = "TEATRO libre arriba · abajo: LANZAR MISIÓN\n%s" % lv
@@ -562,32 +613,28 @@ func _add_hscroll(vbox: VBoxContainer, row_name: String) -> HBoxContainer:
 
 
 func _menu_explorer_indices() -> Array:
-	## Solo roster 3D — sin cápsulas legacy en el hangar.
+	## Solo roster hangar 3D — sin cápsulas legacy ni fantasy.
 	var with_mesh: Array = []
-	for idx in CharacterCatalog.explorer_indices():
+	for idx in CharacterCatalog.hangar_explorer_indices():
 		var i := int(idx)
 		var mesh := str(CharacterCatalog.get_entry(i).get("mesh", ""))
 		if not mesh.is_empty() and ResourceLoader.exists(mesh):
 			with_mesh.append(i)
 	if with_mesh.is_empty():
-		return CharacterCatalog.explorer_indices()
+		return CharacterCatalog.hangar_explorer_indices()
 	return with_mesh
 
 
 func _menu_beast_indices() -> Array:
 	var with_mesh: Array = []
-	var legacy: Array = []
-	for idx in CharacterCatalog.beast_indices():
+	for idx in CharacterCatalog.hangar_beast_indices():
 		var i := int(idx)
 		var mesh := str(CharacterCatalog.get_entry(i).get("mesh", ""))
 		if not mesh.is_empty() and ResourceLoader.exists(mesh):
 			with_mesh.append(i)
-		else:
-			legacy.append(i)
-	var out: Array = []
-	out.append_array(with_mesh)
-	out.append_array(legacy)
-	return out
+	if with_mesh.is_empty():
+		return CharacterCatalog.hangar_beast_indices()
+	return with_mesh
 
 
 func _rebuild_dynamic_pickers() -> void:
@@ -624,9 +671,8 @@ func _rebuild_dynamic_pickers() -> void:
 
 	for mi in NetworkManager.MAP_IDS.size():
 		var mid: String = NetworkManager.MAP_IDS[mi]
-		var locked := false if _mode == "solo" else not ProgressionManager.is_map_unlocked(mid)
 		var selected := mi == _pick_map_idx
-		var card := VisualPicker.make_map_card(mid, selected, locked)
+		var card := VisualPicker.make_map_card(mid, selected, false)
 		card.set_meta("picked", selected)
 		_wire_menu_card(card, func(): _on_pick_map(mi))
 		_dyn_maps.add_child(card)
@@ -680,8 +726,6 @@ func _on_pick_map(map_idx: int) -> void:
 	if map_idx < 0 or map_idx >= NetworkManager.MAP_IDS.size():
 		return
 	var mid: String = NetworkManager.MAP_IDS[map_idx]
-	if _mode != "solo" and not ProgressionManager.is_map_unlocked(mid):
-		return
 	_pick_map_idx = map_idx
 	NetworkManager.selected_map = mid
 	_rebuild_dynamic_pickers()
@@ -775,6 +819,7 @@ func _adapt_layout() -> void:
 
 
 func _on_join_pressed() -> void:
+	NetworkManager.quick_play_active = false
 	var player_name := name_input.text.strip_edges()
 	if player_name.is_empty():
 		player_name = "Jugador"
@@ -794,6 +839,30 @@ func _on_join_pressed() -> void:
 	_arm_join_timeout()
 
 
+func _on_quick_play_pressed() -> void:
+	var player_name := name_input.text.strip_edges()
+	if player_name.is_empty():
+		player_name = SettingsManager.preferred_name
+	if player_name.is_empty():
+		player_name = "Jugador"
+	SettingsManager.preferred_name = player_name
+	SettingsManager.save_settings()
+	status_label.text = "Partida rápida… buscando sala"
+	join_button.disabled = true
+	AudioDirector.play_ui("confirm")
+	var err: Error = NetworkManager.begin_quick_play(player_name)
+	if err != OK:
+		join_button.disabled = false
+		status_label.text = "No se pudo arrancar (%s)" % error_string(err)
+		return
+	if NetworkManager.is_solo_practice:
+		## Online falló al instante → práctica y arranque automático.
+		NetworkManager.set_meta("auto_start_after_quick", true)
+		get_tree().change_scene_to_file(LOBBY_SCENE)
+		return
+	_arm_join_timeout()
+
+
 func _arm_join_timeout() -> void:
 	_join_timeout = get_tree().create_timer(12.0)
 	_join_timeout.timeout.connect(_on_join_timeout)
@@ -804,6 +873,14 @@ func _on_join_timeout() -> void:
 		return
 	# Si ya entramos al lobby, esta escena ya no es current
 	if not join_button.disabled:
+		return
+	if NetworkManager.quick_play_active:
+		status_label.text = "Sin sala → práctica con bots"
+		if NetworkManager.fallback_quick_play_to_bots() == OK:
+			get_tree().change_scene_to_file(LOBBY_SCENE)
+		else:
+			join_button.disabled = false
+			NetworkManager.quick_play_active = false
 		return
 	join_button.disabled = false
 	if NetworkManager.last_reject_reason != "":
@@ -895,6 +972,12 @@ func _on_connected() -> void:
 
 
 func _on_connection_failed() -> void:
+	if NetworkManager.quick_play_active:
+		status_label.text = "Sin sala → práctica con bots"
+		if NetworkManager.fallback_quick_play_to_bots() == OK:
+			get_tree().change_scene_to_file(LOBBY_SCENE)
+			return
+		NetworkManager.quick_play_active = false
 	join_button.disabled = false
 	if NetworkManager.last_reject_reason != "":
 		status_label.text = NetworkManager.last_reject_reason

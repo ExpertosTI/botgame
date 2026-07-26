@@ -45,17 +45,23 @@ var _timer_sync_accum := 0.0
 func _process(delta: float) -> void:
 	if not match_active:
 		return
-	# Solo el servidor (o singleplayer) cuenta el tiempo
-	var authority := not multiplayer.has_multiplayer_peer() or multiplayer.is_server()
-	if not authority:
+	# Solo el servidor (o solo/práctica) cuenta el tiempo
+	if not NetworkManager.is_match_authority():
 		return
 	match_timer -= delta
 	_timer_sync_accum += delta
-	if multiplayer.has_multiplayer_peer() and _timer_sync_accum >= 0.5:
+	if multiplayer.has_multiplayer_peer() and multiplayer.is_server() and not NetworkManager.is_solo_practice:
+		if _timer_sync_accum >= 0.5:
+			_timer_sync_accum = 0.0
+			_sync_timer.rpc(match_timer)
+	elif _timer_sync_accum >= 0.5:
 		_timer_sync_accum = 0.0
-		_sync_timer.rpc(match_timer)
 	if match_timer <= 0.0:
-		end_match("beast")
+		## Si el último núcleo cayó en el mismo tick, ganan los robots.
+		if objectives_remaining <= 0:
+			end_match("explorers")
+		else:
+			end_match("beast")
 
 
 @rpc("authority", "call_remote", "unreliable")
@@ -118,10 +124,13 @@ func is_beast(peer_id: int) -> bool:
 func register_objective_destroyed() -> void:
 	if not match_active:
 		return
-	if multiplayer.has_multiplayer_peer() and not multiplayer.is_server():
+	if not NetworkManager.is_match_authority():
 		return
 	objectives_remaining -= 1
-	_sync_objectives.rpc(objectives_remaining)
+	if multiplayer.has_multiplayer_peer() and multiplayer.is_server() and not NetworkManager.is_solo_practice:
+		_sync_objectives.rpc(objectives_remaining)
+	else:
+		_sync_objectives(objectives_remaining)
 	if objectives_remaining <= 0:
 		end_match("explorers")
 
@@ -135,10 +144,13 @@ func _sync_objectives(remaining: int) -> void:
 func damage_explorer(peer_id: int) -> void:
 	if not match_active or not explorer_lives.has(peer_id):
 		return
-	if multiplayer.has_multiplayer_peer() and not multiplayer.is_server():
+	if not NetworkManager.is_match_authority():
 		return
 	explorer_lives[peer_id] -= 1
-	_sync_lives.rpc(peer_id, explorer_lives[peer_id])
+	if multiplayer.has_multiplayer_peer() and multiplayer.is_server() and not NetworkManager.is_solo_practice:
+		_sync_lives.rpc(peer_id, explorer_lives[peer_id])
+	else:
+		_sync_lives(peer_id, explorer_lives[peer_id])
 	if explorer_lives[peer_id] <= 0:
 		explorer_eliminated.emit(peer_id)
 		_check_beast_victory()
@@ -157,12 +169,56 @@ func _check_beast_victory() -> void:
 	end_match("beast")
 
 
+func handle_peer_left(peer_id: int) -> void:
+	## Abandono mid-match: sin esto la Bestia ausente dejaba la partida colgada
+	## y un robot desconectado seguía contando como vivo.
+	if not match_active:
+		return
+	if not NetworkManager.is_match_authority():
+		return
+	var role = player_roles.get(peer_id, null)
+	if role == null:
+		role = player_roles.get(str(peer_id), null)
+	if role == Role.BEAST:
+		end_match("explorers")
+		return
+	if role == Role.EXPLORER:
+		if explorer_lives.has(peer_id):
+			explorer_lives[peer_id] = 0
+			if multiplayer.has_multiplayer_peer() and multiplayer.is_server() and not NetworkManager.is_solo_practice:
+				_sync_lives.rpc(peer_id, 0)
+			else:
+				_sync_lives(peer_id, 0)
+			lives_changed.emit(peer_id, 0)
+			explorer_eliminated.emit(peer_id)
+			_despawn_explorer_body(peer_id)
+		_check_beast_victory()
+
+
+func _despawn_explorer_body(peer_id: int) -> void:
+	## Sin esto el robot desconectado sigue sólido y los bots lo cazan.
+	if multiplayer.has_multiplayer_peer() and multiplayer.is_server() and not NetworkManager.is_solo_practice:
+		_despawn_explorer_rpc.rpc(peer_id)
+	else:
+		_despawn_explorer_rpc(peer_id)
+
+
+@rpc("authority", "call_local", "reliable")
+func _despawn_explorer_rpc(peer_id: int) -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree == null:
+		return
+	for n in tree.get_nodes_in_group("player_characters"):
+		if n is ExplorerPlayer and (n as ExplorerPlayer).peer_id == peer_id:
+			(n as ExplorerPlayer).force_eliminate()
+
+
 func end_match(winner: String) -> void:
 	if not match_active:
 		return
-	if multiplayer.has_multiplayer_peer() and multiplayer.is_server():
+	if multiplayer.has_multiplayer_peer() and multiplayer.is_server() and not NetworkManager.is_solo_practice:
 		_end_match_rpc.rpc(winner)
-	else:
+	elif NetworkManager.is_match_authority():
 		_apply_end_match(winner)
 
 
@@ -178,11 +234,25 @@ func _apply_end_match(winner: String) -> void:
 	# Sin esto, los proyectiles y destellos en vuelo sobreviven al cambio de
 	# escena y aparecen flotando en el menú.
 	FxPool.release_all()
+	AudioDirector.set_walking(false)
 	MatchStats.end_match(winner)
 	ProgressionManager.on_match_ended(winner, current_map)
 	AudioDirector.play_win(winner == "explorers")
 	AudioDirector.start_menu_music()
 	match_ended.emit(winner)
+
+
+## Salir a menú / conexión perdida: no cuenta victoria ni avanza campaña.
+func abort_match() -> void:
+	if not match_active:
+		FxPool.release_all()
+		AudioDirector.set_walking(false)
+		return
+	match_active = false
+	FxPool.release_all()
+	AudioDirector.set_walking(false)
+	MatchStats.reset()
+	AudioDirector.start_menu_music()
 
 
 func get_remaining_time() -> float:

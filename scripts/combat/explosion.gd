@@ -17,7 +17,7 @@ func setup(pos: Vector3, p_radius: float, p_damage: float, peer: int, vs_explore
 	hurts_explorers = vs_explorers
 	hurts_beast = vs_beast
 	collision_layer = 0
-	collision_mask = 2
+	collision_mask = 2 | 4  # players + núcleos Blindados
 	monitoring = true
 	var col := CollisionShape3D.new()
 	var shape := SphereShape3D.new()
@@ -43,7 +43,7 @@ func _spawn_vfx() -> void:
 
 
 func _apply_damage() -> void:
-	if _done or not multiplayer.is_server():
+	if _done or not NetworkManager.is_match_authority():
 		return
 	_done = true
 	for body in get_overlapping_bodies():
@@ -55,3 +55,5 @@ func _apply_damage() -> void:
 			var e := body as ExplorerPlayer
 			if e.peer_id != owner_peer:
 				e.apply_projectile_hit.rpc(e.peer_id, damage, 0.0, 0.0, owner_peer)
+		elif body is BeastObjective and hurts_beast:
+			(body as BeastObjective).apply_shield_damage(damage)

@@ -10,20 +10,128 @@ const BACKUP_PATH := "user://botgame_progress.bak.cfg"
 ## añadir la migración correspondiente en _migrate().
 const SCHEMA_VERSION := 2
 
-## 12 niveles — 5 mapas + reglas crecientes.
+## 12 niveles — 5 mapas + reglas crecientes + briefings duales.
 const CAMPAIGN := [
-	{"id": 1, "name": "Nivel 1 · Primer Hangar", "map": "lab_neon", "time": 240, "cores": 3, "beast_hp": 0.9, "unlock_loadout": 1, "tip": "Mantén pulsado cerca de un núcleo para sabotear."},
-	{"id": 2, "name": "Nivel 2 · Contenedores", "map": "containers", "time": 220, "cores": 4, "beast_hp": 1.0, "unlock_loadout": 1, "tip": "Usa pasillos estrechos para emboscar o escapar."},
-	{"id": 3, "name": "Nivel 3 · Ruinas", "map": "ruins", "time": 200, "cores": 4, "beast_hp": 1.1, "unlock_loadout": 2, "tip": "Combate vertical: mira arriba y abajo."},
-	{"id": 4, "name": "Nivel 4 · Neon Pressure", "map": "lab_neon", "time": 180, "cores": 5, "beast_hp": 1.2, "unlock_loadout": 2, "tip": "Coordina: uno distrae, otro sabotea. Recoge powerups."},
-	{"id": 5, "name": "Nivel 5 · Pozo Reactor", "map": "reactor_pit", "time": 170, "cores": 5, "beast_hp": 1.3, "unlock_loadout": 2, "tip": "El núcleo central quema. Rodéalo, no lo cruce."},
-	{"id": 6, "name": "Nivel 6 · Castillo", "map": "castle", "time": 160, "cores": 5, "beast_hp": 1.35, "unlock_loadout": 3, "tip": "Torres y murallas Kenney — emboscadas en la puerta."},
-	{"id": 7, "name": "Nivel 7 · Cueva", "map": "cave", "time": 150, "cores": 5, "beast_hp": 1.4, "unlock_loadout": 3, "tip": "Corredores estrechos. Escucha los pasos."},
-	{"id": 8, "name": "Nivel 8 · Bosque", "map": "forest", "time": 145, "cores": 5, "beast_hp": 1.45, "unlock_loadout": 3, "tip": "Árboles = cobertura. Sabotea y muévete."},
-	{"id": 9, "name": "Nivel 9 · Laberinto", "map": "containers", "time": 135, "cores": 5, "beast_hp": 1.5, "unlock_loadout": 3, "tip": "La bestia es más dura: prioriza distancia."},
-	{"id": 10, "name": "Nivel 10 · Skybridge", "map": "skybridge", "time": 120, "cores": 6, "beast_hp": 1.6, "unlock_loadout": 3, "tip": "Puentes estrechos. Cuidado con las zonas violeta."},
-	{"id": 11, "name": "Nivel 11 · Overclock", "map": "lab_neon", "time": 110, "cores": 6, "beast_hp": 1.7, "unlock_loadout": 3, "tip": "Reloj corto: no pelees de más."},
-	{"id": 12, "name": "Nivel 12 · Protocolo Final", "map": "castle", "time": 95, "cores": 7, "beast_hp": 1.9, "unlock_loadout": 3, "tip": "Último protocolo en el castillo. Gana."},
+	{
+		"id": 1, "name": "Nivel 1 · Primer Hangar", "map": "lab_neon", "time": 240, "cores": 3, "beast_hp": 0.9, "unlock_loadout": 1,
+		"tip": "Mantén pulsado cerca de un núcleo para sabotear.",
+		"brief_crew": "El hangar abre. Tres núcleos. Canaliza y no te dejes pillar.",
+		"brief_beast": "Eres el protocolo. Los robots vienen a por los núcleos. Interrúmpelos.",
+		"win_crew": "Hangar silenciado. El protocolo tiembla.",
+		"win_beast": "Tripulación neutralizada. El hangar sigue bajo control.",
+		"loss_crew": "El reloj te ganó. Vuelve a canalizar más rápido.",
+		"loss_beast": "Dejaste caer demasiados núcleos. Aprieta más.",
+	},
+	{
+		"id": 2, "name": "Nivel 2 · Contenedores", "map": "containers", "time": 220, "cores": 4, "beast_hp": 1.0, "unlock_loadout": 1,
+		"tip": "Usa pasillos estrechos para emboscar o escapar.",
+		"brief_crew": "Pasillos de acero. Emboscadas cortas. Cuatro núcleos.",
+		"brief_beast": "Ciérrales los corredores. Ellos necesitan tiempo; tú no.",
+		"win_crew": "Los contenedores quedan a oscuras.",
+		"win_beast": "Nadie sale del laberinto de cajas.",
+		"loss_crew": "Os atraparon en un pasillo. Separad y reintentad.",
+		"loss_beast": "Te rodearon. Corta antes de que canalicen.",
+	},
+	{
+		"id": 3, "name": "Nivel 3 · Ruinas", "map": "ruins", "time": 200, "cores": 4, "beast_hp": 1.1, "unlock_loadout": 2,
+		"tip": "Combate vertical: mira arriba y abajo.",
+		"brief_crew": "Ruinas altas. Mira el eje vertical. Blindados aparecen.",
+		"brief_beast": "Controla las plataformas. El que está arriba ve primero.",
+		"win_crew": "Las ruinas ceden. Siguiente sector.",
+		"win_beast": "Las ruinas siguen siendo tuya.",
+		"loss_crew": "Caíste desde arriba. Usa la altura a tu favor.",
+		"loss_beast": "Te flanquearon en vertical.",
+	},
+	{
+		"id": 4, "name": "Nivel 4 · Presión Neon", "map": "lab_neon", "time": 180, "cores": 5, "beast_hp": 1.2, "unlock_loadout": 2,
+		"tip": "Coordina: uno distrae, otro sabotea. Recoge powerups.",
+		"brief_crew": "Cinco núcleos. Uno distrae, otro canaliza. Usad el ping.",
+		"brief_beast": "Presión neon. No dejes que canalicen en pareja.",
+		"win_crew": "Neon apagado. Acto I cerrado.",
+		"win_beast": "La presión sostuvo el hangar.",
+		"loss_crew": "Sin coordinación no hay sabotaje.",
+		"loss_beast": "Te dividieron. Vuelve a cazar en grupo.",
+	},
+	{
+		"id": 5, "name": "Nivel 5 · Pozo Reactor", "map": "reactor_pit", "time": 170, "cores": 5, "beast_hp": 1.3, "unlock_loadout": 2,
+		"tip": "El núcleo central quema. Rodéalo, no lo cruce.",
+		"brief_crew": "El pozo quema. Rodéalo. Cuidado con Sobrecarga.",
+		"brief_beast": "El centro es trampa. Empújalos al pozo.",
+		"win_crew": "Reactor en silencio.",
+		"win_beast": "El pozo sigue vivo.",
+		"loss_crew": "El calor os fundió. Más distancia.",
+		"loss_beast": "Cruzaron el anillo. No otra vez.",
+	},
+	{
+		"id": 6, "name": "Nivel 6 · Castillo", "map": "castle", "time": 160, "cores": 5, "beast_hp": 1.35, "unlock_loadout": 3,
+		"tip": "Torres y murallas — emboscadas en la puerta.",
+		"brief_crew": "Murallas y puertas. Emboscad en la entrada.",
+		"brief_beast": "La puerta es el cuello de botella. Guárdala.",
+		"win_crew": "El castillo cae.",
+		"win_beast": "Las murallas aguantaron.",
+		"loss_crew": "Os pillaron en la puerta.",
+		"loss_beast": "Flanquearon la muralla.",
+	},
+	{
+		"id": 7, "name": "Nivel 7 · Cueva", "map": "cave", "time": 150, "cores": 5, "beast_hp": 1.4, "unlock_loadout": 3,
+		"tip": "Corredores estrechos. Escucha los pasos.",
+		"brief_crew": "Cueva estrecha. Escucha. Relés en la oscuridad.",
+		"brief_beast": "En la cueva el sonido te delata. Acecha.",
+		"win_crew": "La cueva queda vacía.",
+		"win_beast": "Nadie salió de la oscuridad.",
+		"loss_crew": "Os oyeron venir.",
+		"loss_beast": "Se os escaparon por un túnel.",
+	},
+	{
+		"id": 8, "name": "Nivel 8 · Bosque", "map": "forest", "time": 145, "cores": 5, "beast_hp": 1.45, "unlock_loadout": 3,
+		"tip": "Árboles = cobertura. Sabotea y muévete.",
+		"brief_crew": "Cobertura entre árboles. Sabotea y muévete.",
+		"brief_beast": "El bosque esconde. Usa el camuflaje si lo tienes.",
+		"win_crew": "El bosque calla. Acto II cerrado.",
+		"win_beast": "El bosque sigue cazando.",
+		"loss_crew": "Os encontraron entre los árboles.",
+		"loss_beast": "Se ocultaron demasiado bien.",
+	},
+	{
+		"id": 9, "name": "Nivel 9 · Laberinto", "map": "containers", "time": 135, "cores": 5, "beast_hp": 1.5, "unlock_loadout": 3,
+		"tip": "La bestia es más dura: prioriza distancia.",
+		"brief_crew": "Bestia más dura. Distancia y núcleos primero.",
+		"brief_beast": "Eres más fuerte. No des respiro.",
+		"win_crew": "Laberinto resuelto.",
+		"win_beast": "El laberinto os cerró.",
+		"loss_crew": "Priorizad núcleos, no duelos.",
+		"loss_beast": "Os reagruparon. Rompe el grupo.",
+	},
+	{
+		"id": 10, "name": "Nivel 10 · Puente Celeste", "map": "skybridge", "time": 120, "cores": 6, "beast_hp": 1.6, "unlock_loadout": 3,
+		"tip": "Puentes estrechos. Cuidado con las zonas violeta.",
+		"brief_crew": "Seis núcleos en puentes. No caigas al vacío.",
+		"brief_beast": "Empújalos al vacío. Los puentes son tuyos.",
+		"win_crew": "Puentes tomados.",
+		"win_beast": "Nadie cruzó vivo.",
+		"loss_crew": "El vacío os ganó.",
+		"loss_beast": "Cruzaron los puentes.",
+	},
+	{
+		"id": 11, "name": "Nivel 11 · Sobrevelocidad", "map": "lab_neon", "time": 110, "cores": 6, "beast_hp": 1.7, "unlock_loadout": 3,
+		"tip": "Reloj corto: no pelees de más.",
+		"brief_crew": "Sobrevelocidad. Reloj corto. Núcleos, no ego.",
+		"brief_beast": "Reloj a tu favor. Retrásalos.",
+		"win_crew": "Sobrevelocidad superada.",
+		"win_beast": "El reloj os mató.",
+		"loss_crew": "Perdisteis tiempo peñando.",
+		"loss_beast": "Canalizaron demasiado rápido.",
+	},
+	{
+		"id": 12, "name": "Nivel 12 · Protocolo Final", "map": "castle", "time": 95, "cores": 7, "beast_hp": 1.9, "unlock_loadout": 3,
+		"tip": "Último protocolo en el castillo. Gana.",
+		"brief_crew": "Protocolo final. Siete núcleos. Todo o nada.",
+		"brief_beast": "Última defensa. No dejes caer CHADRINE.",
+		"win_crew": "CHADRINE liberado. Final Tripulación.",
+		"win_beast": "Protocolo intacto. Final Bestia.",
+		"loss_crew": "El protocolo aguantó. Otra vez.",
+		"loss_beast": "El castillo cayó. Reclámalo.",
+	},
 ]
 
 var campaign_index := 0  # máximo desbloqueado (0-based)
@@ -157,6 +265,18 @@ func level_tip() -> String:
 	return str(current_level().get("tip", ""))
 
 
+func level_briefing(role: String) -> String:
+	return CampaignScript.briefing(current_level(), role)
+
+
+func level_outro(role: String, won: bool) -> String:
+	return CampaignScript.outro(current_level(), role, won)
+
+
+func level_act() -> String:
+	return CampaignScript.act_for(selected_level)
+
+
 func is_level_unlocked(idx: int) -> bool:
 	return idx >= 0 and idx <= campaign_index
 
@@ -212,15 +332,30 @@ func on_match_ended(winner: String, map_id: String) -> void:
 		var sc := int(MatchStats.peers[mvp]["score"])
 		if sc > best_score:
 			best_score = sc
+	var expected := str(current_level().get("map", "")) if campaign_mode else ""
+	var map_ok := expected.is_empty() or map_id == expected
+	var local_id := 1
+	if multiplayer.has_multiplayer_peer():
+		local_id = multiplayer.get_unique_id()
 	var robots_won := winner == "explorers"
+	var beast_won := winner == "beast"
 	if robots_won:
 		wins_total += 1
 		_unlock_rewards(map_id)
 		if campaign_mode:
-			_advance_campaign()
+			if map_ok:
+				_advance_campaign()
+			else:
+				last_unlock_message = "Victoria en práctica — el nivel pide %s" % expected
 		AudioDirector.play_ui("unlock")
-	elif campaign_mode and winner == "beast":
-		last_unlock_message = "La Bestia gana — reintenta el nivel para avanzar"
+	elif campaign_mode and beast_won:
+		## Voz Bestia: si jugaste Bestia en el teatro del nivel, el nivel cuenta.
+		if map_ok and GameManager.is_beast(local_id):
+			_advance_campaign()
+			last_unlock_message = "Nivel superado como Bestia"
+			AudioDirector.play_ui("unlock")
+		else:
+			last_unlock_message = "La Bestia gana — reintenta el nivel para avanzar"
 	save_progress()
 	progress_changed.emit()
 

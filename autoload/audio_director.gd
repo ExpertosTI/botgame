@@ -1,8 +1,45 @@
 extends Node
 
-## Audio procedural (sin assets): UI, combate, ambiente.
+## Audio del juego: muestras reales con respaldo procedural.
+##
+## Durante mucho tiempo todo el sonido eran ondas sintetizadas aquí mismo, y el
+## juego sonaba a calculadora. Ahora hay muestras CC0 (Kenney, MIT) en
+## `assets/audio`. Lo procedural sigue vivo a propósito, como red: si una
+## muestra no llegó a importarse en el export, se oye el bip de siempre en vez
+## de silencio, que es mucho peor de diagnosticar.
 
 enum BusKind { SFX, MUSIC, UI }
+
+## Cada entrada es la muestra que sustituye a un sonido antes sintetizado. La
+## clave es el nombre lógico que usa el juego, no el del archivo original.
+const SAMPLES := {
+	"shot_robot": "res://assets/audio/sfx/shot_robot.ogg",
+	"shot_robot_fast": "res://assets/audio/sfx/shot_robot_fast.ogg",
+	"shot_beast": "res://assets/audio/sfx/shot_beast.ogg",
+	"hurt": "res://assets/audio/sfx/hurt.ogg",
+	"hit_confirm": "res://assets/audio/sfx/hit_confirm.ogg",
+	"death": "res://assets/audio/sfx/death.ogg",
+	"explosion": "res://assets/audio/sfx/explosion.ogg",
+	"ability": "res://assets/audio/sfx/ability.ogg",
+	"jump_a": "res://assets/audio/sfx/jump_a.ogg",
+	"jump_b": "res://assets/audio/sfx/jump_b.ogg",
+	"jump_c": "res://assets/audio/sfx/jump_c.ogg",
+	"land": "res://assets/audio/sfx/land.ogg",
+	"step": "res://assets/audio/sfx/step.ogg",
+	"fall": "res://assets/audio/sfx/fall.ogg",
+	"ui_click": "res://assets/audio/sfx/ui_click.ogg",
+	"ui_confirm": "res://assets/audio/sfx/ui_confirm.ogg",
+	"ui_error": "res://assets/audio/sfx/ui_error.ogg",
+	"ui_unlock": "res://assets/audio/sfx/ui_unlock.ogg",
+	"core_tick": "res://assets/audio/sfx/core_tick.ogg",
+	"core_down": "res://assets/audio/sfx/core_down.ogg",
+	"ambience": "res://assets/audio/music/ambience.ogg",
+}
+
+## Un disparo repetido con la misma muestra exacta suena a bucle de metralleta
+## de juguete; variar el tono lo suficiente para notarlo, pero no tanto como
+## para que parezca otra arma.
+const PITCH_JITTER := 0.07
 
 ## Los WAV se hornean una vez y se reutilizan. Antes cada disparo construía un
 ## AudioStreamWAV nuevo llenando el buffer muestra a muestra en GDScript (~770
@@ -16,7 +53,13 @@ const MAX_CACHED_STREAMS := 64
 
 var _players: Array[AudioStreamPlayer] = []
 var _music: AudioStreamPlayer
+## Los pasos tienen reproductor propio porque son un bucle que vive mientras el
+## jugador anda; con los compartidos, cualquier disparo lo habría cortado.
+var _steps: AudioStreamPlayer
 var _stream_cache: Dictionary = {}
+## Muestras ya resueltas. Guarda también los fallos (como null) para no repetir
+## el intento de carga en cada disparo cuando un archivo no está.
+var _samples: Dictionary = {}
 ## Bips diferidos. Antes cada uno creaba un Timer y una lambda por llamada; una
 ## explosión o una victoria encadenan tres.
 var _pending: Array[Dictionary] = []
@@ -33,6 +76,10 @@ func _ready() -> void:
 	_music = AudioStreamPlayer.new()
 	_music.bus = "Music"
 	add_child(_music)
+	_steps = AudioStreamPlayer.new()
+	_steps.bus = "SFX"
+	_steps.volume_db = -14.0
+	add_child(_steps)
 	SettingsManager.settings_changed.connect(_on_settings)
 	_on_settings()
 
@@ -72,47 +119,130 @@ func _on_settings() -> void:
 func play_ui(kind: String = "click") -> void:
 	match kind:
 		"confirm":
+			if _play_sample("ui_confirm", "UI", -4.0):
+				return
 			_beep(720.0, 0.07, 0.22, "UI")
 			_beep(980.0, 0.09, 0.18, "UI", 0.05)
 		"error":
+			if _play_sample("ui_error", "UI", -3.0):
+				return
 			_beep(180.0, 0.14, 0.28, "UI")
 		"unlock":
+			if _play_sample("ui_unlock", "UI", -3.0):
+				return
 			_beep(520.0, 0.06, 0.2, "UI")
 			_beep(780.0, 0.08, 0.18, "UI", 0.06)
 			_beep(1040.0, 0.12, 0.16, "UI", 0.12)
 		_:
+			if _play_sample("ui_click", "UI", -6.0):
+				return
 			_beep(440.0, 0.045, 0.18, "UI")
 
 
-func play_shot(beast: bool = false) -> void:
+func play_shot(beast: bool = false, fast: bool = false) -> void:
 	if beast:
+		if _play_sample("shot_beast", "SFX", -3.0):
+			return
 		_noise_burst(0.05, 0.22, 90.0, 0.35)
+	elif fast:
+		if _play_sample("shot_robot_fast", "SFX", -5.0):
+			return
+		_beep(randf_range(1100.0, 1700.0), 0.025, 0.14, "SFX")
 	else:
+		if _play_sample("shot_robot", "SFX", -5.0):
+			return
 		_beep(randf_range(880.0, 1400.0), 0.035, 0.16, "SFX")
 
 
 func play_hit() -> void:
+	if _play_sample("hurt", "SFX", -2.0):
+		return
 	_noise_burst(0.04, 0.2, 140.0, 0.45)
 
 
+## Lo oye quien acierta, no quien recibe. Tiene que ser distinto de play_shot():
+## antes disparar y acertar sonaban igual, así que en un tiroteo no había forma
+## de saber si le estabas dando a algo.
+func play_hit_confirm() -> void:
+	if _play_sample("hit_confirm", "UI", -4.0):
+		return
+	_beep(1500.0, 0.045, 0.14, "UI")
+
+
 func play_explosion() -> void:
+	if _play_sample("explosion", "SFX", 0.0):
+		return
 	_noise_burst(0.18, 0.35, 60.0, 0.7)
 	_beep(90.0, 0.12, 0.25, "SFX", 0.02)
 
 
 func play_ability() -> void:
+	if _play_sample("ability", "SFX", -4.0):
+		return
 	_beep(360.0, 0.08, 0.2, "SFX")
 	_beep(540.0, 0.1, 0.16, "SFX", 0.05)
 
 
+## Un golpe de sabotaje sobre un núcleo.
 func play_core() -> void:
+	if _play_sample("core_tick", "SFX", -4.0):
+		return
 	_beep(300.0, 0.1, 0.22, "SFX")
 	_beep(600.0, 0.14, 0.18, "SFX", 0.08)
 
 
+## Núcleo caído: tiene que oírse desde el otro extremo del mapa, es la señal de
+## que la partida acaba de moverse.
+func play_core_down() -> void:
+	if _play_sample("core_down", "SFX", 1.0):
+		return
+	play_explosion()
+
+
 func play_death() -> void:
+	if _play_sample("death", "SFX", -2.0):
+		return
 	_beep(220.0, 0.16, 0.28, "SFX")
 	_beep(110.0, 0.22, 0.3, "SFX", 0.1)
+
+
+## El cuerpo en movimiento: pasos, salto y aterrizaje. Sin esto el personaje se
+## desplazaba en silencio absoluto y la escena parecía una maqueta.
+##
+## La muestra de pasos es un bucle continuo, no una pisada suelta, así que se
+## enciende y se apaga con el movimiento en vez de dispararse por zancada.
+func set_walking(active: bool, sprinting: bool = false) -> void:
+	if _steps == null:
+		return
+	if not active or SettingsManager.muted:
+		if _steps.playing:
+			_steps.stop()
+		return
+	_steps.pitch_scale = 1.35 if sprinting else 1.0
+	if _steps.playing:
+		return
+	var stream := _sample("step")
+	if stream == null:
+		return
+	if stream is AudioStreamOggVorbis:
+		(stream as AudioStreamOggVorbis).loop = true
+	_steps.stream = stream
+	_steps.play()
+
+
+func play_jump() -> void:
+	var variants := ["jump_a", "jump_b", "jump_c"]
+	_play_sample(variants[randi() % variants.size()], "SFX", -10.0)
+
+
+func play_land() -> void:
+	_play_sample("land", "SFX", -10.0)
+
+
+func play_fall() -> void:
+	if _play_sample("fall", "SFX", -6.0):
+		return
+	_noise_burst(0.12, 0.18, 40.0, 0.25)
 
 
 func play_win(robots: bool) -> void:
@@ -127,10 +257,16 @@ func play_win(robots: bool) -> void:
 
 
 func start_menu_music() -> void:
+	if _start_loop_sample("ambience", -6.0):
+		return
 	_start_loop_tone(196.0, 0.04)
 
 
 func start_match_music() -> void:
+	## Más grave y más bajo que en el menú: durante la partida el ambiente tiene
+	## que dejar sitio a los disparos, que son la información útil.
+	if _start_loop_sample("ambience", -11.0, 0.85):
+		return
 	_start_loop_tone(110.0, 0.055)
 
 
@@ -139,11 +275,61 @@ func stop_music() -> void:
 		_music.stop()
 
 
+## Devuelve la muestra pedida, o null si no existe. El resultado se recuerda en
+## los dos casos: sin memorizar los fallos, cada disparo volvería a preguntar al
+## sistema de archivos por un recurso que ya sabemos que no está.
+func _sample(key: String) -> AudioStream:
+	if _samples.has(key):
+		return _samples[key] as AudioStream
+	var path := str(SAMPLES.get(key, ""))
+	var res: AudioStream = null
+	if not path.is_empty() and ResourceLoader.exists(path):
+		res = load(path) as AudioStream
+	_samples[key] = res
+	return res
+
+
+func _play_sample(key: String, bus: String, volume_db: float = 0.0, jitter: bool = true) -> bool:
+	if SettingsManager.muted:
+		# Devuelve true para que quien llama no caiga al respaldo procedural, que
+		# también está silenciado: sin esto se hacía el trabajo dos veces.
+		return true
+	var stream := _sample(key)
+	if stream == null:
+		return false
+	var p := _free_player()
+	if p == null:
+		return false
+	p.bus = bus
+	p.stream = stream
+	p.volume_db = volume_db
+	p.pitch_scale = randf_range(1.0 - PITCH_JITTER, 1.0 + PITCH_JITTER) if jitter else 1.0
+	p.play()
+	return true
+
+
+func _start_loop_sample(key: String, volume_db: float, pitch: float = 1.0) -> bool:
+	if SettingsManager.muted:
+		return true
+	var stream := _sample(key)
+	if stream == null:
+		return false
+	if stream is AudioStreamOggVorbis:
+		(stream as AudioStreamOggVorbis).loop = true
+	_music.stream = stream
+	_music.volume_db = volume_db
+	_music.pitch_scale = pitch
+	_music.play()
+	return true
+
+
 func _start_loop_tone(hz: float, amp: float) -> void:
 	if SettingsManager.muted:
 		return
 	var stream := _make_tone(hz, 1.2, amp, true)
 	_music.stream = stream
+	_music.volume_db = 0.0
+	_music.pitch_scale = 1.0
 	_music.play()
 
 
@@ -157,6 +343,11 @@ func _beep(hz: float, dur: float, amp: float, bus: String, delay: float = 0.0) -
 	if p == null:
 		return
 	p.bus = bus
+	# Los reproductores son compartidos y las muestras los dejan con su propio
+	# volumen y tono; sin reponerlos, un bip heredaría el ajuste del disparo
+	# anterior.
+	p.volume_db = 0.0
+	p.pitch_scale = 1.0
 	p.stream = _make_tone(hz, dur, amp, false)
 	p.play()
 
@@ -181,6 +372,8 @@ func _noise_burst(dur: float, amp: float, base_hz: float, grit: float) -> void:
 	if p == null:
 		return
 	p.bus = "SFX"
+	p.volume_db = 0.0
+	p.pitch_scale = 1.0
 	p.stream = _make_noise(dur, amp, base_hz, grit)
 	p.play()
 
@@ -227,7 +420,16 @@ func _store(key: String, stream: AudioStreamWAV) -> void:
 
 
 func cache_stats() -> Dictionary:
-	return {"streams": _stream_cache.size(), "pending": _pending.size()}
+	var missing := 0
+	for key in _samples:
+		if _samples[key] == null:
+			missing += 1
+	return {
+		"streams": _stream_cache.size(),
+		"pending": _pending.size(),
+		"samples": _samples.size() - missing,
+		"samples_missing": missing,
+	}
 
 
 func _bake_tone(hz: float, dur: float, amp: float, loop: bool) -> AudioStreamWAV:

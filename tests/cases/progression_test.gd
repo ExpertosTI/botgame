@@ -67,6 +67,10 @@ func _campaign_table_is_coherent() -> void:
 		in_range(float(lv.get("cores", 0)), 1.0, 12.0, "%s: núcleos fuera de rango" % label)
 		in_range(float(lv.get("beast_hp", 0.0)), 0.5, 3.0, "%s: multiplicador de HP absurdo" % label)
 		neq(str(lv.get("tip", "")), "", "%s sin tip de onboarding" % label)
+		var lname := str(lv.get("name", ""))
+		ok(not lname.contains("Skybridge"), "%s: nombre EN Skybridge" % label)
+		ok(not lname.contains("Overclock"), "%s: nombre EN Overclock" % label)
+		ok(not lname.contains("Neon Pressure"), "%s: nombre EN Neon Pressure" % label)
 		in_range(
 			float(lv.get("unlock_loadout", -1)), 0.0, 3.0,
 			"%s: unlock_loadout fuera de rango" % label

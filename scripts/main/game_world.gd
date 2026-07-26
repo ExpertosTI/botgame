@@ -36,7 +36,8 @@ func _ready() -> void:
 		push_error("[GameWorld] Sin multiplayer peer — abortando partida")
 		return
 
-	if multiplayer.is_server():
+	## Solo / OfflineMultiplayerPeer: no fiarse solo de is_server() (Web).
+	if NetworkManager.is_match_authority():
 		var roles := _build_roles()
 		if NetworkManager.is_solo_practice:
 			# Offline: sin RPC/Spawner (evita freeze con peers fantasma 9001+)
@@ -59,13 +60,22 @@ func _pack_objective_positions() -> Array:
 	var packed: Array = []
 	var need := GameManager.level_core_count if GameManager.level_core_count > 0 else GameManager.OBJECTIVES_TO_WIN
 	var positions: Array = _builder.objective_positions.duplicate()
-	var guard := 0
-	while positions.size() < need and not positions.is_empty() and guard < 32:
-		guard += 1
-		positions.append(
-			positions[positions.size() % _builder.objective_positions.size()]
-			+ Vector3(randf_range(-2, 2), 0, randf_range(-2, 2))
+	# Red de seguridad, no diseño: cada mapa debe traer ya tantas posiciones como
+	# núcleos pida el nivel más exigente que se juega en él, y maps_test lo exige.
+	# Si aun así faltara, se reparten en anillo alrededor del original en vez de
+	# con un desplazamiento aleatorio, que producía núcleos solapados.
+	if positions.size() < need and not positions.is_empty():
+		push_warning(
+			"[mapa] %s ofrece %d núcleos y el nivel pide %d; se derivan los que faltan"
+			% [NetworkManager.selected_map, positions.size(), need]
 		)
+	var base_count: int = positions.size()
+	var guard := 0
+	while positions.size() < need and base_count > 0 and guard < 32:
+		var source: Vector3 = positions[guard % base_count]
+		var angle: float = TAU * float(guard) / float(maxi(need - base_count, 1))
+		positions.append(source + Vector3(cos(angle) * 2.5, 0, sin(angle) * 2.5))
+		guard += 1
 	for i in mini(need, positions.size()):
 		var pos: Vector3 = positions[i]
 		packed.append([pos.x, pos.y, pos.z])
@@ -197,7 +207,7 @@ func _get_spawn_position(role: GameManager.Role, peer_id: int) -> Vector3:
 	explorers.sort()
 	var idx := explorers.find(peer_id)
 	if idx < 0:
-		idx = abs(peer_id) % spawns.size()
+		idx = absi(peer_id) % spawns.size()
 	return spawns[idx % spawns.size()].global_position
 
 
@@ -217,5 +227,10 @@ func _on_objective_destroyed(remaining: int) -> void:
 
 
 func _on_lives_changed(peer_id: int, lives: int) -> void:
+	## Mantén ExplorerPlayer.lives alineado con GameManager (HUD local).
+	for node in get_tree().get_nodes_in_group("player_characters"):
+		if node is ExplorerPlayer and (node as ExplorerPlayer).peer_id == peer_id:
+			(node as ExplorerPlayer).lives = lives
+			break
 	if hud:
 		hud.update_lives(peer_id, lives)

@@ -1,7 +1,7 @@
 name: Quality gate
 
 ## Corre antes que el deploy (deploy.yml espera a este workflow). Todo lo que
-## necesita es el binario 4.3 headless: los tests generan el cache de clases
+## necesita es el binario 4.6 headless: los tests generan el cache de clases
 ## globales por su cuenta, así que no hay que reimportar ~190 MB de assets.
 
 on:
@@ -18,7 +18,7 @@ permissions:
   contents: read
 
 env:
-  GODOT_VERSION: "4.3-stable"
+  GODOT_VERSION: "4.6-stable"
 
 jobs:
   tests:

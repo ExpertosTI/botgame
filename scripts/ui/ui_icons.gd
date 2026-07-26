@@ -23,14 +23,10 @@ const LOADOUTS := [
 const LOADOUT_EMOJI := ["🔫", "💥", "💣", "❄️"]
 
 const MAPS := {
+	## Solo thumbs reales. Los demás teatros usan color+emoji (no fotos prestadas).
 	"lab_neon": "res://assets/ui/map_neon.jpg",
 	"containers": "res://assets/ui/map_containers.jpg",
 	"ruins": "res://assets/ui/map_ruins.jpg",
-	"reactor_pit": "res://assets/ui/map_neon.jpg",
-	"skybridge": "res://assets/ui/map_ruins.jpg",
-	"castle": "res://assets/ui/map_containers.jpg",
-	"cave": "res://assets/ui/map_ruins.jpg",
-	"forest": "res://assets/ui/map_neon.jpg",
 }
 
 const MAP_EMOJI := {
@@ -141,7 +137,9 @@ static func loadout_tex(loadout: int) -> Texture2D:
 
 
 static func map_tex(map_id: String) -> Texture2D:
-	return tex(str(MAPS.get(map_id, MAPS["lab_neon"])))
+	if not MAPS.has(map_id):
+		return null
+	return tex(str(MAPS[map_id]))
 
 
 static func beast_tex(variant: int) -> Texture2D:

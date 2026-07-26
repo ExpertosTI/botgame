@@ -17,8 +17,10 @@ var ability_1_just := false
 var ability_2_just := false
 var ability_3_just := false
 var ability_4_just := false
+var ping_just := false
 
 var touch_enabled := false
+var _touch_ping := false
 var _touch_move := Vector2.ZERO
 var _touch_look := Vector2.ZERO
 var _touch_action := false
@@ -30,6 +32,8 @@ var _touch_weapon := false
 var _touch_ability := [-1]  # set to index when pressed
 var _action_was_held := false
 var _secondary_was := false
+var _v_was := false
+var _mmb_was := false
 
 
 func _ready() -> void:
@@ -46,6 +50,7 @@ func _process(_delta: float) -> void:
 	ability_2_just = false
 	ability_3_just = false
 	ability_4_just = false
+	ping_just = false
 
 	var kb_move := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	if _touch_move.length() > 0.05:
@@ -83,6 +88,14 @@ func _process(_delta: float) -> void:
 	if Input.is_action_just_pressed("ability_4"):
 		ability_4_just = true
 
+	var v_now := Input.is_physical_key_pressed(KEY_V)
+	var mmb_now := Input.is_mouse_button_pressed(MOUSE_BUTTON_MIDDLE)
+	if (v_now and not _v_was) or (mmb_now and not _mmb_was) or _touch_ping:
+		ping_just = true
+	_v_was = v_now
+	_mmb_was = mmb_now
+	_touch_ping = false
+
 	if _touch_ability[0] >= 0:
 		match _touch_ability[0]:
 			0: ability_1_just = true
@@ -103,6 +116,16 @@ func set_touch_look(delta: Vector2) -> void:
 
 func set_touch_action(pressed: bool) -> void:
 	_touch_action = pressed
+
+
+func clear_touch_held() -> void:
+	## Pausa / focus loss: button_up puede perderse y FIRE queda pegado.
+	_touch_action = false
+	_touch_sprint = false
+	_touch_move = Vector2.ZERO
+	_touch_look = Vector2.ZERO
+	_touch_secondary = false
+	_action_was_held = false
 
 
 func set_touch_secondary() -> void:
@@ -127,6 +150,10 @@ func request_weapon_cycle() -> void:
 
 func request_ability(index: int) -> void:
 	_touch_ability[0] = index
+
+
+func request_ping() -> void:
+	_touch_ping = true
 
 
 func consume_look() -> Vector2:

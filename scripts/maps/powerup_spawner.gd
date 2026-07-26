@@ -85,35 +85,83 @@ func seed_for_map(map_id: String) -> void:
 func _process(delta: float) -> void:
 	if not GameManager.match_active:
 		return
-	if multiplayer.has_multiplayer_peer() and not multiplayer.is_server():
+	if multiplayer.has_multiplayer_peer() and not NetworkManager.is_match_authority():
 		return
 	var remain: Array[Dictionary] = []
 	for item in _respawn_queue:
 		item["t"] = float(item["t"]) - delta
 		if float(item["t"]) <= 0.0:
-			spawn_at(item["pos"], item["kind"] as Kind)
+			_respawn_at(item["pos"], int(item["kind"]))
 		else:
 			remain.append(item)
 	_respawn_queue = remain
 
 
+func _respawn_at(pos: Vector3, kind: int) -> void:
+	if multiplayer.has_multiplayer_peer() and multiplayer.is_server() and not NetworkManager.is_solo_practice:
+		_spawn_rpc.rpc(pos, kind)
+	else:
+		_spawn_rpc(pos, kind)
+
+
+@rpc("authority", "call_local", "reliable")
+func _spawn_rpc(pos: Vector3, kind: int) -> void:
+	spawn_at(pos, kind as Kind)
+
+
 func _on_body(body: Node3D, area: Area3D) -> void:
 	if not GameManager.match_active:
 		return
-	if multiplayer.has_multiplayer_peer() and not multiplayer.is_server():
+	if multiplayer.has_multiplayer_peer() and not NetworkManager.is_match_authority():
 		return
 	if not (body is PlayerBase):
+		return
+	## Cadáveres / fantasma no deben absorber powerups.
+	if body is ExplorerPlayer and not (body as ExplorerPlayer).alive:
 		return
 	if not is_instance_valid(area):
 		return
 	var kind: int = int(area.get_meta("kind", 0))
-	_apply(body as PlayerBase, kind)
+	var peer: int = (body as PlayerBase).peer_id
 	var pos := area.position - Vector3.UP * 0.9
-	CombatVfx.burst(self, area.global_position, KIND_COLORS.get(kind, Color.WHITE), 1.4, 12)
+	var gpos := area.global_position
+	## Antes solo el servidor aplicaba buffs/HP y liberaba el área: los clientes
+	## seguían viendo orbes fantasma y el authority no recibía escudo/turbo.
+	if multiplayer.has_multiplayer_peer() and multiplayer.is_server() and not NetworkManager.is_solo_practice:
+		_pickup_rpc.rpc(peer, kind, pos, gpos)
+	else:
+		_pickup_rpc(peer, kind, pos, gpos)
+
+
+@rpc("authority", "call_local", "reliable")
+func _pickup_rpc(peer: int, kind: int, pos: Vector3, gpos: Vector3) -> void:
+	var player := _find_player(peer)
+	if player:
+		_apply(player, kind)
+	_remove_near(gpos)
+	CombatVfx.burst(self, gpos, KIND_COLORS.get(kind, Color.WHITE), 1.4, 12)
 	AudioDirector.play_ability()
-	_respawn_queue.append({"pos": pos, "kind": kind, "t": 18.0})
-	_pickups.erase(area)
-	area.queue_free()
+	if NetworkManager.is_match_authority():
+		_respawn_queue.append({"pos": pos, "kind": kind, "t": 18.0})
+
+
+func _find_player(peer: int) -> PlayerBase:
+	for n in get_tree().get_nodes_in_group("player_characters"):
+		if n is PlayerBase and (n as PlayerBase).peer_id == peer:
+			return n as PlayerBase
+	return null
+
+
+func _remove_near(gpos: Vector3) -> void:
+	var remain: Array[Area3D] = []
+	for area in _pickups:
+		if not is_instance_valid(area):
+			continue
+		if area.global_position.distance_to(gpos) <= 1.5:
+			area.queue_free()
+		else:
+			remain.append(area)
+	_pickups = remain
 
 
 func _apply(player: PlayerBase, kind: int) -> void:
@@ -133,5 +181,4 @@ func _apply(player: PlayerBase, kind: int) -> void:
 		Kind.OVERCHARGE:
 			player.combat.damage_mult = 1.45
 			player.combat.apply_buff("overcharge", 7.0)
-			for k in player.combat.weapon_cds.keys():
-				player.combat.weapon_cds[k] = 0.0
+			player.combat.reset_weapon_cooldowns()

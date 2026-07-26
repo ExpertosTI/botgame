@@ -10,8 +10,8 @@ const PUBLISHER := "Renace Tech"
 const DEVELOPER := "Expertos TI / Renace"
 ## Fuente única de verdad. project.godot debe coincidir: lo verifica
 ## tests/cases/identity_test.gd.
-const VERSION := "1.4.0"
-const VERSION_CODE := 140
+const VERSION := "1.5.0"
+const VERSION_CODE := 150
 const COPYRIGHT_YEAR := "2026"
 const SUPPORT_URL := "https://botgame.renace.tech"
 const PRIVACY_URL := "https://botgame.renace.tech/privacy"

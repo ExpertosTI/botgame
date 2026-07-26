@@ -64,20 +64,22 @@ repetir el color de otro que ya esté en el roster jugable.
 La campaña de 12 niveles debe contarse **desde los dos lados**: la Tripulación
 descubriendo qué crece en el hangar, y la Bestia recordando que fue una de ellas.
 
-> **Estado real (1.4.0):** los 12 niveles se juegan como Tripulación.
-> `ProgressionManager.CAMPAIGN` no tiene campo de rol, así que la doble cara es
-> **objetivo, no hecho**. El paso concreto para conseguirla es añadir `"role"` a
-> cada entrada de `CAMPAIGN` y que el arranque de campaña lo respete al asignar
-> rol en lugar de forzar explorador. Hasta entonces, los actos de abajo son el
-> marco narrativo de los `tip` y las pantallas de resultado.
+> **Estado real (1.5.0):** los 12 niveles tienen briefing/outro por bando
+> (Tripulación y Bestia). La progresión de desbloqueo sigue siendo la ruta
+> Tripulación; jugar de Bestia usa el mismo mapa con voz distinta.
+> Los `brief_crew` / `brief_beast` **sí están en código** y se muestran según el
+> rol que juegas. La progresión de campaña avanza si ganas **tu** bando en el
+> teatro del nivel (Tripulación → `wins_total` + desbloqueos; Bestia → avanza
+> índice sin contar victoria de tripulación). No hay campo `"role"` que force el
+> bando al arrancar: tú eliges en el hangar.
 
 ```mermaid
 flowchart TB
-  A[Actos 1-4: la Tripulacion descubre que algo crecio dentro] --> B[Actos 5-8: la Bestia recuerda que fue una de ellos]
-  B --> C[Actos 9-12: los dos protocolos chocan en el Castillo]
+  A[Acto I Primer turno: la Tripulacion descubre que algo crecio] --> B[Acto II Lo que crece: la Bestia toma territorio]
+  B --> C[Acto III Protocolo final: los dos protocolos chocan]
 ```
 
-- **Acto I · Primer turno** (niveles 1–4, *Primer Hangar* a *Neon Pressure*).
+- **Acto I · Primer turno** (niveles 1–4, *Primer Hangar* a *Presión Neon*).
   Aprendes a sabotear y a huir. El hangar todavía parece un sitio de trabajo.
 - **Acto II · Lo que crece** (5–8, *Pozo Reactor* a *Bosque*). La Bestia toma
   territorio: los pasillos que conocías dejan de ser tuyos.
@@ -85,9 +87,8 @@ flowchart TB
   corto, núcleos de más y la revelación: apagar el hangar apaga también a la
   Bestia, que sigue siendo parte del inventario.
 
-El texto narrativo se entrega en los `tip` de cada nivel de
-`ProgressionManager.CAMPAIGN` (una línea, siempre útil además de narrativa) y en
-la pantalla de resultado. No hay cinemáticas obligatorias.
+El texto narrativo se entrega en `brief_crew` / `brief_beast` (una línea) vía
+`CampaignScript`, más tip de resultado. No hay cinemáticas obligatorias.
 
 ## 6. Voz de la interfaz
 

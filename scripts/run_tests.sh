@@ -12,11 +12,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-# El proyecto declara features "4.3". Un binario más nuevo invalida .godot/,
-# ignora global_script_class_cache.cfg y se pone a reimportar ~190 MB de assets:
-# ningún class_name resuelve y la corrida se queda minutos sin decir nada. Ya nos
-# costó una sesión, así que aquí se comprueba antes de arrancar.
-REQUIRED_SERIES="4.3"
+# El proyecto declara features "4.6". Un binario de otra serie invalida .godot/,
+# ignora global_script_class_cache.cfg y se pone a reimportar assets: ningún
+# class_name resuelve y la corrida se queda minutos sin decir nada.
+REQUIRED_SERIES="4.6"
 
 godot_series() {
   # --version sale al instante y no abre el proyecto.

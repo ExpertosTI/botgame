@@ -7,10 +7,10 @@ config_version=5
 
 config/name="CHADRINE"
 config/description="CHADRINE Hub · asimétrico, platformer, FPS y city builder. © Renace Tech."
-config/version="1.4.0"
+config/version="1.5.0"
 config/author="Renace Tech / Expertos TI"
 run/main_scene="res://scenes/main/intro.tscn"
-config/features=PackedStringArray("4.3", "GL Compatibility")
+config/features=PackedStringArray("4.6", "GL Compatibility")
 config/icon="res://icon.svg"
 boot_splash/bg_color=Color(0.027451, 0.0431373, 0.0627451, 1)
 boot_splash/image="res://assets/ui/splash_chadrine.png"
@@ -250,6 +250,20 @@ zoom_out={
 3d_physics/layer_2="players"
 3d_physics/layer_3="objectives"
 3d_physics/layer_4="hitboxes"
+
+[physics]
+
+## Jolt es el motor 3D de producción en Godot 4.6 (más estable y rápido en
+## web/móvil que GodotPhysics). Los proyectos viejos no migran solos: hay que
+## fijarlo aquí. CharacterBody3D / Area3D siguen con la misma API.
+3d/physics_engine="Jolt Physics"
+## Gravedad arcade: un pelín más alta que 9.8 para que el salto se sienta
+## cerrado y no “flote” en web.
+3d/default_gravity=14.0
+## Menos “enganches” en aristas de CSG/props (muy visibles en Lab Neon).
+jolt_physics_3d/simulation/use_enhanced_internal_edge_removal=true
+jolt_physics_3d/queries/use_enhanced_internal_edge_removal=true
+jolt_physics_3d/motion_queries/use_enhanced_internal_edge_removal=true
 
 [rendering]
 

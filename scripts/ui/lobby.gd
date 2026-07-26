@@ -30,6 +30,7 @@ extends Control
 @onready var setup_panel: Control = %SetupPanel
 
 const GAME_SCENE := "res://scenes/main/game.tscn"
+const MENU_SCENE := "res://scenes/main/menu.tscn"
 const HANGAR_SCRIPT := preload("res://scripts/ui/lobby_hangar.gd")
 const LOADOUT_HINTS := [
 	"Bláster · Granada · Rayo Hielo · Plasma",
@@ -46,6 +47,11 @@ var _map_idx := 0
 var _beast_variant := GameManager.BeastVariant.MECHA
 var _hangar: LobbyHangar
 var _syncing_checks := false
+## El lobby no tenía salida: quien entraba online y no encontraba a nadie se
+## quedaba mirando «Esperando tripulación…» sin botón para volver ni forma de
+## jugar. Estos dos son la salida y la alternativa.
+var _exit_button: Button
+var _bots_button: Button
 
 
 func _ready() -> void:
@@ -59,6 +65,7 @@ func _ready() -> void:
 
 	ready_button.pressed.connect(_on_ready_pressed)
 	start_button.pressed.connect(_on_start_pressed)
+	_build_escape_buttons()
 	role_beast_button.pressed.connect(_on_pick_beast)
 	role_robot_button.pressed.connect(_on_pick_robot)
 	easy_check.toggled.connect(_on_easy_toggled)
@@ -79,6 +86,10 @@ func _ready() -> void:
 	_update_hangar_preview()
 	_update_campaign_ui()
 	_apply_solo_lobby()
+	_maybe_run_quick_play()
+	if NetworkManager.has_meta("auto_start_after_quick"):
+		NetworkManager.remove_meta("auto_start_after_quick")
+		call_deferred("_auto_start_solo_from_quick")
 	call_deferred("_fit_content_width")
 	call_deferred("_adapt_mobile_lobby")
 
@@ -90,6 +101,94 @@ func _ready() -> void:
 		skin_row.visible = false
 		loadout_row.visible = false
 		setup_panel.visible = false
+
+
+func _maybe_run_quick_play() -> void:
+	if not NetworkManager.quick_play_active:
+		return
+	title.text = "PARTIDA RÁPIDA"
+	wait_label.text = "Buscando rivales… si no hay nadie, se rellena con bots"
+	status_label.text = "Partida rápida · listo automático"
+	if _local_role() == "":
+		NetworkManager.submit_role("explorer")
+	if not local_ready:
+		_on_ready_pressed()
+	get_tree().create_timer(6.0).timeout.connect(_on_quick_play_grace_done)
+
+
+func _on_quick_play_grace_done() -> void:
+	if not NetworkManager.quick_play_active:
+		return
+	if get_tree().current_scene != self:
+		return
+	var humans := 0
+	for pid in NetworkManager.players.keys():
+		if not NetworkManager.is_bot_peer(int(pid)):
+			humans += 1
+	if humans >= 2 and NetworkManager.has_exactly_one_beast() and NetworkManager.all_players_ready():
+		NetworkManager.quick_play_active = false
+		if NetworkManager.is_host():
+			NetworkManager.request_start_match()
+		else:
+			NetworkManager.request_start_match.rpc_id(1)
+		return
+	status_label.text = "Rellenando con bots…"
+	if NetworkManager.fallback_quick_play_to_bots() != OK:
+		status_label.text = "No se pudo rellenar con bots"
+		return
+	## fallback ya pone auto_start_after_quick
+	get_tree().reload_current_scene()
+
+
+func _auto_start_solo_from_quick() -> void:
+	if not NetworkManager.is_solo_practice:
+		return
+	_apply_solo_lobby()
+	NetworkManager.players[1]["ready"] = true
+	NetworkManager.request_start_match()
+
+
+func _build_escape_buttons() -> void:
+	var footer := start_button.get_parent()
+	if footer == null:
+		return
+
+	_exit_button = Button.new()
+	_exit_button.name = "ExitButton"
+	_exit_button.text = "← SALIR AL HANGAR"
+	_exit_button.custom_minimum_size = Vector2(0, 48)
+	GameTheme.style_touch(_exit_button, GameTheme.C_MUTED)
+	_exit_button.pressed.connect(_on_exit_pressed)
+	footer.add_child(_exit_button)
+
+	_bots_button = Button.new()
+	_bots_button.name = "PlayWithBotsButton"
+	_bots_button.text = "JUGAR YA CON BOTS"
+	_bots_button.custom_minimum_size = Vector2(0, 48)
+	GameTheme.style_primary(_bots_button)
+	_bots_button.pressed.connect(_on_play_with_bots_pressed)
+	_bots_button.visible = false
+	footer.add_child(_bots_button)
+
+
+func _on_exit_pressed() -> void:
+	NetworkManager.quick_play_active = false
+	NetworkManager.remove_meta("auto_start_after_quick")
+	NetworkManager.disconnect_from_game()
+	get_tree().change_scene_to_file(MENU_SCENE)
+
+
+## Sala vacía y ganas de jugar: se corta la conexión y se arranca la práctica
+## offline, que sí tiene bots. Antes la única salida era recargar la pestaña.
+func _on_play_with_bots_pressed() -> void:
+	var player_name := SettingsManager.preferred_name
+	NetworkManager.quick_play_active = false
+	NetworkManager.disconnect_from_game()
+	if NetworkManager.start_solo_practice(player_name) != OK:
+		status_label.text = "No se pudo arrancar la práctica"
+		return
+	NetworkManager.set_meta("auto_start_after_quick", true)
+	get_tree().reload_current_scene()
 
 
 func _apply_solo_lobby() -> void:
@@ -290,12 +389,12 @@ func _wire_card(card: Button, cb: Callable) -> void:
 func _rebuild_skins() -> void:
 	_clear_row(skin_row)
 	var indices: Array = []
-	for cat_i in CharacterCatalog.explorer_indices():
+	for cat_i in CharacterCatalog.hangar_explorer_indices():
 		var mesh := str(CharacterCatalog.get_entry(int(cat_i)).get("mesh", ""))
 		if not mesh.is_empty() and ResourceLoader.exists(mesh):
 			indices.append(int(cat_i))
 	if indices.is_empty():
-		indices = CharacterCatalog.explorer_indices()
+		indices = CharacterCatalog.hangar_explorer_indices()
 	for cat_i in indices:
 		var locked := not CharacterCatalog.is_unlocked(int(cat_i))
 		var card := VisualPicker.make_skin_card(int(cat_i), int(cat_i) == _skin, locked)
@@ -318,8 +417,8 @@ func _rebuild_maps() -> void:
 	_clear_row(map_row)
 	for i in NetworkManager.MAP_IDS.size():
 		var mid: String = NetworkManager.MAP_IDS[i]
-		var locked := not ProgressionManager.is_map_unlocked(mid)
-		var card := VisualPicker.make_map_card(mid, i == _map_idx, locked)
+		## Teatros siempre abiertos (GDD 1.4.0): nunca “bloqueado”.
+		var card := VisualPicker.make_map_card(mid, i == _map_idx, false)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_wire_card(card, _on_map_picked.bind(i))
 		map_row.add_child(card)
@@ -363,15 +462,11 @@ func _on_loadout_picked(loadout: int) -> void:
 
 func _on_map_picked(index: int) -> void:
 	var mid: String = NetworkManager.MAP_IDS[index]
-	if not ProgressionManager.is_map_unlocked(mid):
-		status_label.text = "Mapa bloqueado — gana con robots para desbloquear"
-		return
 	_map_idx = index
 	_rebuild_maps()
 	NetworkManager.submit_map(mid)
 	_update_map_hint()
-	if NetworkManager.is_solo_practice:
-		status_label.text = "Teatro: %s" % NetworkManager.MAP_NAMES.get(mid, mid)
+	status_label.text = "Teatro: %s" % NetworkManager.MAP_NAMES.get(mid, mid)
 
 
 func _on_beast_picked(variant: int) -> void:
@@ -396,11 +491,11 @@ func _update_map_hint() -> void:
 		"skybridge":
 			map_hint.text = "Puentes elevados — flancos peligrosos y núcleos altos."
 		"castle":
-			map_hint.text = "Castillo Kenney — puertas, torres y murallas."
+			map_hint.text = "Castillo orbital — puertas, torres y murallas."
 		"cave":
 			map_hint.text = "Cueva modular — corredores y salas oscuras."
 		"forest":
-			map_hint.text = "Mini bosque — cobertura entre árboles."
+			map_hint.text = "Bosque modular — cobertura entre árboles."
 		_:
 			map_hint.text = "Laboratorio neon — arena abierta y luces frías."
 	if ProgressionManager.campaign_mode or NetworkManager.is_solo_practice:
@@ -418,25 +513,24 @@ func _update_loadout_hint() -> void:
 
 
 func _update_campaign_ui() -> void:
-	campaign_label.text = "%s · %d/%d · victorias %d · mapas %d/3" % [
+	campaign_label.text = "%s · nivel %d/%d · victorias %d" % [
 		ProgressionManager.level_name(),
 		ProgressionManager.selected_level + 1,
 		ProgressionManager.total_levels(),
 		ProgressionManager.wins_total,
-		ProgressionManager.unlocked_maps.size(),
 	]
 	if ProgressionManager.campaign_complete:
 		campaign_label.text += " · ¡CAMPAÑA COMPLETA!"
 	if NetworkManager.is_solo_practice:
-		campaign_label.text += " · SOLITARIO · elige teatro libre"
-		map_row.modulate = Color.WHITE
+		campaign_label.text += " · SOLITARIO · teatro del nivel"
+		map_row.modulate = Color(0.75, 0.75, 0.8)
 		if level_title:
 			level_title.visible = true
 		if level_row:
 			level_row.visible = true
 		return
 	if ProgressionManager.campaign_mode:
-		campaign_label.text += " · CAMPAÑA ON · mapa del nivel (online)"
+		campaign_label.text += " · CAMPAÑA · teatro del nivel"
 		map_row.modulate = Color(0.75, 0.75, 0.8)
 		if level_title:
 			level_title.visible = true
@@ -627,7 +721,7 @@ func _check_can_start() -> void:
 		var role := _local_role()
 		var ok := role == "beast" or role == "explorer"
 		start_button.disabled = not ok
-		status_label.text = "Práctica · %s · rol: %s · mapa: %s" % [
+		status_label.text = "Práctica · %s · rol: %s · teatro: %s" % [
 			ProgressionManager.level_name(),
 			"Bestia" if role == "beast" else ("Robot" if role == "explorer" else "—"),
 			NetworkManager.MAP_NAMES.get(NetworkManager.selected_map, "?"),
@@ -643,7 +737,7 @@ func _check_can_start() -> void:
 	start_button.disabled = not ok
 	var ready_n := _count_ready()
 	var mode := "campaña" if ProgressionManager.campaign_mode else "libre"
-	status_label.text = "%d / %d en sala  ·  %d listos  ·  %s  ·  mapa: %s" % [
+	status_label.text = "%d / %d en sala  ·  %d listos  ·  %s  ·  teatro: %s" % [
 		count, NetworkManager.config.max_players if NetworkManager.config else 5,
 		ready_n, mode, NetworkManager.MAP_NAMES.get(NetworkManager.selected_map, "?")
 	]
@@ -652,6 +746,25 @@ func _check_can_start() -> void:
 		status_label.text += "  ·  ¡pueden despegar!"
 	else:
 		status_label.add_theme_color_override("font_color", GameTheme.C_AMBER)
+		# Las tres reglas solo se conocían al pulsar EMPEZAR y recibir el error.
+		status_label.text += "  ·  falta: %s" % _missing_to_start(count, ready_n)
+
+	# La sala vacía deja de ser un callejón: se ofrece jugar contra bots.
+	if _bots_button != null:
+		_bots_button.visible = count < 2
+	if _exit_button != null:
+		_exit_button.text = "← SALIR AL HANGAR"
+
+
+func _missing_to_start(count: int, ready_n: int) -> String:
+	var faltas: PackedStringArray = []
+	if count < 2:
+		faltas.append("otro jugador (o juega con bots)")
+	if ready_n < count:
+		faltas.append("que todos marquen LISTO")
+	if not NetworkManager.has_exactly_one_beast():
+		faltas.append("exactamente 1 Bestia")
+	return ", ".join(faltas) if not faltas.is_empty() else "nada"
 
 
 func _count_ready() -> int:

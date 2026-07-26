@@ -7,12 +7,18 @@ signal map_ready
 
 var objectives_root: Node3D
 var objective_positions: Array[Vector3] = []
+## Superficies pisables que va creando el mapa: {centro, medios, techo}.
+## Sirve para comprobar que todo núcleo tenga suelo desde el que alcanzarlo. Sin
+## esto shippeamos skybridge con dos núcleos en lo alto de torres sin acceso, y
+## el nivel 10 era imposible de ganar.
+var walkable_surfaces: Array[Dictionary] = []
 var _lite := false
 
 
 func build(map_id: String, objectives_parent: Node3D) -> void:
 	objectives_root = objectives_parent
 	_lite = OS.has_feature("web") or OS.get_name() == "Web"
+	walkable_surfaces.clear()
 	for c in get_children():
 		c.queue_free()
 	await get_tree().process_frame
@@ -165,6 +171,7 @@ func _floor(size: Vector3, color: Color, use_grid: bool = true) -> void:
 	body.add_child(col)
 	body.position = Vector3(0, -size.y * 0.5, 0)
 	add_child(body)
+	_register_surface(Vector3.ZERO, size, 0.0)
 
 
 func _wall(pos: Vector3, size: Vector3, color: Color = Color(0.18, 0.22, 0.28)) -> void:
@@ -190,6 +197,19 @@ func _box(pos: Vector3, size: Vector3, color: Color, metallic: float = 0.15) -> 
 	mat.metallic = metallic
 	csg.material = mat
 	add_child(csg)
+	_register_surface(pos, size, pos.y + size.y * 0.5)
+
+
+## Los muros quedan fuera a propósito: son barreras verticales, no plataformas, y
+## contarlos como pisables inventaría rutas que el jugador no puede tomar.
+func _register_surface(center: Vector3, size: Vector3, top: float) -> void:
+	walkable_surfaces.append({
+		"x": center.x,
+		"z": center.z,
+		"hx": absf(size.x) * 0.5,
+		"hz": absf(size.z) * 0.5,
+		"top": top,
+	})
 
 
 func _spawn(group: String, pos: Vector3) -> void:
@@ -214,31 +234,36 @@ func _explorer_spawns_ring(z: float = 15.0) -> void:
 
 
 func _build_lab_neon() -> void:
-	_env(Color(0.06, 0.1, 0.2), Color(0.2, 0.28, 0.4), Color(0.45, 0.55, 0.75), Color(0.15, 0.35, 0.45), 0.014)
-	_floor(Vector3(40, 0.3, 40), Color(0.1, 0.14, 0.2))
-	_wall(Vector3(0, 2, -20), Vector3(40, 4, 0.5), Color(0.12, 0.16, 0.22))
-	_wall(Vector3(0, 2, 20), Vector3(40, 4, 0.5), Color(0.12, 0.16, 0.22))
-	_wall(Vector3(20, 2, 0), Vector3(0.5, 4, 40), Color(0.12, 0.16, 0.22))
-	_wall(Vector3(-20, 2, 0), Vector3(0.5, 4, 40), Color(0.12, 0.16, 0.22))
-	# Contenedores / consolas (más forma, menos cubo suelto)
-	_box(Vector3(-8, 1.5, -5), Vector3(2, 3, 2), Color(0.15, 0.35, 0.55), 0.4)
-	_box(Vector3(8, 1.5, 5), Vector3(2, 3, 2), Color(0.15, 0.35, 0.55), 0.4)
-	_box(Vector3(-6, 1, 6), Vector3(1.5, 2, 1.5), Color(0.12, 0.28, 0.45), 0.35)
-	_box(Vector3(6, 1, -6), Vector3(1.5, 2, 1.5), Color(0.12, 0.28, 0.45), 0.35)
-	_box(Vector3(0, 0.6, -10), Vector3(6, 1.2, 1.2), Color(0.18, 0.22, 0.3), 0.25)
-	_box(Vector3(-12, 0.8, 0), Vector3(1.2, 1.6, 4), Color(0.2, 0.25, 0.32), 0.3)
-	_box(Vector3(12, 0.8, 0), Vector3(1.2, 1.6, 4), Color(0.2, 0.25, 0.32), 0.3)
+	_env(Color(0.04, 0.07, 0.14), Color(0.18, 0.28, 0.42), Color(0.4, 0.55, 0.8), Color(0.12, 0.4, 0.5), 0.012)
+	_floor(Vector3(40, 0.3, 40), Color(0.08, 0.11, 0.16))
+	_wall(Vector3(0, 2, -20), Vector3(40, 4, 0.5), Color(0.1, 0.14, 0.2))
+	_wall(Vector3(0, 2, 20), Vector3(40, 4, 0.5), Color(0.1, 0.14, 0.2))
+	_wall(Vector3(20, 2, 0), Vector3(0.5, 4, 40), Color(0.1, 0.14, 0.2))
+	_wall(Vector3(-20, 2, 0), Vector3(0.5, 4, 40), Color(0.1, 0.14, 0.2))
+	# Consolas / cobertura con metal frío (menos “cubo gris”).
+	_box(Vector3(-8, 1.5, -5), Vector3(2, 3, 2), Color(0.12, 0.32, 0.5), 0.55)
+	_box(Vector3(8, 1.5, 5), Vector3(2, 3, 2), Color(0.12, 0.32, 0.5), 0.55)
+	_box(Vector3(-6, 1, 6), Vector3(1.5, 2, 1.5), Color(0.1, 0.26, 0.42), 0.45)
+	_box(Vector3(6, 1, -6), Vector3(1.5, 2, 1.5), Color(0.1, 0.26, 0.42), 0.45)
+	_box(Vector3(0, 0.6, -10), Vector3(6, 1.2, 1.2), Color(0.14, 0.2, 0.28), 0.35)
+	_box(Vector3(-12, 0.8, 0), Vector3(1.2, 1.6, 4), Color(0.16, 0.22, 0.3), 0.4)
+	_box(Vector3(12, 0.8, 0), Vector3(1.2, 1.6, 4), Color(0.16, 0.22, 0.3), 0.4)
+	_box(Vector3(0, 1.2, 0), Vector3(2.4, 0.35, 2.4), Color(0.2, 0.45, 0.55), 0.6)
 	_neon_tube(Vector3(0, 3.6, 0), Vector3(18, 0.08, 0.08), Color(0.2, 0.95, 0.9))
 	_neon_tube(Vector3(-12, 3.4, -8), Vector3(0.08, 0.08, 10), Color(0.3, 0.7, 1.0))
 	_neon_tube(Vector3(12, 3.4, 8), Vector3(0.08, 0.08, 10), Color(1.0, 0.35, 0.55))
 	_neon_tube(Vector3(0, 0.05, 0), Vector3(22, 0.04, 0.12), Color(0.15, 0.85, 0.75))
 	_neon_tube(Vector3(0, 0.05, 8), Vector3(14, 0.04, 0.1), Color(0.35, 0.55, 1.0))
-	_accent_light(Vector3(0, 3.2, 0), Color(0.25, 0.9, 0.85), 3.0, 12.0)
+	_neon_tube(Vector3(-8, 2.8, -5), Vector3(2.4, 0.06, 0.06), Color(0.25, 0.9, 1.0))
+	_neon_tube(Vector3(8, 2.8, 5), Vector3(2.4, 0.06, 0.06), Color(1.0, 0.4, 0.6))
+	_accent_light(Vector3(0, 3.2, 0), Color(0.25, 0.9, 0.85), 3.2, 14.0)
 	_spawn("beast_spawn", Vector3(0, 1.2, -15))
 	_explorer_spawns_ring(15.0)
+	# Seis: el nivel 11 (Sobrevelocidad) juega aquí y pide seis núcleos.
 	_set_objectives([
 		Vector3(-12, 0.5, -8), Vector3(12, 0.5, -8),
 		Vector3(-12, 0.5, 8), Vector3(12, 0.5, 8), Vector3(0, 0.5, 0),
+		Vector3(0, 0.5, 14),
 	])
 
 
@@ -341,16 +366,20 @@ func _build_skybridge() -> void:
 	_wall(Vector3(0, 2, 20), Vector3(40, 1, 0.4), Color(0.15, 0.18, 0.25))
 	_spawn("beast_spawn", Vector3(0, 1.2, -15))
 	_explorer_spawns_ring(15.0)
+	# Los dos últimos estaban en la cima de las torres (y 5.2), a 4,6 m sobre el
+	# puente más cercano y a 3,5 m de salto horizontal sobre el vacío. El salto da
+	# 1,5 m: eran inalcanzables y el nivel 10, que pide 6 núcleos, no se podía
+	# ganar. Ahora ocupan los extremos de las alas laterales.
 	_set_objectives([
 		Vector3(-10, 0.5, 0), Vector3(10, 0.5, 0),
 		Vector3(0, 0.5, -12), Vector3(0, 0.5, 12),
-		Vector3(-14, 5.2, -14), Vector3(14, 5.2, 14),
+		Vector3(-13, 0.5, 3.5), Vector3(13, 0.5, -3.5),
 	])
 
 
 func _prop(path: String, pos: Vector3, yaw_deg: float = 0.0, scl: float = 1.0) -> void:
 	if not ResourceLoader.exists(path):
-		_box(pos + Vector3(0, 1, 0), Vector3(2, 2, 2), Color(0.4, 0.35, 0.3), 0.2)
+		_box(pos + Vector3(0, 1, 0), Vector3(2, 2, 2) * scl, Color(0.4, 0.35, 0.3), 0.2)
 		return
 	var packed = load(path)
 	if packed is PackedScene:
@@ -360,8 +389,78 @@ func _prop(path: String, pos: Vector3, yaw_deg: float = 0.0, scl: float = 1.0) -
 			n.rotation_degrees.y = yaw_deg
 			n.scale = Vector3.ONE * scl
 			add_child(n)
+			## Sin esto castle/cave/forest eran decorado: se caminaba y se
+			## disparaba a través de puertas, torres y árboles.
+			_ensure_prop_collision(n)
 			return
-	_box(pos + Vector3(0, 1, 0), Vector3(2, 2, 2), Color(0.4, 0.35, 0.3), 0.2)
+	_box(pos + Vector3(0, 1, 0), Vector3(2, 2, 2) * scl, Color(0.4, 0.35, 0.3), 0.2)
+
+
+## Genera colisión en las mallas del prop.
+## Convex rellenaba el interior de pasillos/salas (hull convexo = bloque sólido):
+## cave/castle quedaban impracticables. Trimesh respeta el hueco.
+func _ensure_prop_collision(root: Node3D) -> void:
+	for existing in root.find_children("*", "CollisionObject3D", true, false):
+		if existing is StaticBody3D or existing is AnimatableBody3D:
+			return
+	var meshes := root.find_children("*", "MeshInstance3D", true, false)
+	var made := false
+	for node in meshes:
+		var mi := node as MeshInstance3D
+		if mi == null or mi.mesh == null:
+			continue
+		mi.create_trimesh_collision()
+		made = true
+	if made:
+		return
+	var aabb := _node_aabb(root)
+	if aabb.size.length() < 0.05:
+		aabb = AABB(Vector3(-0.8, 0, -0.8), Vector3(1.6, 2.0, 1.6))
+	var body := StaticBody3D.new()
+	body.collision_layer = 1
+	body.collision_mask = 0
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = aabb.size.clamp(Vector3(0.4, 0.4, 0.4), Vector3(12, 12, 12))
+	shape.shape = box
+	shape.position = aabb.position + aabb.size * 0.5
+	body.add_child(shape)
+	root.add_child(body)
+
+
+func _node_aabb(root: Node3D) -> AABB:
+	var out := AABB()
+	var first := true
+	for node in root.find_children("*", "VisualInstance3D", true, false):
+		var vi := node as VisualInstance3D
+		if vi == null:
+			continue
+		var local := vi.get_aabb()
+		var xf: Transform3D = root.global_transform.affine_inverse() * vi.global_transform
+		var world_aabb := _xform_aabb(xf, local)
+		if first:
+			out = world_aabb
+			first = false
+		else:
+			out = out.merge(world_aabb)
+	return out
+
+
+func _xform_aabb(xf: Transform3D, aabb: AABB) -> AABB:
+	var pts: Array[Vector3] = [
+		aabb.position,
+		aabb.position + Vector3(aabb.size.x, 0, 0),
+		aabb.position + Vector3(0, aabb.size.y, 0),
+		aabb.position + Vector3(0, 0, aabb.size.z),
+		aabb.position + Vector3(aabb.size.x, aabb.size.y, 0),
+		aabb.position + Vector3(aabb.size.x, 0, aabb.size.z),
+		aabb.position + Vector3(0, aabb.size.y, aabb.size.z),
+		aabb.position + aabb.size,
+	]
+	var out := AABB(xf * pts[0], Vector3.ZERO)
+	for i in range(1, pts.size()):
+		out = out.expand(xf * pts[i])
+	return out
 
 
 func _build_castle() -> void:
@@ -384,12 +483,15 @@ func _build_castle() -> void:
 	_prop(base + "rocks-large.glb", Vector3(-10, 0, 8), 30, 1.0)
 	_prop(base + "stairs-stone.glb", Vector3(0, 0, 10), 0, 1.0)
 	_neon_tube(Vector3(0, 5.0, 0), Vector3(16, 0.08, 0.08), Color(1.0, 0.85, 0.4))
-	_spawn("beast_spawn", Vector3(0, 1.2, -16))
+	## Spawn delante de la puerta, no dentro del gate.glb (-18).
+	_spawn("beast_spawn", Vector3(0, 1.2, -12))
 	_explorer_spawns_ring(16.0)
+	# Núcleos en plazas abiertas, no en el centro de las torres con colisión.
 	_set_objectives([
-		Vector3(-14, 0.5, -14), Vector3(14, 0.5, -14),
-		Vector3(-14, 0.5, 14), Vector3(14, 0.5, 14),
+		Vector3(-10, 0.5, -10), Vector3(10, 0.5, -10),
+		Vector3(-10, 0.5, 10), Vector3(10, 0.5, 10),
 		Vector3(0, 0.5, 0),
+		Vector3(-19, 0.5, 0), Vector3(19, 0.5, 0),
 	])
 
 
@@ -409,12 +511,13 @@ func _build_cave() -> void:
 	_prop(base + "gate-rock.glb", Vector3(0, 0, -14), 0, 1.1)
 	_neon_tube(Vector3(0, 3.5, 0), Vector3(12, 0.06, 0.06), Color(1.0, 0.55, 0.2))
 	_accent_light(Vector3(0, 3.0, 0), Color(1.0, 0.5, 0.2), 2.5, 12.0)
-	_spawn("beast_spawn", Vector3(0, 1.2, -15))
-	_explorer_spawns_ring(14.0)
+	## Fuera del room-large (z≈10) y del gate-rock (z=-14).
+	_spawn("beast_spawn", Vector3(0, 1.2, -17))
+	_explorer_spawns_ring(17.0)
 	_set_objectives([
-		Vector3(-8, 0.5, 0), Vector3(8, 0.5, 0),
-		Vector3(0, 0.5, 10), Vector3(0, 0.5, -8),
-		Vector3(0, 0.5, 0),
+		Vector3(-9, 0.5, 4), Vector3(9, 0.5, 4),
+		Vector3(0, 0.5, 14), Vector3(-5, 0.5, -4),
+		Vector3(5, 0.5, -4),
 	])
 
 
@@ -439,10 +542,12 @@ func _build_forest() -> void:
 	_prop(base + "plant.glb", Vector3(-4, 0, 4), 0, 1.0)
 	_prop(base + "patch-grass.glb", Vector3(4, 0, -4), 0, 1.5)
 	_neon_tube(Vector3(0, 4.0, 0), Vector3(14, 0.06, 0.06), Color(0.45, 0.95, 0.4))
-	_spawn("beast_spawn", Vector3(0, 1.2, -16))
-	_explorer_spawns_ring(15.0)
+	## Detrás de la platform (-10); exploradores lejos de tienda/valla (z≈8–10).
+	_spawn("beast_spawn", Vector3(0, 1.2, -18))
+	_explorer_spawns_ring(18.0)
+	## Árboles en x=±12: núcleos hacia el claro para no quedar dentro del tronco.
 	_set_objectives([
-		Vector3(-12, 0.5, -8), Vector3(12, 0.5, -8),
-		Vector3(-12, 0.5, 8), Vector3(12, 0.5, 8),
-		Vector3(0, 0.5, 0),
+		Vector3(-7, 0.5, -6), Vector3(7, 0.5, -6),
+		Vector3(-7, 0.5, 6), Vector3(7, 0.5, 6),
+		Vector3(0, 0.5, -3),
 	])

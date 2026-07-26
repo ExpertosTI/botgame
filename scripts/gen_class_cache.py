@@ -4,10 +4,10 @@
 Los tests headless necesitan que los `class_name` (PlayerBase, GameTheme,
 CombatVfx...) resuelvan. Normalmente ese cache lo escribe el editor al escanear
 el proyecto, y reconstruirlo con `godot --import` obliga a reimportar ~190 MB de
-GLB/PNG: varios minutos en CI y, peor, reescribe los .import que el VPS ya tiene
-para Godot 4.3.
+GLB/PNG.
 
-Aquí se deriva del propio código: cada .gd con `class_name X extends Y`.
+Godot 4.6 exige los campos `is_abstract` e `is_tool` en cada entrada; sin ellos
+el motor ignora el cache y los autoloads no compilan.
 """
 
 from __future__ import annotations
@@ -18,11 +18,13 @@ import sys
 
 CLASS_RE = re.compile(r"^\s*class_name\s+([A-Za-z_][A-Za-z0-9_]*)", re.MULTILINE)
 EXTENDS_RE = re.compile(r"^\s*extends\s+([A-Za-z_][A-Za-z0-9_]*)", re.MULTILINE)
+TOOL_RE = re.compile(r"^\s*@tool\b", re.MULTILINE)
+ABSTRACT_RE = re.compile(r"^\s*@abstract\b", re.MULTILINE)
 SKIP_DIRS = {".git", ".godot", ".import", "export", "_tmp_kits", "addons"}
 
 
-def scan(root: str) -> list[dict[str, str]]:
-    found: list[dict[str, str]] = []
+def scan(root: str) -> list[dict[str, object]]:
+    found: list[dict[str, object]] = []
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
         for filename in filenames:
@@ -44,21 +46,35 @@ def scan(root: str) -> list[dict[str, str]]:
                     "class": name_match.group(1),
                     "base": extends_match.group(1) if extends_match else "RefCounted",
                     "path": res_path,
+                    "is_tool": bool(TOOL_RE.search(text)),
+                    "is_abstract": bool(ABSTRACT_RE.search(text)),
                 }
             )
-    found.sort(key=lambda entry: entry["class"])
+    found.sort(key=lambda entry: str(entry["class"]))
     return found
 
 
-def render(entries: list[dict[str, str]]) -> str:
-    items = ", ".join(
-        '{{\n"base": &"{base}",\n"class": &"{cls}",\n"icon": "",\n'
-        '"language": &"GDScript",\n"path": "{path}"\n}}'.format(
-            base=entry["base"], cls=entry["class"], path=entry["path"]
+def render(entries: list[dict[str, object]]) -> str:
+    items = []
+    for entry in entries:
+        items.append(
+            '{{\n'
+            '"base": &"{base}",\n'
+            '"class": &"{cls}",\n'
+            '"icon": "",\n'
+            '"is_abstract": {abstract},\n'
+            '"is_tool": {tool},\n'
+            '"language": &"GDScript",\n'
+            '"path": "{path}"\n'
+            "}}".format(
+                base=entry["base"],
+                cls=entry["class"],
+                path=entry["path"],
+                abstract="true" if entry["is_abstract"] else "false",
+                tool="true" if entry["is_tool"] else "false",
+            )
         )
-        for entry in entries
-    )
-    return "list=Array[Dictionary]([{}])\n".format(items)
+    return "list=[{}]\n".format(", ".join(items))
 
 
 def main() -> int:

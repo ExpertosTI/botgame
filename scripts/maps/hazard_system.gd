@@ -15,6 +15,10 @@ func clear_hazards() -> void:
 		c.queue_free()
 
 
+func _ready() -> void:
+	add_to_group("hazard_systems")
+
+
 func add_damage_zone(pos: Vector3, radius: float, dps: float, color: Color = Color(1.0, 0.25, 0.1)) -> void:
 	_hazards.append({"type": "damage", "pos": pos, "radius": radius, "dps": dps})
 	_spawn_marker(pos, radius, color, true)
@@ -55,7 +59,7 @@ func _spawn_marker(pos: Vector3, radius: float, color: Color, hot: bool) -> void
 func _physics_process(delta: float) -> void:
 	if not GameManager.match_active:
 		return
-	if multiplayer.has_multiplayer_peer() and not multiplayer.is_server():
+	if multiplayer.has_multiplayer_peer() and not NetworkManager.is_match_authority():
 		return
 	_tick += delta
 	for h in _hazards:
@@ -73,6 +77,27 @@ func _physics_process(delta: float) -> void:
 	if _tick >= 0.5:
 		_tick = 0.0
 		hazard_tick.emit()
+
+
+func danger_push(from: Vector3) -> Vector3:
+	## Vector unitario para salir de zonas de daño/pulso (bots de práctica).
+	var push := Vector3.ZERO
+	for h in _hazards:
+		var t := str(h.get("type", ""))
+		if t != "damage" and t != "pulse":
+			continue
+		var hp: Vector3 = h["pos"]
+		var r: float = float(h["radius"])
+		var d := from.distance_to(hp)
+		if d < r + 1.2:
+			var away := from - hp
+			away.y = 0.0
+			if away.length_squared() < 0.01:
+				away = Vector3(1, 0, 0)
+			push += away.normalized() * (1.0 - clampf(d / (r + 1.2), 0.0, 1.0))
+	if push.length_squared() < 0.0001:
+		return Vector3.ZERO
+	return push.normalized()
 
 
 func _apply_aoe_damage(pos: Vector3, radius: float, amount: float) -> void:
@@ -96,5 +121,8 @@ func _apply_aoe_slow(pos: Vector3, radius: float, slow: float) -> void:
 		if n.global_position.distance_to(pos) > radius:
 			continue
 		var p := n as PlayerBase
-		if p.combat:
+		## El movimiento lo manda el authority del jugador.
+		if multiplayer.has_multiplayer_peer():
+			p.apply_hazard_slow.rpc_id(p.get_multiplayer_authority(), slow, 0.35)
+		elif p.combat:
 			p.combat.apply_slow(slow, 0.35)

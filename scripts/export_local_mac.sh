@@ -8,12 +8,12 @@ cd "$ROOT"
 
 GODOT_DIR="${GODOT_DIR:-$HOME/.local/share/godot-botgame}"
 GODOT_BIN="$GODOT_DIR/Godot.app/Contents/MacOS/Godot"
-GODOT_VER="4.3-stable"
+GODOT_VER="4.6-stable"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 
 if [ ! -x "$GODOT_BIN" ]; then
-  echo "Instala Godot 4.3 o deja que el VPS exporte solo:"
+  echo "Instala Godot 4.6 o deja que el VPS exporte solo:"
   echo "  git push && en el VPS: cd /opt/botgame && ./deploy.sh update"
   exit 1
 fi

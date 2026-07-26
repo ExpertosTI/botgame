@@ -66,7 +66,12 @@ func _role_swap_keeps_a_single_beast() -> void:
 	eq(str(n.players[1]["role"]), "explorer", "la bestia anterior debe pasar a robot")
 	eq(str(n.players[2]["role"]), "beast", "el nuevo rol no se aplicó")
 	ok(not bool(n.players[1]["ready"]), "quien pierde el rol de bestia deja de estar listo")
+	ok(not bool(n.players[2]["ready"]), "quien gana bestia también pierde LISTO")
 	ok(n.has_exactly_one_beast(), "tras el cambio debe seguir habiendo una sola bestia")
+	## Reenviar el mismo rol no debe tumbar un LISTO ya puesto (Quick Play).
+	n.players[2]["ready"] = true
+	n.set_player_role(2, "beast")
+	ok(bool(n.players[2]["ready"]), "mismo rol no limpia LISTO")
 	pop_peer(had_peer)
 
 

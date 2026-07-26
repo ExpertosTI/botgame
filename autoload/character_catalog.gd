@@ -22,29 +22,37 @@ func _build() -> void:
 	_add("crew_pink", "Robot Rosa", "explorer", "", Color(1.0, 0.4, 0.7), 0)
 	_add("crew_green", "Robot Verde", "explorer", "", Color(0.25, 0.85, 0.45), 0)
 	_add("crew_yellow", "Robot Amarillo", "explorer", "", Color(1.0, 0.85, 0.2), 0)
-	# Kenney blocky
-	_add("blocky_a", "Blocky A", "explorer", "res://assets/characters/roster/blocky_a.glb", Color(0.9, 0.9, 0.95), 0)
-	_add("blocky_b", "Blocky B", "explorer", "res://assets/characters/roster/blocky_b.glb", Color(0.95, 0.7, 0.3), 1)
-	_add("blocky_c", "Blocky C", "explorer", "res://assets/characters/roster/blocky_c.glb", Color(0.4, 0.8, 0.95), 1)
-	_add("blocky_d", "Blocky D", "explorer", "res://assets/characters/roster/blocky_d.glb", Color(0.7, 0.5, 0.95), 2)
-	_add("blocky_e", "Blocky E", "explorer", "res://assets/characters/roster/blocky_e.glb", Color(0.95, 0.45, 0.55), 2)
-	_add("blocky_f", "Blocky F", "explorer", "res://assets/characters/roster/blocky_f.glb", Color(0.45, 0.95, 0.55), 3)
-	# KayKit adventurers
-	_add("kay_knight", "Caballero", "explorer", "res://assets/characters/roster/kay_knight.glb", Color(0.7, 0.75, 0.85), 2)
-	_add("kay_mage", "Mago", "explorer", "res://assets/characters/roster/kay_mage.glb", Color(0.55, 0.45, 0.95), 3)
-	_add("kay_rogue", "Pícaro", "explorer", "res://assets/characters/roster/kay_rogue.glb", Color(0.35, 0.55, 0.4), 3)
-	_add("kay_barbarian", "Bárbaro", "explorer", "res://assets/characters/roster/kay_barbarian.glb", Color(0.85, 0.45, 0.3), 4)
-	_add("kay_ranger", "Explorador", "explorer", "res://assets/characters/roster/kay_ranger.glb", Color(0.4, 0.7, 0.45), 4)
-	_add("forest_archer", "Arquero", "explorer", "res://assets/characters/roster/forest_archer.glb", Color(0.5, 0.75, 0.4), 3)
-	# Beast / enemies
-	_add("beast_classic", "Bestia Clásica", "beast", "", Color(0.75, 0.12, 0.15), 0)
-	_add("beast_mecha", "Mecha Destructor", "beast", "", Color(0.28, 0.3, 0.35), 0)
-	_add("beast_shadow", "Sombra Digital", "beast", "", Color(0.18, 0.1, 0.28), 2)
-	_add("skel_warrior", "Esqueleto Guerrero", "beast", "res://assets/characters/roster/skel_warrior.glb", Color(0.9, 0.9, 0.85), 3)
-	_add("skel_mage", "Esqueleto Mago", "beast", "res://assets/characters/roster/skel_mage.glb", Color(0.6, 0.85, 0.95), 4)
+	# Unidades 3D hangar (tono industrial)
+	_add("blocky_a", "Unidad Alfa", "explorer", "res://assets/characters/roster/blocky_a.glb", Color(0.9, 0.9, 0.95), 0)
+	_add("blocky_b", "Unidad Bravo", "explorer", "res://assets/characters/roster/blocky_b.glb", Color(0.95, 0.7, 0.3), 1)
+	_add("blocky_c", "Unidad Charlie", "explorer", "res://assets/characters/roster/blocky_c.glb", Color(0.4, 0.8, 0.95), 1)
+	_add("blocky_d", "Unidad Delta", "explorer", "res://assets/characters/roster/blocky_d.glb", Color(0.7, 0.5, 0.95), 2)
+	_add("blocky_e", "Unidad Eco", "explorer", "res://assets/characters/roster/blocky_e.glb", Color(0.95, 0.45, 0.55), 2)
+	_add("blocky_f", "Unidad Foxtrot", "explorer", "res://assets/characters/roster/blocky_f.glb", Color(0.45, 0.95, 0.55), 3)
+	# Extras fantasy: catálogo OK, fuera del hangar (chocan con BIBLIA).
+	_add("kay_knight", "Caballero", "explorer", "res://assets/characters/roster/kay_knight.glb", Color(0.7, 0.75, 0.85), 2, false)
+	_add("kay_mage", "Mago", "explorer", "res://assets/characters/roster/kay_mage.glb", Color(0.55, 0.45, 0.95), 3, false)
+	_add("kay_rogue", "Pícaro", "explorer", "res://assets/characters/roster/kay_rogue.glb", Color(0.35, 0.55, 0.4), 3, false)
+	_add("kay_barbarian", "Bárbaro", "explorer", "res://assets/characters/roster/kay_barbarian.glb", Color(0.85, 0.45, 0.3), 4, false)
+	_add("kay_ranger", "Explorador", "explorer", "res://assets/characters/roster/kay_ranger.glb", Color(0.4, 0.7, 0.45), 4, false)
+	_add("forest_archer", "Arquero", "explorer", "res://assets/characters/roster/forest_archer.glb", Color(0.5, 0.75, 0.4), 3, false)
+	# Bestias hangar (3 variantes de producto)
+	_add("beast_classic", "Bestia Clásica", "beast", "res://assets/characters/roster/skel_warrior.glb", Color(0.75, 0.12, 0.15), 0)
+	_add("beast_mecha", "Mecha Destructor", "beast", "res://assets/characters/roster/skel_mage.glb", Color(0.28, 0.45, 0.55), 0)
+	_add("beast_shadow", "Sombra Digital", "beast", "res://assets/characters/roster/skel_warrior.glb", Color(0.18, 0.1, 0.28), 2)
+	_add("skel_warrior", "Esqueleto Guerrero", "beast", "res://assets/characters/roster/skel_warrior.glb", Color(0.9, 0.9, 0.85), 3, false)
+	_add("skel_mage", "Esqueleto Mago", "beast", "res://assets/characters/roster/skel_mage.glb", Color(0.6, 0.85, 0.95), 4, false)
 
 
-func _add(id: String, name: String, role: String, mesh: String, tint: Color, unlock_wins: int) -> void:
+func _add(
+	id: String,
+	name: String,
+	role: String,
+	mesh: String,
+	tint: Color,
+	unlock_wins: int,
+	hangar_face: bool = true
+) -> void:
 	entries.append({
 		"id": id,
 		"name": name,
@@ -52,6 +60,7 @@ func _add(id: String, name: String, role: String, mesh: String, tint: Color, unl
 		"mesh": mesh,
 		"tint": tint,
 		"unlock_wins": unlock_wins,
+		"hangar_face": hangar_face,
 	})
 
 
@@ -109,6 +118,25 @@ func beast_indices() -> Array:
 		var r: String = str(entries[i].get("role", ""))
 		if r == "beast" or r == "any":
 			out.append(i)
+	return out
+
+
+func hangar_explorer_indices() -> Array:
+	## Cara pública del hangar: sin fantasy KayKit.
+	var out: Array = []
+	for i in explorer_indices():
+		if bool(entries[int(i)].get("hangar_face", true)):
+			out.append(i)
+	return out
+
+
+func hangar_beast_indices() -> Array:
+	## Solo las 3 variantes de producto.
+	var out: Array = []
+	for id in ["beast_classic", "beast_mecha", "beast_shadow"]:
+		var idx := index_of_id(id)
+		if idx >= 0 and not get_entry(idx).is_empty():
+			out.append(idx)
 	return out
 
 
@@ -170,9 +198,78 @@ func _prepare_runtime_mesh(root: Node) -> void:
 		root.set_meta("cat_idle", idle)
 		root.set_meta("cat_walk", walk if not walk.is_empty() else idle)
 		root.set_meta("cat_sprint", sprint if not sprint.is_empty() else (walk if not walk.is_empty() else idle))
+		_resolve_actions(root, ap)
 		if not idle.is_empty():
 			ap.play(idle)
 	root.set_meta("cat_moving", false)
+
+
+## Clips de acción, resueltos una vez al montar la malla. Hasta ahora solo se
+## usaban idle, andar y correr: un robot recibía un railgun y desaparecía
+## deslizándose con la misma cara. Los nombres cambian según el pack, así que
+## cada acción lista sus alias y se queda con el primero que exista.
+const ACTION_ALIASES := {
+	"shoot": ["holding-both-shoot", "holding-right-shoot", "shoot", "throw", "attack-melee-right", "attack"],
+	"hit": ["hit_a", "hit", "damage", "hurt"],
+	"die": ["death_a", "die", "death"],
+	"jump": ["jump_start", "jump-start", "jump"],
+	"fall": ["jump_idle", "fall"],
+}
+## Tope del bloqueo de una acción sobre la locomoción. Un clip de disparo largo
+## dejaría al personaje clavado en la pose mientras corre, que se ve peor que no
+## animar el disparo.
+const ACTION_MAX_LOCK := 0.45
+
+
+func _resolve_actions(root: Node, ap: AnimationPlayer) -> void:
+	for action in ACTION_ALIASES:
+		var clip := _pick_anim(ap, ACTION_ALIASES[action])
+		root.set_meta("cat_%s" % action, clip)
+
+
+## Lanza una animación puntual encima de la locomoción. Devuelve su duración en
+## segundos, o 0 si el personaje no tiene ese clip (medio roster son mallas
+## estáticas de KayKit y ahí no hay nada que reproducir).
+func play_action(root: Node, action: String) -> float:
+	if root == null or not is_instance_valid(root):
+		return 0.0
+	if bool(root.get_meta("cat_dead", false)):
+		return 0.0
+	var ap := _player_for(root)
+	if ap == null:
+		return 0.0
+	var clip := str(root.get_meta("cat_%s" % action, ""))
+	if clip.is_empty() or not ap.has_animation(clip):
+		return 0.0
+	var length := ap.get_animation(clip).length
+	ap.play(clip, 0.1)
+	if action == "die":
+		# La muerte no vuelve a idle: se queda en el suelo hasta el respawn.
+		root.set_meta("cat_dead", true)
+		return length
+	root.set_meta("cat_action_until", Time.get_ticks_msec() + int(minf(length, ACTION_MAX_LOCK) * 1000.0))
+	return length
+
+
+## Tras reaparecer hay que devolver el control a la locomoción; si no, el
+## personaje revive tumbado.
+func reset_actions(root: Node) -> void:
+	if root == null or not is_instance_valid(root):
+		return
+	root.set_meta("cat_dead", false)
+	root.set_meta("cat_action_until", 0)
+	var ap := _player_for(root)
+	var idle := str(root.get_meta("cat_idle", ""))
+	if ap != null and not idle.is_empty():
+		ap.play(idle, 0.1)
+
+
+func _player_for(root: Node) -> AnimationPlayer:
+	if root.has_meta("cat_ap"):
+		var ap := root.get_node_or_null(root.get_meta("cat_ap")) as AnimationPlayer
+		if ap != null:
+			return ap
+	return find_animation_player(root)
 
 
 func find_animation_player(root: Node) -> AnimationPlayer:
@@ -202,11 +299,13 @@ func play_locomotion(root: Node, moving: bool, sprint: bool = false) -> void:
 		return
 	var was: bool = bool(root.get_meta("cat_moving", false))
 	root.set_meta("cat_moving", moving)
-	var ap: AnimationPlayer = null
-	if root.has_meta("cat_ap"):
-		ap = root.get_node_or_null(root.get_meta("cat_ap")) as AnimationPlayer
-	if ap == null:
-		ap = find_animation_player(root)
+	# La locomoción se pide cada frame, así que sin esto pisaría cualquier
+	# animación puntual en el mismo fotograma en que se lanzó.
+	if bool(root.get_meta("cat_dead", false)):
+		return
+	if Time.get_ticks_msec() < int(root.get_meta("cat_action_until", 0)):
+		return
+	var ap := _player_for(root)
 	if ap:
 		var clip := ""
 		if moving:

@@ -7,14 +7,9 @@ extends "res://tests/test_case.gd"
 ## explorer, projectile, combat_kit y combat_fx. El juego arrancaba al menú y
 ## moría al entrar en partida, y nada en el pipeline lo detectaba.
 
-const ROOTS := ["res://autoload", "res://scripts", "res://tests", "res://modes"]
+const ROOTS := ["res://autoload", "res://scripts", "res://tests"]
 
-## La suite corre sin `--import` (reimportar ~190 MB tardaría minutos en CI),
-## así que un preload de una escena con texturas no puede resolverse aquí. Solo
-## se excluye por eso, no por código roto.
-const NEEDS_IMPORTED_ASSETS: PackedStringArray = [
-	"res://modes/fps/objects/player.gd",  # preload de impact.tscn → sprites/hit.png
-]
+## modes/ es Kenney demo legacy (excluido del export). No forma parte del juego.
 
 
 func suite_name() -> String:
@@ -27,8 +22,6 @@ func run() -> void:
 	for path in files:
 		var script: Script = load(path)
 		if not ok(script != null, "%s: load() devolvió null" % path):
-			continue
-		if path in NEEDS_IMPORTED_ASSETS:
 			continue
 		ok(script.can_instantiate(), "%s no compila" % path)
 

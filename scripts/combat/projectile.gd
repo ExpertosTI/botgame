@@ -49,7 +49,7 @@ func setup(from: Vector3, dir: Vector3, data: Dictionary, peer: int, vs_explorer
 	_shape.radius = radius
 
 	collision_layer = 8
-	collision_mask = 2 | 1  # players + world
+	collision_mask = 2 | 1 | 4  # players + world + núcleos (escudo Blindado)
 	monitoring = true
 	visible = true
 
@@ -87,8 +87,8 @@ func _on_body_entered(body: Node3D) -> void:
 		var player := body as CharacterBody3D
 		if str(player.name).is_valid_int() and int(player.name) == owner_peer:
 			return
-		# Solo el servidor aplica daño; todos ven el impacto visual
-		if multiplayer.has_multiplayer_peer() and not multiplayer.is_server():
+		# Solo el servidor (o solo) aplica daño; todos ven el impacto visual
+		if multiplayer.has_multiplayer_peer() and not NetworkManager.is_match_authority():
 			_impact(body.global_position)
 			return
 		if hurts_beast and body is BeastPlayer:
@@ -101,6 +101,14 @@ func _on_body_entered(body: Node3D) -> void:
 			)
 			_impact(body.global_position)
 			return
+	## Núcleos Blindados: el proyectil del Robot pica el escudo.
+	if body is BeastObjective and hurts_beast:
+		if multiplayer.has_multiplayer_peer() and not NetworkManager.is_match_authority():
+			_impact(body.global_position)
+			return
+		(body as BeastObjective).apply_shield_damage(damage)
+		_impact(body.global_position)
+		return
 	_impact(global_position)
 
 
@@ -109,7 +117,7 @@ func _impact(pos: Vector3) -> void:
 		return
 	_spent = true
 	CombatVfx.flash(self, pos, _impact_color(), 0.2)
-	if explode_on_hit and multiplayer.is_server():
+	if explode_on_hit and NetworkManager.is_match_authority():
 		CombatFx.spawn_explosion(pos, explode_radius, damage * 0.6, owner_peer, hurts_explorers, hurts_beast)
 	_recycle()
 
@@ -118,7 +126,7 @@ func _expire() -> void:
 	if _spent:
 		return
 	_spent = true
-	if explode_on_hit and multiplayer.is_server():
+	if explode_on_hit and NetworkManager.is_match_authority():
 		CombatFx.spawn_explosion(global_position, explode_radius, damage * 0.5, owner_peer, hurts_explorers, hurts_beast)
 	_recycle()
 

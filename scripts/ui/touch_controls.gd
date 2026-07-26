@@ -23,6 +23,8 @@ var _pulse_t := 0.0
 
 
 func _ready() -> void:
+	## Pausable: el HUD padre es ALWAYS (pausa); sin esto el stick apunta en pausa.
+	process_mode = Node.PROCESS_MODE_PAUSABLE
 	visible = DisplayServer.is_touchscreen_available() or OS.has_feature("mobile") or OS.get_name() == "Web"
 	GameTheme.apply(self)
 	_style_buttons()
@@ -116,10 +118,27 @@ func _process(delta: float) -> void:
 	if not visible:
 		return
 	_pulse_t += delta
+	_update_action_label()
 	# Pulso suave en DISPARO para localizarlo
 	var p := 0.92 + 0.08 * sin(_pulse_t * 3.0)
 	btn_action.scale = Vector2(p, p)
 	btn_action.pivot_offset = btn_action.size * 0.5
+
+
+func _update_action_label() -> void:
+	var near_core := false
+	var my_id := multiplayer.get_unique_id() if multiplayer.has_multiplayer_peer() else 1
+	for node in get_tree().get_nodes_in_group("player_characters"):
+		if node is ExplorerPlayer and (node as ExplorerPlayer).peer_id == my_id:
+			var ex := node as ExplorerPlayer
+			near_core = ex.can_channel_core() or ex.is_sabotaging
+			break
+	if near_core:
+		btn_action.text = "HOLD"
+		btn_action.modulate = Color(0.35, 1.0, 0.75)
+	else:
+		btn_action.text = "FIRE"
+		btn_action.modulate = Color.WHITE
 
 
 func _input(event: InputEvent) -> void:

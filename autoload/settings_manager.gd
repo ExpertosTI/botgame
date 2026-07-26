@@ -14,6 +14,8 @@ var music_volume := 0.7
 var muted := false
 var look_sensitivity := 1.0
 var tutorial_seen := false
+## Primera partida guiada (pasos MOVE→FIRE→CORE). Distinto del panel de reglas.
+var match_tutorial_done := false
 var preferred_name := "Robot"
 
 
@@ -35,6 +37,7 @@ func load_settings() -> void:
 	muted = bool(cfg.get_value("audio", "muted", false))
 	look_sensitivity = float(cfg.get_value("input", "look_sensitivity", 1.0))
 	tutorial_seen = bool(cfg.get_value("meta", "tutorial_seen", false))
+	match_tutorial_done = bool(cfg.get_value("meta", "match_tutorial_done", false))
 	preferred_name = str(cfg.get_value("meta", "preferred_name", "Robot"))
 	_clamp_values()
 
@@ -60,6 +63,7 @@ func save_settings() -> void:
 	cfg.set_value("audio", "muted", muted)
 	cfg.set_value("input", "look_sensitivity", look_sensitivity)
 	cfg.set_value("meta", "tutorial_seen", tutorial_seen)
+	cfg.set_value("meta", "match_tutorial_done", match_tutorial_done)
 	cfg.set_value("meta", "preferred_name", preferred_name)
 	cfg.save(SAVE_PATH)
 	_apply_audio()
@@ -82,6 +86,11 @@ func set_look_sensitivity(v: float) -> void:
 
 func mark_tutorial_seen() -> void:
 	tutorial_seen = true
+	save_settings()
+
+
+func mark_match_tutorial_done() -> void:
+	match_tutorial_done = true
 	save_settings()
 
 

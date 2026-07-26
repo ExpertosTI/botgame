@@ -179,7 +179,7 @@ static func make_beast_card(variant: int, selected: bool, locked: bool = false) 
 		GameManager.BeastVariant.MECHA:
 			accent = Color(0.55, 0.55, 0.6); title = "Mecha"; sub = "Slam"
 		GameManager.BeastVariant.SHADOW:
-			accent = Color(0.45, 0.2, 0.7); title = "Sombra"; sub = "Cloak"
+			accent = Color(0.45, 0.2, 0.7); title = "Sombra"; sub = "Camuflaje"
 	var m := _narrow()
 	var h := 110.0 if m else 84.0
 	var mark := badge_mark(accent, h, title)

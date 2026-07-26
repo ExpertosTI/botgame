@@ -1,12 +1,12 @@
 extends "res://tests/test_case.gd"
 
-## Caché de audio procedural.
+## Caché del audio procedural de respaldo.
 ##
-## El audio de CHADRINE se sintetiza en tiempo de ejecución, muestra a muestra, en
-## GDScript. Sin caché, cada disparo horneaba un AudioStreamWAV nuevo: con cinco
-## jugadores disparando eso era trabajo de CPU por frame y basura de recursos
-## constante, algo que en WebAssembly se paga caro. Estos casos fijan que se
-## reutilicen.
+## El juego suena con muestras reales, pero lo sintetizado sigue ahí para cuando
+## una muestra no llegó al export. Esa ruta se sigue pagando en CPU: sin caché,
+## cada disparo horneaba un AudioStreamWAV nuevo muestra a muestra en GDScript, y
+## con cinco jugadores disparando eso es trabajo por frame que en WebAssembly se
+## paga caro. Estos casos fijan que se reutilicen.
 
 
 func suite_name() -> String:
@@ -15,14 +15,25 @@ func suite_name() -> String:
 
 func run() -> void:
 	var was_muted: bool = SettingsManager.muted
+	var saved_samples: Dictionary = AudioDirector._samples.duplicate()
 	# Silenciado no se sintetiza nada, así que la caché no se llenaría.
 	SettingsManager.muted = false
+	_force_procedural()
 	_identical_tones_are_reused()
 	_nearby_frequencies_collapse()
 	_shots_do_not_grow_the_cache_forever()
 	_noise_keeps_some_variety()
 	_delayed_beeps_do_not_leak_timers()
+	AudioDirector._samples = saved_samples
 	SettingsManager.muted = was_muted
+
+
+## Marca todas las muestras como ausentes. Esta suite mide el respaldo, y si
+## dependiera de si los .ogg están importados en la máquina que ejecuta los
+## tests, pasaría o fallaría por motivos ajenos a lo que quiere comprobar.
+func _force_procedural() -> void:
+	for key in AudioDirector.SAMPLES:
+		AudioDirector._samples[key] = null
 
 
 func _identical_tones_are_reused() -> void:

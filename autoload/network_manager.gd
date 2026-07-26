@@ -22,6 +22,8 @@ var local_player_name := "Jugador"
 var selected_map: String = "lab_neon"
 var is_dedicated_server := false
 var is_solo_practice := false
+## Partida rápida: conectar online y, si la sala queda sola, rellenar con bots.
+var quick_play_active := false
 var config: ServerConfig = null
 var last_reject_reason := ""
 var _join_confirmed := false
@@ -41,9 +43,9 @@ const MAP_NAMES := {
 	"ruins": "Ruinas del Núcleo",
 	"reactor_pit": "Pozo Reactor",
 	"skybridge": "Puente Celeste",
-	"castle": "Castillo Kenney",
+	"castle": "Castillo Orbital",
 	"cave": "Cueva Modular",
-	"forest": "Mini Bosque",
+	"forest": "Bosque Modular",
 }
 
 
@@ -142,6 +144,7 @@ func start_solo_practice(player_name: String = "Practicante") -> Error:
 	disconnect_from_game()
 	is_dedicated_server = false
 	is_solo_practice = true
+	quick_play_active = false
 	local_player_name = player_name
 	var offline := OfflineMultiplayerPeer.new()
 	peer = offline
@@ -156,6 +159,33 @@ func start_solo_practice(player_name: String = "Practicante") -> Error:
 	players[1]["ready"] = true
 	server_started.emit()
 	return OK
+
+
+## Un solo botón: intenta online; si la sala no se llena, la partida sigue con bots.
+func begin_quick_play(player_name: String = "Jugador") -> Error:
+	quick_play_active = true
+	local_player_name = player_name
+	var address := get_default_server_url()
+	var err := join_game(address, player_name)
+	if err != OK:
+		quick_play_active = false
+		return start_solo_practice(player_name)
+	return err
+
+
+## Si Quick Play quedó solo en el lobby, corta online y abre práctica lista.
+func fallback_quick_play_to_bots() -> Error:
+	var name := local_player_name if not local_player_name.is_empty() else SettingsManager.preferred_name
+	var keep_map := selected_map
+	quick_play_active = false
+	var err := start_solo_practice(name)
+	if err == OK and keep_map in MAP_IDS:
+		selected_map = keep_map
+	## El lobby debe arrancar solo: sin esto el timeout del menú dejaba al
+	## jugador mirando "JUGAR NIVEL" tras una partida rápida fallida.
+	if err == OK:
+		set_meta("auto_start_after_quick", true)
+	return err
 
 
 func is_bot_peer(peer_id: int) -> bool:
@@ -181,25 +211,62 @@ func prepare_solo_bots() -> void:
 	players[1]["ready"] = true
 
 	if human_role == "beast":
-		# Tú eres bestia → 1 robot bot (Web: menos carga)
-		var bid := BOT_PEER_BASE
-		_add_player(bid, "Bot Robot")
-		players[bid]["role"] = "explorer"
-		players[bid]["ready"] = true
-		players[bid]["skin"] = CharacterCatalog.default_explorer_skin()
-		players[bid]["loadout"] = 0
+		# Cazas a una tripulación, no a un robot suelto.
+		for i in _practice_crew_size():
+			_add_bot_explorer(BOT_PEER_BASE + i, i)
 	else:
-		# Tú eres robot → 1 bestia bot
+		# Una Bestia y el resto de la tripulación: hasta ahora la práctica era 1
+		# contra 1, así que la fantasía del juego —1 Bestia contra 4 Robots— no
+		# existía en ninguna parte fuera de una sala online con gente.
 		var bid := BOT_PEER_BASE
 		_add_player(bid, "Bot Bestia")
 		players[bid]["role"] = "beast"
 		players[bid]["ready"] = true
 		players[bid]["skin"] = CharacterCatalog.index_of_id("beast_classic")
+		for i in _practice_crew_size() - 1:
+			_add_bot_explorer(BOT_PEER_BASE + 1 + i, i)
 
 	GameManager.easy_beast_mode = true
 	if config:
 		config.easy_beast_mode = true
 	players_updated.emit()
+
+
+## Tamaño de la tripulación en práctica. En web se recorta uno: cada bot añade
+## un personaje con física y IA propias, y el navegador es el suelo de
+## rendimiento del proyecto.
+func _practice_crew_size() -> int:
+	return 3 if OS.has_feature("web") else 4
+
+
+## Los aliados tienen que distinguirse entre sí: en partida no se leen etiquetas,
+## se reconoce al compañero por su color y su silueta.
+func _add_bot_explorer(bot_id: int, slot: int) -> void:
+	_add_player(bot_id, "Robot")
+	players[bot_id]["skin"] = _free_explorer_skin(slot)
+	var skin: int = int(players[bot_id]["skin"])
+	players[bot_id]["name"] = "Bot %s" % CharacterCatalog.display_name(skin)
+	players[bot_id]["role"] = "explorer"
+	players[bot_id]["ready"] = true
+	players[bot_id]["loadout"] = slot % 4
+
+
+## Primer aspecto que no esté ya en la sala. Antes se elegía por posición y se
+## esquivaba el del humano sumando uno, lo que empujaba al bot justo encima del
+## aspecto del aliado anterior: dos robots idénticos en pantalla.
+func _free_explorer_skin(slot: int) -> int:
+	var skins: Array = CharacterCatalog.explorer_indices()
+	if skins.is_empty():
+		return CharacterCatalog.default_explorer_skin()
+	var taken: Array = []
+	for info in players.values():
+		if str((info as Dictionary).get("role", "")) == "explorer":
+			taken.append(int((info as Dictionary).get("skin", -1)))
+	for i in skins.size():
+		var candidate: int = int(skins[(slot + i) % skins.size()])
+		if not taken.has(candidate):
+			return candidate
+	return int(skins[slot % skins.size()])
 
 
 func join_game(address: String = "", player_name: String = "Jugador") -> Error:
@@ -220,6 +287,7 @@ func join_game(address: String = "", player_name: String = "Jugador") -> Error:
 	var ws := WebSocketMultiplayerPeer.new()
 	var err: Error = ws.create_client(address)
 	if err != OK:
+		quick_play_active = false
 		return err
 	peer = ws
 	multiplayer.multiplayer_peer = ws
@@ -229,17 +297,33 @@ func join_game(address: String = "", player_name: String = "Jugador") -> Error:
 func disconnect_from_game() -> void:
 	if peer:
 		peer.close()
-		peer = null
+	peer = null
+	if multiplayer:
+		multiplayer.multiplayer_peer = null
 	players.clear()
-	_join_confirmed = false
+	is_dedicated_server = false
 	is_solo_practice = false
-	multiplayer.multiplayer_peer = null
+	quick_play_active = false
+	_join_confirmed = false
+	last_reject_reason = ""
+	rtt_ms = -1.0
+	_ping_pending = false
 
 
 func is_host() -> bool:
 	## En dedicated server, el "host" de lobby es el servidor (peer 1).
 	## Los clientes usan RPC al servidor para acciones de lobby.
 	return multiplayer.has_multiplayer_peer() and multiplayer.is_server()
+
+
+func is_match_authority() -> bool:
+	## Quién simula combate / victoria / hazards.
+	## OfflineMultiplayerPeer en Web a veces no reporta is_server().
+	if is_solo_practice:
+		return true
+	if not multiplayer.has_multiplayer_peer():
+		return true
+	return multiplayer.is_server()
 
 
 func can_start_match() -> bool:
@@ -387,6 +471,7 @@ func _on_peer_disconnected(id: int) -> void:
 	players_updated.emit()
 	if multiplayer.is_server():
 		_broadcast_lobby()
+		GameManager.handle_peer_left(id)
 
 
 func _on_connected_to_server() -> void:
@@ -478,6 +563,7 @@ func _request_return_lobby() -> void:
 
 @rpc("authority", "call_local", "reliable")
 func _return_to_lobby_rpc() -> void:
+	GameManager.abort_match()
 	# Mantener flag solo al rematchear práctica
 	var keep_solo := is_solo_practice
 	for pid in players:
@@ -511,8 +597,12 @@ func set_player_role(peer_id: int, role: String) -> void:
 			if players[pid].get("role", "") == "beast" and int(pid) != peer_id:
 				players[pid]["role"] = "explorer"
 				players[pid]["ready"] = false
+	## Solo borrar LISTO si el rol cambió de verdad. Si no, Quick Play
+	## (submit_role → submit_ready) pierde el ready cuando el RPC de rol llega tarde.
+	var prev := str(players[peer_id].get("role", ""))
 	players[peer_id]["role"] = role
-	players[peer_id]["ready"] = false
+	if prev != role:
+		players[peer_id]["ready"] = false
 	_broadcast_lobby()
 
 
@@ -651,9 +741,8 @@ func request_start_match() -> void:
 		var match_time := -1.0
 		var beast_hp := 1.0
 		ProgressionManager.campaign_mode = true
-		# Solitario: mapa elegido por el jugador; no forzar el del nivel
-		if selected_map not in MAP_IDS:
-			selected_map = ProgressionManager.force_campaign_map()
+		## JUGAR NIVEL: el teatro debe ser el del nivel o no avanza campaña.
+		selected_map = ProgressionManager.force_campaign_map()
 		var lv := ProgressionManager.current_level()
 		cores = int(lv.get("cores", 5))
 		match_time = float(lv.get("time", 240))

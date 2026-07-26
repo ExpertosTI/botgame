@@ -140,6 +140,7 @@ func open_pause() -> void:
 	_open = true
 	visible = true
 	get_tree().paused = true
+	InputManager.clear_touch_held()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
@@ -149,6 +150,16 @@ func close_pause() -> void:
 	_open = false
 	visible = false
 	get_tree().paused = false
+	InputManager.clear_touch_held()
+	## Desktop FPS: sin esto Esc→Continuar deja el ratón libre y la mirada muere.
+	## Side-cam / web no usan capture.
+	var side := (
+		DisplayServer.is_touchscreen_available()
+		or OS.has_feature("mobile")
+		or OS.has_feature("web")
+	)
+	if not side:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	resumed.emit()
 
 
@@ -166,6 +177,7 @@ func is_open() -> bool:
 func _on_quit() -> void:
 	close_pause()
 	quit_requested.emit()
+	GameManager.abort_match()
 	NetworkManager.disconnect_from_game()
 	get_tree().change_scene_to_file("res://scenes/main/menu.tscn")
 

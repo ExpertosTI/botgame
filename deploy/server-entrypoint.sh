@@ -20,5 +20,5 @@ if command -v ldd >/dev/null 2>&1; then
 fi
 
 echo "[botgame-server] starting headless (port ${BOTGAME_WS_PORT:-7777})..."
-# --headless implica display headless en 4.3; Dummy evita audio
+# --headless implica display headless en 4.6; Dummy evita audio
 exec "$BIN" --headless --audio-driver Dummy -- --server
