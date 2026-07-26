@@ -1,6 +1,10 @@
 class_name Projectile
 extends Area3D
 
+## Proyectil reciclable. Lo entrega y recoge FxPool: setup() puede llamarse
+## muchas veces sobre el mismo nodo, así que la malla, la forma de colisión y la
+## conexión de la señal se construyen una sola vez.
+
 signal hit_body(body: Node3D)
 
 var velocity := Vector3.ZERO
@@ -13,11 +17,16 @@ var explode_on_hit := false
 var explode_radius := 2.0
 var slow_amount := 0.0
 var slow_duration := 0.0
+
 var _age := 0.0
+var _spent := false
 var _mesh: MeshInstance3D
+var _shape: SphereShape3D
+var _collider: CollisionShape3D
 
 
 func setup(from: Vector3, dir: Vector3, data: Dictionary, peer: int, vs_explorers: bool = false) -> void:
+	_ensure_nodes()
 	global_position = from
 	velocity = dir.normalized() * float(data.get("speed", 20.0))
 	damage = float(data.get("damage", 10))
@@ -29,35 +38,39 @@ func setup(from: Vector3, dir: Vector3, data: Dictionary, peer: int, vs_explorer
 	explode_radius = float(data.get("explode_radius", 2.0))
 	slow_amount = float(data.get("slow", 0.0))
 	slow_duration = float(data.get("slow_duration", 0.0))
-	_build_mesh(data.get("color", Color.WHITE), float(data.get("radius", 0.12)))
-	body_entered.connect(_on_body_entered)
-	# Capa: proyectiles detectan jugadores
+	_age = 0.0
+	_spent = false
+
+	var radius: float = float(data.get("radius", 0.12))
+	var color: Color = data.get("color", Color.WHITE)
+	_mesh.mesh = FxAssets.sphere(radius)
+	_mesh.material_override = FxAssets.emissive(color, 3.0)
+	_mesh.rotation = Vector3.ZERO
+	_shape.radius = radius
+
 	collision_layer = 8
 	collision_mask = 2 | 1  # players + world
 	monitoring = true
+	visible = true
 
 
-func _build_mesh(color: Color, radius: float) -> void:
+func _ensure_nodes() -> void:
+	if _mesh != null:
+		return
 	_mesh = MeshInstance3D.new()
-	var sphere := SphereMesh.new()
-	sphere.radius = radius
-	sphere.height = radius * 2.0
-	_mesh.mesh = sphere
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = color
-	mat.emission_enabled = true
-	mat.emission = color
-	mat.emission_energy_multiplier = 3.0
-	_mesh.material_override = mat
+	_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_mesh.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
 	add_child(_mesh)
-	var col := CollisionShape3D.new()
-	var shape := SphereShape3D.new()
-	shape.radius = radius
-	col.shape = shape
-	add_child(col)
+	_shape = SphereShape3D.new()
+	_collider = CollisionShape3D.new()
+	_collider.shape = _shape
+	add_child(_collider)
+	body_entered.connect(_on_body_entered)
 
 
 func _physics_process(delta: float) -> void:
+	if _spent:
+		return
 	_age += delta
 	if _age >= lifetime:
 		_expire()
@@ -68,7 +81,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _on_body_entered(body: Node3D) -> void:
-	if body is Projectile:
+	if _spent or body is Projectile:
 		return
 	if body is CharacterBody3D:
 		var player := body as CharacterBody3D
@@ -92,12 +105,36 @@ func _on_body_entered(body: Node3D) -> void:
 
 
 func _impact(pos: Vector3) -> void:
+	if _spent:
+		return
+	_spent = true
+	CombatVfx.flash(self, pos, _impact_color(), 0.2)
 	if explode_on_hit and multiplayer.is_server():
 		CombatFx.spawn_explosion(pos, explode_radius, damage * 0.6, owner_peer, hurts_explorers, hurts_beast)
-	queue_free()
+	_recycle()
 
 
 func _expire() -> void:
+	if _spent:
+		return
+	_spent = true
 	if explode_on_hit and multiplayer.is_server():
 		CombatFx.spawn_explosion(global_position, explode_radius, damage * 0.5, owner_peer, hurts_explorers, hurts_beast)
-	queue_free()
+	_recycle()
+
+
+## FxPool nos pide el turno porque llegó al techo de proyectiles vivos.
+func recycle_now() -> void:
+	_spent = true
+	_recycle()
+
+
+func _recycle() -> void:
+	velocity = Vector3.ZERO
+	monitoring = false
+	FxPool.release_projectile(self)
+
+
+func _impact_color() -> Color:
+	var mat := _mesh.material_override as StandardMaterial3D if _mesh else null
+	return mat.albedo_color if mat != null else Color.WHITE

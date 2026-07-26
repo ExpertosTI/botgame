@@ -188,11 +188,17 @@ func _void_spawn_position() -> Vector3:
 	if self is BeastPlayer:
 		var beast_spawns := get_tree().get_nodes_in_group("beast_spawn")
 		if not beast_spawns.is_empty():
-			return beast_spawns[0].global_position + Vector3(0, 0.5, 0)
+			var lair := beast_spawns[0] as Node3D
+			if lair != null:
+				return lair.global_position + Vector3(0, 0.5, 0)
 	var spawns := get_tree().get_nodes_in_group("explorer_spawns")
 	if not spawns.is_empty():
-		var idx := abs(peer_id) % spawns.size()
-		return spawns[idx].global_position + Vector3(0, 0.5, 0)
+		# absi(), no abs(): abs() devuelve Variant y el := no infiere → el script
+		# entero deja de compilar y se lleva a combat_kit/combat_fx con él.
+		var idx: int = absi(peer_id) % spawns.size()
+		var spawn := spawns[idx] as Node3D
+		if spawn != null:
+			return spawn.global_position + Vector3(0, 0.5, 0)
 	return Vector3(0, 2, 0)
 
 

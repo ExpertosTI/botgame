@@ -10,7 +10,7 @@ signal sabotaged
 
 var is_active := true
 var sabotage_progress := 0.0
-var variant: int = ObjectiveVariants.Variant.STANDARD
+var variant: int = ObjectiveVariants.Kind.STANDARD
 var sabotage_time_mult := 1.0
 var _ring: MeshInstance3D
 
@@ -22,14 +22,14 @@ func _ready() -> void:
 
 func apply_variant(v: int) -> void:
 	variant = v
-	sabotage_time_mult = ObjectiveVariants.sabotage_mult(v as ObjectiveVariants.Variant)
+	sabotage_time_mult = ObjectiveVariants.sabotage_mult(v as ObjectiveVariants.Kind)
 	_apply_visual()
 
 
 func _apply_visual() -> void:
 	if mesh == null:
 		return
-	var tint := ObjectiveVariants.tint(variant as ObjectiveVariants.Variant)
+	var tint := ObjectiveVariants.tint(variant as ObjectiveVariants.Kind)
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = tint
 	mat.metallic = 0.35
@@ -69,10 +69,10 @@ func _apply_visual() -> void:
 		add_child(light)
 
 	# Etiqueta flotante de variante
-	if variant != ObjectiveVariants.Variant.STANDARD and not has_meta("labeled"):
+	if variant != ObjectiveVariants.Kind.STANDARD and not has_meta("labeled"):
 		set_meta("labeled", true)
 		var lab := Label3D.new()
-		lab.text = ObjectiveVariants.label(variant as ObjectiveVariants.Variant)
+		lab.text = ObjectiveVariants.label(variant as ObjectiveVariants.Kind)
 		lab.font_size = 48
 		lab.modulate = tint
 		lab.position = Vector3(0, 2.1, 0)
@@ -105,7 +105,7 @@ func _destroy() -> void:
 @rpc("any_peer", "call_local", "reliable")
 func _play_destroy_effect() -> void:
 	AudioDirector.play_core()
-	var tint := ObjectiveVariants.tint(variant as ObjectiveVariants.Variant)
+	var tint := ObjectiveVariants.tint(variant as ObjectiveVariants.Kind)
 	CombatVfx.burst(self, global_position + Vector3.UP, tint, 2.2, 16)
 	CombatVfx.ring(self, global_position, tint, 3.0)
 	if particles:

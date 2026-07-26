@@ -8,8 +8,10 @@ const GAME_SHORT := "CHADRINE"
 const TAGLINE := "Hangar · Online asimétrico · Campaña"
 const PUBLISHER := "Renace Tech"
 const DEVELOPER := "Expertos TI / Renace"
-const VERSION := "1.3.2"
-const VERSION_CODE := 132
+## Fuente única de verdad. project.godot debe coincidir: lo verifica
+## tests/cases/identity_test.gd.
+const VERSION := "1.4.0"
+const VERSION_CODE := 140
 const COPYRIGHT_YEAR := "2026"
 const SUPPORT_URL := "https://botgame.renace.tech"
 const PRIVACY_URL := "https://botgame.renace.tech/privacy"

@@ -37,22 +37,9 @@ func _spawn_vfx() -> void:
 	CombatVfx.burst(self, global_position, Color(1.0, 0.55, 0.1), radius * 0.9, 12)
 	CombatVfx.ring(self, global_position, Color(1.0, 0.4, 0.05), radius)
 	AudioDirector.play_explosion()
-	var mesh := MeshInstance3D.new()
-	var sphere := SphereMesh.new()
-	sphere.radius = 0.3
-	sphere.height = 0.6
-	mesh.mesh = sphere
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(1.0, 0.55, 0.1, 0.9)
-	mat.emission_enabled = true
-	mat.emission = Color(1.0, 0.4, 0.05)
-	mat.emission_energy_multiplier = 5.0
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mesh.material_override = mat
-	add_child(mesh)
-	var tween := create_tween()
-	tween.tween_property(mesh, "scale", Vector3.ONE * (radius * 2.2), 0.25)
-	tween.parallel().tween_property(mat, "albedo_color:a", 0.0, 0.35)
+	# La bola de fuego es otro one-shot del pool: no hace falta malla ni material
+	# propios que morirán en 0.3 s.
+	FxPool.flash(global_position, Color(1.0, 0.5, 0.08), maxf(radius * 0.45, 0.3), 0.3)
 
 
 func _apply_damage() -> void:

@@ -7,7 +7,7 @@ config_version=5
 
 config/name="CHADRINE"
 config/description="CHADRINE Hub · asimétrico, platformer, FPS y city builder. © Renace Tech."
-config/version="1.3.2"
+config/version="1.4.0"
 config/author="Renace Tech / Expertos TI"
 run/main_scene="res://scenes/main/intro.tscn"
 config/features=PackedStringArray("4.3", "GL Compatibility")
@@ -23,6 +23,7 @@ boot_splash/minimum_display_time=900
 NetworkManager="*res://autoload/network_manager.gd"
 GameManager="*res://autoload/game_manager.gd"
 InputManager="*res://autoload/input_manager.gd"
+FxPool="*res://autoload/fx_pool.gd"
 CombatFx="*res://autoload/combat_fx.gd"
 ProgressionManager="*res://autoload/progression_manager.gd"
 SettingsManager="*res://autoload/settings_manager.gd"
@@ -32,6 +33,8 @@ ModeRouter="*res://autoload/mode_router.gd"
 CharacterCatalog="*res://autoload/character_catalog.gd"
 PresenceHttp="*res://autoload/presence_http.gd"
 OnlineInvite="*res://autoload/online_invite.gd"
+Audio="*res://autoload/mode_audio_pool.gd"
+DebugOverlay="*res://autoload/debug_overlay.gd"
 
 [display]
 

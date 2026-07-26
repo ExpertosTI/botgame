@@ -22,6 +22,12 @@ var shielded := false
 var cloaked := false
 var slowed := false
 var _buff_timers: Dictionary = {}
+## El HUD solo necesita refrescar unas 10 veces por segundo. Emitir
+## cooldowns_updated en cada frame y por cada jugador reconstruía etiquetas 60
+## veces por segundo por nada.
+const HUD_REFRESH_HZ := 10.0
+var _hud_accum := 0.0
+var _cds_dirty := false
 
 
 func setup(player: PlayerBase, beast: bool, variant: int) -> void:
@@ -41,13 +47,30 @@ func setup(player: PlayerBase, beast: bool, variant: int) -> void:
 
 func _process(delta: float) -> void:
 	for k in weapon_cds.keys():
-		weapon_cds[k] = maxf(weapon_cds[k] - delta, 0.0)
+		var before: float = weapon_cds[k]
+		if before <= 0.0:
+			continue
+		weapon_cds[k] = maxf(before - delta, 0.0)
+		_cds_dirty = true
 	for k in ability_cds.keys():
-		ability_cds[k] = maxf(ability_cds[k] - delta, 0.0)
+		var before: float = ability_cds[k]
+		if before <= 0.0:
+			continue
+		ability_cds[k] = maxf(before - delta, 0.0)
+		_cds_dirty = true
 	for key in _buff_timers.keys():
 		_buff_timers[key] -= delta
 		if _buff_timers[key] <= 0.0:
 			_clear_buff(key)
+			_cds_dirty = true
+
+	if not _cds_dirty:
+		return
+	_hud_accum += delta
+	if _hud_accum < 1.0 / HUD_REFRESH_HZ:
+		return
+	_hud_accum = 0.0
+	_cds_dirty = false
 	cooldowns_updated.emit()
 
 
@@ -100,7 +123,10 @@ func execute_server_fire(weapon_id: int, origin: Vector3, dir: Vector3, peer: in
 func _server_fire(weapon_id: int, origin: Vector3, dir: Vector3, peer: int, beast: bool) -> void:
 	var data: Dictionary = WeaponDefs.weapon_data(weapon_id)
 	var vs_explorers := beast
-	match data.get("type", ""):
+	var type_s := str(data.get("type", ""))
+	if type_s in ["projectile", "shotgun", "grenade"]:
+		CombatFx.replicate_muzzle(origin, data.get("color", Color.WHITE))
+	match type_s:
 		"melee":
 			CombatFx.replicate_melee(peer, weapon_id, beast)
 		"projectile":

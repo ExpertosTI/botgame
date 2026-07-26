@@ -25,6 +25,13 @@ var is_solo_practice := false
 var config: ServerConfig = null
 var last_reject_reason := ""
 var _join_confirmed := false
+## Latencia ida y vuelta al servidor, en ms. WebSocketMultiplayerPeer no la
+## expone, así que se mide con un ping propio a 1 Hz.
+var rtt_ms := -1.0
+const PING_INTERVAL := 1.0
+var _ping_accum := 0.0
+var _ping_sent_at := 0.0
+var _ping_pending := false
 
 const BOT_PEER_BASE := 9001
 const MAP_IDS := ["lab_neon", "containers", "ruins", "reactor_pit", "skybridge", "castle", "cave", "forest"]
@@ -54,6 +61,40 @@ func _ready() -> void:
 	# Arranque headless: godot --headless --path . -- --server
 	if _wants_dedicated_server():
 		start_dedicated_server()
+
+
+func _process(delta: float) -> void:
+	if is_dedicated_server or is_solo_practice:
+		return
+	if not multiplayer.has_multiplayer_peer() or multiplayer.is_server():
+		return
+	_ping_accum += delta
+	if _ping_accum < PING_INTERVAL:
+		return
+	_ping_accum = 0.0
+	if _ping_pending:
+		# El pong anterior no llegó: la latencia es al menos lo que llevamos
+		# esperando, y así el HUD no se queda con un número viejo y optimista.
+		rtt_ms = (Time.get_ticks_msec() - _ping_sent_at)
+	_ping_sent_at = Time.get_ticks_msec()
+	_ping_pending = true
+	_ping.rpc_id(1, multiplayer.get_unique_id())
+
+
+@rpc("any_peer", "unreliable")
+func _ping(from_peer: int) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	_pong.rpc_id(sender if sender != 0 else from_peer)
+
+
+@rpc("authority", "unreliable")
+func _pong() -> void:
+	if not _ping_pending:
+		return
+	_ping_pending = false
+	rtt_ms = Time.get_ticks_msec() - _ping_sent_at
 
 
 func _wants_dedicated_server() -> bool:
@@ -234,13 +275,28 @@ func _normalize_players(raw: Dictionary) -> Dictionary:
 		if typeof(info) != TYPE_DICTIONARY:
 			continue
 		var d: Dictionary = (info as Dictionary).duplicate(true)
-		d["ready"] = bool(d.get("ready", false))
-		d["skin"] = int(d.get("skin", CharacterCatalog.default_explorer_skin()))
-		d["loadout"] = int(d.get("loadout", 0))
+		d["ready"] = _truthy(d.get("ready", false))
+		d["skin"] = clampi(int(d.get("skin", CharacterCatalog.default_explorer_skin())), 0, maxi(0, CharacterCatalog.count() - 1))
+		d["loadout"] = clampi(int(d.get("loadout", 0)), 0, 3)
 		d["role"] = str(d.get("role", ""))
 		d["name"] = str(d.get("name", "?"))
 		out[pid] = d
 	return out
+
+
+## bool(String) no existe en GDScript: un payload con "true" en vez de true
+## abortaba la normalización y dejaba el lobby vacío.
+func _truthy(value: Variant) -> bool:
+	match typeof(value):
+		TYPE_BOOL:
+			return value
+		TYPE_INT, TYPE_FLOAT:
+			return float(value) != 0.0
+		TYPE_STRING, TYPE_STRING_NAME:
+			var s := str(value).to_lower()
+			return s == "true" or s == "1" or s == "yes"
+		_:
+			return false
 
 
 func get_player(peer_id: int) -> Dictionary:

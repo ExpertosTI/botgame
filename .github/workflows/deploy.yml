@@ -25,10 +25,16 @@ permissions:
   contents: read
 
 jobs:
+  ## Gate: nada llega a producción sin la suite headless en verde.
+  quality:
+    name: Quality gate
+    uses: ./.github/workflows/quality.yml
+
   deploy:
     name: Deploy to RenaceNet
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    needs: quality
     if: github.repository == 'ExpertosTI/botgame' || github.event_name == 'workflow_dispatch'
 
     steps:
@@ -71,17 +77,53 @@ jobs:
             chmod +x deploy.sh
             sudo ./deploy.sh "$DEPLOY_CMD"
 
-      - name: Verify HTTPS
+      ## deploy.sh ya corre su propio smoke con rollback automático. Esto es la
+      ## verificación externa: confirma desde fuera del VPS que la build que
+      ## quedó puesta corresponde a este commit y es jugable.
+      - name: Smoke externo
         if: ${{ (github.event.inputs.command || 'update') != 'status' }}
+        env:
+          BASE: ${{ secrets.BOTGAME_HEALTH_URL || 'https://botgame.renace.tech' }}
         run: |
-          URL="${{ secrets.BOTGAME_HEALTH_URL || 'https://botgame.renace.tech/' }}"
-          echo "Checking $URL"
-          for i in $(seq 1 24); do
-            if curl -fsSI "$URL" >/dev/null 2>&1; then
-              echo "Health OK"
-              exit 0
-            fi
-            echo "Waiting... ($i/24)"
-            sleep 5
-          done
-          echo "::warning::Health check no respondió aún (¿export web / DNS?)"
+          set -uo pipefail
+          BASE="${BASE%/}"
+          fail=0
+
+          check() {
+            local path="$1" expect="$2" label="$3" code
+            for i in $(seq 1 20); do
+              code=$(curl -sS -m 15 -o /dev/null -w '%{http_code}' "${BASE}${path}" || echo 000)
+              [ "$code" = "$expect" ] && { echo "ok   $label ($code)"; return 0; }
+              sleep 6
+            done
+            echo "::error::$label devolvió HTTP $code (esperado $expect)"
+            fail=1
+          }
+
+          check "/" 200 "landing"
+          check "/play/index.html" 200 "juego"
+          check "/play/index.wasm" 200 "wasm"
+          check "/play/index.pck" 200 "pck"
+
+          served=$(curl -sS -m 15 "${BASE}/version.json" \
+            | sed -n 's/.*"build"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+          short="$(echo "${{ github.sha }}" | cut -c1-7)"
+          if [ "$served" != "$short" ]; then
+            echo "::error::version.json sirve '$served' pero el commit es '$short'"
+            fail=1
+          else
+            echo "ok   version.json = $served"
+          fi
+
+          ws=$(curl -sS -m 15 -o /dev/null -w '%{http_code}' \
+            -H "Connection: Upgrade" -H "Upgrade: websocket" \
+            -H "Sec-WebSocket-Version: 13" -H "Sec-WebSocket-Key: c2hha2VzcGVhcmUxMjM0" \
+            "${BASE}/ws" || echo 000)
+          if [ "$ws" != "101" ]; then
+            echo "::error::WebSocket /ws devolvió HTTP $ws (esperado 101)"
+            fail=1
+          else
+            echo "ok   WebSocket /ws"
+          fi
+
+          exit "$fail"

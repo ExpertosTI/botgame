@@ -1,0 +1,89 @@
+name: Quality gate
+
+## Corre antes que el deploy (deploy.yml espera a este workflow). Todo lo que
+## necesita es el binario 4.3 headless: los tests generan el cache de clases
+## globales por su cuenta, así que no hay que reimportar ~190 MB de assets.
+
+on:
+  pull_request:
+  workflow_dispatch:
+  ## deploy.yml lo invoca como gate previo (jobs.quality.uses).
+  workflow_call:
+
+concurrency:
+  group: chadrine-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  GODOT_VERSION: "4.3-stable"
+
+jobs:
+  tests:
+    name: Tests headless
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache del binario Godot
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot-bin
+          key: godot-${{ env.GODOT_VERSION }}-linux
+
+      - name: Descargar Godot ${{ env.GODOT_VERSION }}
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p ~/godot-bin
+          ZIP="Godot_v${GODOT_VERSION}_linux.x86_64.zip"
+          curl -fL --retry 3 -o "$ZIP" \
+            "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/${ZIP}"
+          unzip -qo "$ZIP" -d ~/godot-bin
+          chmod +x ~/godot-bin/Godot_v${GODOT_VERSION}_linux.x86_64
+
+      - name: Suite headless
+        run: |
+          set -euo pipefail
+          export GODOT_BIN="$HOME/godot-bin/Godot_v${GODOT_VERSION}_linux.x86_64"
+          chmod +x scripts/run_tests.sh
+          ./scripts/run_tests.sh
+
+      - name: Reporte de fallos
+        if: failure()
+        run: |
+          echo "### Suite headless en rojo" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tail -60 /tmp/chadrine-tests.log 2>/dev/null || echo "(sin log)" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+  hygiene:
+    name: Higiene de scripts de deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sintaxis de los scripts de deploy
+        run: |
+          set -euo pipefail
+          for f in deploy.sh scripts/*.sh; do
+            echo "· $f"
+            bash -n "$f"
+          done
+          python3 -m py_compile scripts/gen_class_cache.py
+
+      - name: El contexto de build sigue acotado
+        run: |
+          set -euo pipefail
+          test -f .dockerignore || { echo "::error::falta .dockerignore"; exit 1; }
+          for entry in assets .git scripts scenes; do
+            grep -qx "$entry" .dockerignore || {
+              echo "::error::.dockerignore ya no excluye '$entry'; el build del VPS volverá a llenar el disco"
+              exit 1
+            }
+          done

@@ -11,6 +11,7 @@ modes
 scenes
 scripts
 shaders
+tests
 autoload
 _tmp_kits
 *.import

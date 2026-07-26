@@ -2,7 +2,6 @@ extends Node
 
 ## FX de combate + puerta de disparo (ruta fija /root/CombatFx para RPC).
 
-const PROJECTILE_SCRIPT := preload("res://scripts/combat/projectile.gd")
 const EXPLOSION_SCRIPT := preload("res://scripts/combat/explosion.gd")
 
 
@@ -89,8 +88,21 @@ func replicate_shot(from: Vector3, dir: Vector3, data: Dictionary, peer: int, vs
 
 @rpc("authority", "call_local", "reliable")
 func _shot_rpc(from: Vector3, dir: Vector3, data: Dictionary, peer: int, vs_explorers: bool) -> void:
-	_local_muzzle(from, data.get("color", Color.WHITE))
 	_local_projectile(from, dir, data, peer, vs_explorers)
+
+
+## El fogonazo es de la ráfaga, no del perdigón: la escopeta llamaba a _shot_rpc
+## cinco veces y encendía cinco destellos en el mismo punto.
+func replicate_muzzle(from: Vector3, color: Color) -> void:
+	if multiplayer.has_multiplayer_peer() and multiplayer.is_server():
+		_muzzle_rpc.rpc(from, color)
+	else:
+		_muzzle_rpc(from, color)
+
+
+@rpc("authority", "call_local", "unreliable")
+func _muzzle_rpc(from: Vector3, color: Color) -> void:
+	_local_muzzle(from, color)
 
 
 func replicate_explosion(pos: Vector3, radius: float, damage: float, peer: int, vs_explorers: bool, vs_beast: bool) -> void:
@@ -160,12 +172,9 @@ func spawn_muzzle_flash(pos: Vector3, color: Color) -> void:
 
 
 func _local_projectile(from: Vector3, dir: Vector3, data: Dictionary, peer: int, vs_explorers: bool) -> void:
-	var p := Area3D.new()
-	p.set_script(PROJECTILE_SCRIPT)
-	var root := get_tree().current_scene
-	if root == null:
+	var p := FxPool.acquire_projectile()
+	if p == null:
 		return
-	root.add_child(p, true)
 	p.setup(from, dir, data, peer, vs_explorers)
 
 
@@ -180,22 +189,6 @@ func _local_explosion(pos: Vector3, radius: float, damage: float, peer: int, vs_
 
 
 func _local_muzzle(pos: Vector3, color: Color) -> void:
-	CombatVfx.flash(self, pos, color, 0.22)
-	var mesh := MeshInstance3D.new()
-	var sphere := SphereMesh.new()
-	sphere.radius = 0.22
-	mesh.mesh = sphere
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = color
-	mat.emission_enabled = true
-	mat.emission = color
-	mat.emission_energy_multiplier = 4.0
-	mesh.material_override = mat
-	var root := get_tree().current_scene
-	if root == null:
-		return
-	root.add_child(mesh)
-	mesh.global_position = pos
-	var tween := mesh.create_tween()
-	tween.tween_property(mesh, "scale", Vector3.ONE * 2.2, 0.07)
-	tween.tween_callback(mesh.queue_free)
+	## Un destello, no dos: antes esto pintaba el flash del pool y además su
+	## propia esfera con material nuevo, exactamente encima.
+	FxPool.flash(pos, color, 0.24, 0.1)

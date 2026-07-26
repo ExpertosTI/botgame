@@ -5,6 +5,10 @@ extends Node
 signal progress_changed
 
 const SAVE_PATH := "user://botgame_progress.cfg"
+const BACKUP_PATH := "user://botgame_progress.bak.cfg"
+## 1 = builds ≤ 1.3.x (sin campo de versión). Subir al cambiar el formato y
+## añadir la migración correspondiente en _migrate().
+const SCHEMA_VERSION := 2
 
 ## 12 niveles — 5 mapas + reglas crecientes.
 const CAMPAIGN := [
@@ -43,25 +47,57 @@ func _ready() -> void:
 
 
 func load_progress() -> void:
-	var cfg := ConfigFile.new()
-	if cfg.load(SAVE_PATH) != OK:
-		_defaults()
+	if _read_from(SAVE_PATH):
+		return
+	if _read_from(BACKUP_PATH):
+		push_warning("[progresión] save principal ilegible; restaurado desde el respaldo")
 		save_progress()
 		return
+	_defaults()
+	save_progress()
+
+
+func _read_from(path: String) -> bool:
+	var cfg := ConfigFile.new()
+	if cfg.load(path) != OK:
+		return false
+	var schema := int(cfg.get_value("meta", "schema_version", 1))
+	if schema > SCHEMA_VERSION:
+		# Save de una build más nueva: no lo degradamos, arrancamos limpio.
+		push_warning("[progresión] save de schema %d (esta build lee %d)" % [schema, SCHEMA_VERSION])
+		return false
 	campaign_index = int(cfg.get_value("meta", "campaign_index", 0))
 	selected_level = int(cfg.get_value("meta", "selected_level", campaign_index))
 	wins_total = int(cfg.get_value("meta", "wins_total", 0))
 	matches_played = int(cfg.get_value("meta", "matches_played", 0))
 	campaign_complete = bool(cfg.get_value("meta", "campaign_complete", false))
 	best_score = int(cfg.get_value("meta", "best_score", 0))
-	unlocked_maps = cfg.get_value("unlock", "maps", ["lab_neon"])
-	unlocked_loadouts = cfg.get_value("unlock", "loadouts", [0, 1])
-	unlocked_beasts = cfg.get_value("unlock", "beasts", [0, 1])
+	unlocked_maps = _as_array(cfg.get_value("unlock", "maps", all_map_ids()))
+	unlocked_loadouts = _as_array(cfg.get_value("unlock", "loadouts", [0, 1]))
+	unlocked_beasts = _as_array(cfg.get_value("unlock", "beasts", [0, 1]))
+	_migrate(schema)
 	_normalize()
+	return true
+
+
+func _as_array(value: Variant) -> Array:
+	## Un save corrupto puede traer cualquier cosa; nunca dejamos pasar no-Array.
+	if value is Array:
+		return (value as Array).duplicate()
+	return []
+
+
+func _migrate(from_schema: int) -> void:
+	if from_schema >= SCHEMA_VERSION:
+		return
+	if from_schema < 2:
+		# 1 → 2: los teatros dejaron de ser desbloqueables (ver docs/GDD.md).
+		unlocked_maps = all_map_ids()
 
 
 func save_progress() -> void:
 	var cfg := ConfigFile.new()
+	cfg.set_value("meta", "schema_version", SCHEMA_VERSION)
 	cfg.set_value("meta", "campaign_index", campaign_index)
 	cfg.set_value("meta", "selected_level", selected_level)
 	cfg.set_value("meta", "wins_total", wins_total)
@@ -71,7 +107,15 @@ func save_progress() -> void:
 	cfg.set_value("unlock", "maps", unlocked_maps)
 	cfg.set_value("unlock", "loadouts", unlocked_loadouts)
 	cfg.set_value("unlock", "beasts", unlocked_beasts)
+	# Respaldo del último save bueno antes de sobreescribir: si el proceso muere
+	# a mitad de escritura (Web recargando), load_progress() se recupera.
+	if FileAccess.file_exists(SAVE_PATH):
+		DirAccess.copy_absolute(SAVE_PATH, BACKUP_PATH)
 	cfg.save(SAVE_PATH)
+
+
+func all_map_ids() -> Array:
+	return NetworkManager.MAP_IDS.duplicate()
 
 
 func _defaults() -> void:
@@ -81,28 +125,24 @@ func _defaults() -> void:
 	matches_played = 0
 	campaign_complete = false
 	best_score = 0
-	unlocked_maps = [
-		"lab_neon", "containers", "ruins", "reactor_pit",
-		"skybridge", "castle", "cave", "forest",
-	]
+	unlocked_maps = all_map_ids()
 	unlocked_loadouts = [0, 1]
 	unlocked_beasts = [0, 1]
 
 
 func _normalize() -> void:
-	if unlocked_maps.is_empty():
-		unlocked_maps = [
-			"lab_neon", "containers", "ruins", "reactor_pit",
-			"skybridge", "castle", "cave", "forest",
-		]
-	# Asegurar teatros del build (saves viejos solo tenían lab_neon)
-	for mid in NetworkManager.MAP_IDS:
-		if mid not in unlocked_maps:
-			unlocked_maps.append(mid)
+	# Los teatros están todos abiertos por diseño: la progresión vive en niveles
+	# de campaña, arsenales y bestias, no en esconder mapas.
+	unlocked_maps = all_map_ids()
 	if unlocked_loadouts.is_empty():
 		unlocked_loadouts = [0]
+	if unlocked_beasts.is_empty():
+		unlocked_beasts = [GameManager.BeastVariant.CLASSIC]
 	campaign_index = clampi(campaign_index, 0, CAMPAIGN.size() - 1)
 	selected_level = clampi(selected_level, 0, campaign_index)
+	wins_total = maxi(wins_total, 0)
+	matches_played = maxi(matches_played, 0)
+	best_score = maxi(best_score, 0)
 
 
 func current_level() -> Dictionary:
@@ -131,10 +171,8 @@ func select_level(idx: int) -> bool:
 
 
 func is_map_unlocked(map_id: String) -> bool:
-	## Práctica / campaña solitaria: todos los teatros disponibles para probar.
-	if NetworkManager.is_solo_practice:
-		return map_id in NetworkManager.MAP_IDS
-	return map_id in unlocked_maps
+	## Todos los teatros del build están siempre disponibles.
+	return map_id in NetworkManager.MAP_IDS
 
 
 func is_loadout_unlocked(loadout: int) -> bool:
@@ -187,15 +225,8 @@ func on_match_ended(winner: String, map_id: String) -> void:
 	progress_changed.emit()
 
 
-func _unlock_rewards(map_id: String) -> void:
+func _unlock_rewards(_map_id: String) -> void:
 	var msgs: PackedStringArray = []
-	var order := ["lab_neon", "containers", "ruins", "reactor_pit", "skybridge", "castle", "cave", "forest"]
-	var idx := order.find(map_id)
-	if idx >= 0 and idx + 1 < order.size():
-		var nxt: String = order[idx + 1]
-		if not is_map_unlocked(nxt):
-			unlocked_maps.append(nxt)
-			msgs.append("Mapa: %s" % NetworkManager.MAP_NAMES.get(nxt, nxt))
 	for lo in range(4):
 		if not is_loadout_unlocked(lo) and wins_total >= lo:
 			unlocked_loadouts.append(lo)
@@ -216,9 +247,6 @@ func _advance_campaign() -> void:
 		campaign_index += 1
 		selected_level = campaign_index
 		var lv := current_level()
-		var mid: String = str(lv.get("map", "lab_neon"))
-		if not is_map_unlocked(mid):
-			unlocked_maps.append(mid)
 		var ulo: int = int(lv.get("unlock_loadout", 0))
 		if not is_loadout_unlocked(ulo):
 			unlocked_loadouts.append(ulo)
@@ -229,7 +257,4 @@ func _advance_campaign() -> void:
 
 
 func force_campaign_map() -> String:
-	var mid: String = str(current_level().get("map", "lab_neon"))
-	if not is_map_unlocked(mid):
-		unlocked_maps.append(mid)
-	return mid
+	return str(current_level().get("map", "lab_neon"))

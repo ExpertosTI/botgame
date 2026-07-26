@@ -2,8 +2,12 @@ class_name ObjectiveVariants
 extends RefCounted
 
 ## Variantes de núcleos según mapa / nivel de campaña.
+##
+## El enum se llama Kind y no Variant: `Variant` es el tipo comodín del motor,
+## así que `-> Variant` no anotaba el enum sino "cualquier cosa", y quien hacía
+## `var v := for_map(...)` no compilaba.
 
-enum Variant {
+enum Kind {
 	STANDARD,
 	SHIELDED,
 	TIMED_RELAY,
@@ -11,49 +15,49 @@ enum Variant {
 }
 
 
-static func for_map(map_id: String, index: int) -> Variant:
+static func for_map(map_id: String, index: int) -> Kind:
 	match map_id:
 		"reactor_pit":
-			return Variant.OVERCHARGED if index == 0 else Variant.SHIELDED
+			return Kind.OVERCHARGED if index == 0 else Kind.SHIELDED
 		"skybridge":
-			return Variant.TIMED_RELAY if index % 2 == 0 else Variant.STANDARD
+			return Kind.TIMED_RELAY if index % 2 == 0 else Kind.STANDARD
 		"ruins":
-			return Variant.SHIELDED if index == 4 else Variant.STANDARD
+			return Kind.SHIELDED if index == 4 else Kind.STANDARD
 		_:
-			return Variant.STANDARD
+			return Kind.STANDARD
 
 
-static func sabotage_mult(variant: Variant) -> float:
+static func sabotage_mult(variant: Kind) -> float:
 	match variant:
-		Variant.SHIELDED:
+		Kind.SHIELDED:
 			return 1.45
-		Variant.TIMED_RELAY:
+		Kind.TIMED_RELAY:
 			return 0.85
-		Variant.OVERCHARGED:
+		Kind.OVERCHARGED:
 			return 1.25
 		_:
 			return 1.0
 
 
-static func tint(variant: Variant) -> Color:
+static func tint(variant: Kind) -> Color:
 	match variant:
-		Variant.SHIELDED:
+		Kind.SHIELDED:
 			return Color(0.35, 0.7, 1.0)
-		Variant.TIMED_RELAY:
+		Kind.TIMED_RELAY:
 			return Color(0.95, 0.85, 0.25)
-		Variant.OVERCHARGED:
+		Kind.OVERCHARGED:
 			return Color(1.0, 0.35, 0.15)
 		_:
 			return Color(0.95, 0.22, 0.28)
 
 
-static func label(variant: Variant) -> String:
+static func label(variant: Kind) -> String:
 	match variant:
-		Variant.SHIELDED:
+		Kind.SHIELDED:
 			return "Blindado"
-		Variant.TIMED_RELAY:
+		Kind.TIMED_RELAY:
 			return "Relé"
-		Variant.OVERCHARGED:
+		Kind.OVERCHARGED:
 			return "Sobrecarga"
 		_:
 			return "Estándar"

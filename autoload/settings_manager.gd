@@ -5,6 +5,8 @@ extends Node
 signal settings_changed
 
 const SAVE_PATH := "user://botgame_settings.cfg"
+const SCHEMA_VERSION := 2
+const NAME_MAX_LEN := 16
 
 var master_volume := 1.0
 var sfx_volume := 1.0
@@ -24,6 +26,9 @@ func load_settings() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(SAVE_PATH) != OK:
 		return
+	if int(cfg.get_value("meta", "schema_version", 1)) > SCHEMA_VERSION:
+		push_warning("[ajustes] archivo de una build más nueva; se usan valores por defecto")
+		return
 	master_volume = float(cfg.get_value("audio", "master", 1.0))
 	sfx_volume = float(cfg.get_value("audio", "sfx", 1.0))
 	music_volume = float(cfg.get_value("audio", "music", 0.7))
@@ -31,10 +36,24 @@ func load_settings() -> void:
 	look_sensitivity = float(cfg.get_value("input", "look_sensitivity", 1.0))
 	tutorial_seen = bool(cfg.get_value("meta", "tutorial_seen", false))
 	preferred_name = str(cfg.get_value("meta", "preferred_name", "Robot"))
+	_clamp_values()
+
+
+func _clamp_values() -> void:
+	## Un archivo editado a mano no debe poder romper el audio ni la cámara.
+	master_volume = clampf(master_volume, 0.0, 1.0)
+	sfx_volume = clampf(sfx_volume, 0.0, 1.0)
+	music_volume = clampf(music_volume, 0.0, 1.0)
+	look_sensitivity = clampf(look_sensitivity, 0.4, 2.0)
+	preferred_name = preferred_name.strip_edges().substr(0, NAME_MAX_LEN)
+	if preferred_name.is_empty():
+		preferred_name = "Robot"
 
 
 func save_settings() -> void:
+	_clamp_values()
 	var cfg := ConfigFile.new()
+	cfg.set_value("meta", "schema_version", SCHEMA_VERSION)
 	cfg.set_value("audio", "master", master_volume)
 	cfg.set_value("audio", "sfx", sfx_volume)
 	cfg.set_value("audio", "music", music_volume)

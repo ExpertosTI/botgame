@@ -102,6 +102,21 @@ build_images() {
     docker_gc
 }
 
+# Antes de reemplazar imágenes, etiqueta lo que hay en producción como
+# :previous. Es lo que usa cmd_rollback cuando el smoke sale en rojo.
+tag_previous() {
+    local repo
+    for repo in botgame-web botgame-server; do
+        local running
+        running="$(docker images "$repo" --format '{{.Tag}}' | grep -v -e '^latest$' -e "^previous$" -e "^${GIT_SHA}$" | head -1)"
+        if [ -n "$running" ]; then
+            docker tag "${repo}:${running}" "${repo}:previous" >/dev/null 2>&1 || true
+        elif docker image inspect "${repo}:latest" >/dev/null 2>&1; then
+            docker tag "${repo}:latest" "${repo}:previous" >/dev/null 2>&1 || true
+        fi
+    done
+}
+
 stack_deploy() {
     log "→ docker stack deploy ($STACK_NAME)"
     docker stack deploy -c "$COMPOSE_FILE" --with-registry-auth "$STACK_NAME"
@@ -149,6 +164,86 @@ health() {
     docker service ps "${STACK_NAME}_web" --no-trunc 2>/dev/null | head -5 || true
 }
 
+# Un 200 en "/" solo dice que nginx vive: la landing puede servirse perfecta
+# mientras el .pck falta o el WebSocket está caído y nadie puede jugar.
+SMOKE_FAILURES=()
+
+smoke_get() {
+    local path="$1" expect="${2:-200}" label="${3:-$1}"
+    local code
+    code=$(curl -sS -m 15 -o /dev/null -w '%{http_code}' "https://${BOTGAME_DOMAIN}${path}" || echo "000")
+    if [ "$code" = "$expect" ]; then
+        log "  ok   ${label} (HTTP $code)"
+        return 0
+    fi
+    err "  FALLA ${label} → HTTP $code (esperado $expect)"
+    SMOKE_FAILURES+=("${label}:HTTP_${code}")
+    return 1
+}
+
+smoke() {
+    load_env
+    refresh_git_sha
+    SMOKE_FAILURES=()
+    log "→ Smoke https://${BOTGAME_DOMAIN}"
+
+    smoke_get "/" 200 "landing" || true
+    smoke_get "/play/index.html" 200 "juego (html)" || true
+    smoke_get "/play/index.wasm" 200 "runtime wasm" || true
+    smoke_get "/play/index.pck" 200 "paquete de datos (pck)" || true
+
+    # version.json tiene que coincidir con el commit desplegado; si no, el
+    # navegador seguirá cargando la build vieja desde caché.
+    local served
+    served=$(curl -sS -m 15 "https://${BOTGAME_DOMAIN}/version.json" 2>/dev/null \
+        | sed -n 's/.*"build"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+    if [ -z "$served" ]; then
+        err "  FALLA version.json ilegible"
+        SMOKE_FAILURES+=("version_json:vacio")
+    elif [ "$served" != "$GIT_SHA" ]; then
+        err "  FALLA version.json sirve '$served' y desplegamos '$GIT_SHA'"
+        SMOKE_FAILURES+=("version_json:${served}")
+    else
+        log "  ok   version.json = $GIT_SHA"
+    fi
+
+    # Handshake WebSocket: 101 = el servidor de partidas acepta jugadores.
+    local ws_code
+    ws_code=$(curl -sS -m 15 -o /dev/null -w '%{http_code}' \
+        -H "Connection: Upgrade" -H "Upgrade: websocket" \
+        -H "Sec-WebSocket-Version: 13" -H "Sec-WebSocket-Key: c2hha2VzcGVhcmUxMjM0" \
+        "https://${BOTGAME_DOMAIN}/ws" || echo "000")
+    if [ "$ws_code" = "101" ]; then
+        log "  ok   WebSocket /ws (HTTP 101)"
+    else
+        err "  FALLA WebSocket /ws → HTTP $ws_code (esperado 101)"
+        SMOKE_FAILURES+=("websocket:HTTP_${ws_code}")
+    fi
+
+    smoke_get "/api/presence" 200 "presence" || true
+
+    if [ ${#SMOKE_FAILURES[@]} -eq 0 ]; then
+        log "Smoke OK — la build desplegada es jugable"
+        return 0
+    fi
+    err "Smoke con ${#SMOKE_FAILURES[@]} fallo(s): ${SMOKE_FAILURES[*]}"
+    return 1
+}
+
+cmd_rollback() {
+    load_env
+    if ! docker image inspect botgame-web:previous >/dev/null 2>&1; then
+        die "No hay botgame-web:previous — nada a lo que volver"
+    fi
+    warn "→ Rollback a las imágenes :previous"
+    docker service update --detach --force --image "botgame-web:previous" "${STACK_NAME}_web" >/dev/null || true
+    docker service update --detach --force --image "botgame-server:previous" "${STACK_NAME}_game-server" >/dev/null || true
+    sleep 5
+    wait_services || true
+    health
+    warn "Rollback aplicado. Revisa logs antes de volver a desplegar."
+}
+
 cmd_update() {
     banner
     load_env
@@ -169,13 +264,12 @@ cmd_update() {
     load_env
     unset GIT_SHA
     refresh_git_sha
+    tag_previous
     build_images
     stack_deploy
     wait_services || true
     health
-    log "Listo: https://${BOTGAME_DOMAIN}/  (landing)"
-    log "Juego:  https://${BOTGAME_DOMAIN}/play/"
-    log "WebSocket: wss://${BOTGAME_DOMAIN}/ws"
+    verify_or_rollback
 }
 
 cmd_start() {
@@ -184,13 +278,32 @@ cmd_start() {
     unset GIT_SHA
     refresh_git_sha
     ensure_renacenet
+    tag_previous
     build_images
     stack_deploy
     wait_services || true
     health
-    log "Listo: https://${BOTGAME_DOMAIN}/  (landing)"
-    log "Juego:  https://${BOTGAME_DOMAIN}/play/"
-    log "WebSocket: wss://${BOTGAME_DOMAIN}/ws"
+    verify_or_rollback
+}
+
+# El deploy no se declara bueno hasta que el smoke pasa. Si falla y hay una
+# imagen :previous, se vuelve sola: producción no se queda rota esperando a que
+# alguien mire los logs.
+verify_or_rollback() {
+    if smoke; then
+        log "Listo: https://${BOTGAME_DOMAIN}/  (landing)"
+        log "Juego:  https://${BOTGAME_DOMAIN}/play/"
+        log "WebSocket: wss://${BOTGAME_DOMAIN}/ws"
+        return 0
+    fi
+    if [ "${SKIP_ROLLBACK:-0}" = "1" ]; then
+        die "Smoke en rojo (SKIP_ROLLBACK=1, se deja la build nueva puesta)"
+    fi
+    if docker image inspect botgame-web:previous >/dev/null 2>&1; then
+        cmd_rollback
+        die "Smoke en rojo → se revirtió a la build anterior"
+    fi
+    die "Smoke en rojo y sin imagen :previous para revertir"
 }
 
 cmd_status() {
@@ -234,6 +347,8 @@ Uso: ./deploy.sh <comando>
   restart   force update servicios
   stop      baja el stack
   health    curl HTTPS
+  smoke     verifica landing, wasm, pck, version.json, /ws y presence
+  rollback  vuelve a las imágenes :previous
   gc        limpia imágenes/cache Docker viejos (libera disco ya)
 
 Flujo Renace (sin rsync / sin passwords):
@@ -255,6 +370,8 @@ case "${1:-}" in
     restart) cmd_restart ;;
     stop)    cmd_stop ;;
     health)  load_env; health ;;
+    smoke)   smoke ;;
+    rollback) cmd_rollback ;;
     gc)      cmd_gc ;;
     *)       usage; exit 1 ;;
 esac

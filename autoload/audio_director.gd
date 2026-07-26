@@ -4,10 +4,22 @@ extends Node
 
 enum BusKind { SFX, MUSIC, UI }
 
+## Los WAV se hornean una vez y se reutilizan. Antes cada disparo construía un
+## AudioStreamWAV nuevo llenando el buffer muestra a muestra en GDScript (~770
+## iteraciones por bip, ~4000 por explosión); con cinco jugadores disparando eso
+## era trabajo de CPU y basura de recursos constante, y en WebAssembly se nota.
+const TONE_HZ_STEP := 25.0
+## El ruido sí necesita variedad (si no, todos los impactos suenan idénticos), así
+## que se hornean unas pocas versiones y se sortea entre ellas.
+const NOISE_VARIANTS := 4
+const MAX_CACHED_STREAMS := 64
+
 var _players: Array[AudioStreamPlayer] = []
 var _music: AudioStreamPlayer
-var _music_phase := 0.0
-var _match_music := false
+var _stream_cache: Dictionary = {}
+## Bips diferidos. Antes cada uno creaba un Timer y una lambda por llamada; una
+## explosión o una victoria encadenan tres.
+var _pending: Array[Dictionary] = []
 
 
 func _ready() -> void:
@@ -115,12 +127,10 @@ func play_win(robots: bool) -> void:
 
 
 func start_menu_music() -> void:
-	_match_music = false
 	_start_loop_tone(196.0, 0.04)
 
 
 func start_match_music() -> void:
-	_match_music = true
 	_start_loop_tone(110.0, 0.055)
 
 
@@ -141,7 +151,7 @@ func _beep(hz: float, dur: float, amp: float, bus: String, delay: float = 0.0) -
 	if SettingsManager.muted:
 		return
 	if delay > 0.0:
-		get_tree().create_timer(delay).timeout.connect(func(): _beep(hz, dur, amp, bus, 0.0))
+		_pending.append({"t": delay, "hz": hz, "dur": dur, "amp": amp, "bus": bus})
 		return
 	var p := _free_player()
 	if p == null:
@@ -149,6 +159,19 @@ func _beep(hz: float, dur: float, amp: float, bus: String, delay: float = 0.0) -
 	p.bus = bus
 	p.stream = _make_tone(hz, dur, amp, false)
 	p.play()
+
+
+func _process(delta: float) -> void:
+	if _pending.is_empty():
+		return
+	var i := _pending.size() - 1
+	while i >= 0:
+		var job: Dictionary = _pending[i]
+		job["t"] = float(job["t"]) - delta
+		if float(job["t"]) <= 0.0:
+			_pending.remove_at(i)
+			_beep(float(job["hz"]), float(job["dur"]), float(job["amp"]), str(job["bus"]), 0.0)
+		i -= 1
 
 
 func _noise_burst(dur: float, amp: float, base_hz: float, grit: float) -> void:
@@ -169,7 +192,45 @@ func _free_player() -> AudioStreamPlayer:
 	return _players[0] if not _players.is_empty() else null
 
 
+## Reutiliza el WAV si ya existe uno equivalente. La frecuencia se cuantiza porque
+## play_shot() la sortea en un rango continuo: sin esto, cada disparo sería una
+## clave distinta y la caché no serviría de nada.
 func _make_tone(hz: float, dur: float, amp: float, loop: bool) -> AudioStreamWAV:
+	var q_hz := roundf(hz / TONE_HZ_STEP) * TONE_HZ_STEP
+	var key := "t|%.0f|%.3f|%.3f|%d" % [q_hz, dur, amp, 1 if loop else 0]
+	var cached: AudioStreamWAV = _stream_cache.get(key)
+	if cached != null:
+		return cached
+	var baked := _bake_tone(q_hz, dur, amp, loop)
+	_store(key, baked)
+	return baked
+
+
+func _make_noise(dur: float, amp: float, base_hz: float, grit: float) -> AudioStreamWAV:
+	var variant := randi() % NOISE_VARIANTS
+	var key := "n|%.3f|%.3f|%.0f|%.2f|%d" % [dur, amp, base_hz, grit, variant]
+	var cached: AudioStreamWAV = _stream_cache.get(key)
+	if cached != null:
+		return cached
+	var baked := _bake_noise(dur, amp, base_hz, grit)
+	_store(key, baked)
+	return baked
+
+
+func _store(key: String, stream: AudioStreamWAV) -> void:
+	# El juego usa un puñado de sonidos fijos, así que el techo no debería llegar a
+	# tocarse; está para que un parámetro inesperado no convierta la caché en una
+	# fuga de memoria silenciosa.
+	if _stream_cache.size() >= MAX_CACHED_STREAMS:
+		_stream_cache.clear()
+	_stream_cache[key] = stream
+
+
+func cache_stats() -> Dictionary:
+	return {"streams": _stream_cache.size(), "pending": _pending.size()}
+
+
+func _bake_tone(hz: float, dur: float, amp: float, loop: bool) -> AudioStreamWAV:
 	var rate := 22050
 	var n := int(dur * rate)
 	var data := PackedByteArray()
@@ -202,7 +263,7 @@ func _make_tone(hz: float, dur: float, amp: float, loop: bool) -> AudioStreamWAV
 	return stream
 
 
-func _make_noise(dur: float, amp: float, base_hz: float, grit: float) -> AudioStreamWAV:
+func _bake_noise(dur: float, amp: float, base_hz: float, grit: float) -> AudioStreamWAV:
 	var rate := 22050
 	var n := int(dur * rate)
 	var data := PackedByteArray()

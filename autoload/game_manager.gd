@@ -175,6 +175,9 @@ func _apply_end_match(winner: String) -> void:
 	if not match_active:
 		return
 	match_active = false
+	# Sin esto, los proyectiles y destellos en vuelo sobreviven al cambio de
+	# escena y aparecen flotando en el menú.
+	FxPool.release_all()
 	MatchStats.end_match(winner)
 	ProgressionManager.on_match_ended(winner, current_map)
 	AudioDirector.play_win(winner == "explorers")
