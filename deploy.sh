@@ -208,16 +208,26 @@ smoke() {
     fi
 
     # Handshake WebSocket: 101 = el servidor de partidas acepta jugadores.
-    local ws_code
-    ws_code=$(curl -sS -m 15 -o /dev/null -w '%{http_code}' \
-        -H "Connection: Upgrade" -H "Upgrade: websocket" \
-        -H "Sec-WebSocket-Version: 13" -H "Sec-WebSocket-Key: c2hha2VzcGVhcmUxMjM0" \
-        "https://${BOTGAME_DOMAIN}/ws" || echo "000")
+    # Reintentos: tras force-recreate Traefik puede devolver 502 unos segundos.
+    local ws_code="000" attempt
+    for attempt in 1 2 3 4 5 6; do
+        ws_code=$(curl -sS -m 15 -o /dev/null -w '%{http_code}' \
+            -H "Connection: Upgrade" -H "Upgrade: websocket" \
+            -H "Sec-WebSocket-Version: 13" -H "Sec-WebSocket-Key: c2hha2VzcGVhcmUxMjM0" \
+            "https://${BOTGAME_DOMAIN}/ws" || echo "000")
+        if [ "$ws_code" = "101" ]; then
+            break
+        fi
+        warn "  WebSocket /ws → HTTP $ws_code (intento $attempt/6); reintento en 5s…"
+        sleep 5
+    done
     if [ "$ws_code" = "101" ]; then
         log "  ok   WebSocket /ws (HTTP 101)"
     else
         err "  FALLA WebSocket /ws → HTTP $ws_code (esperado 101)"
         SMOKE_FAILURES+=("websocket:HTTP_${ws_code}")
+        # Pista en el mismo smoke: logs del game-server si Swarm los tiene.
+        docker service logs --tail 40 "${STACK_NAME}_game-server" 2>&1 | tail -40 || true
     fi
 
     smoke_get "/api/presence" 200 "presence" || true

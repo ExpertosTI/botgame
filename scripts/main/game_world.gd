@@ -205,7 +205,7 @@ func _get_spawn_position(role: GameManager.Role, peer_id: int) -> Vector3:
 		if GameManager.get_role(int(pid)) != GameManager.Role.BEAST:
 			explorers.append(int(pid))
 	explorers.sort()
-	var idx := explorers.find(peer_id)
+	var idx: int = explorers.find(peer_id)
 	if idx < 0:
 		idx = absi(peer_id) % spawns.size()
 	return spawns[idx % spawns.size()].global_position

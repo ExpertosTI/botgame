@@ -129,6 +129,56 @@ exports_ok() {
   return 0
 }
 
+## Arranca el binario Linux unos segundos: si hay Parse Error de GDScript,
+## Presence puede vivir y el WS morir (smoke 502). Mejor fallar aquí.
+verify_linux_server() {
+  local bin="export/server/BestiaVsRobots.x86_64"
+  [ -x "$bin" ] || die "Falta $bin para verify"
+  # El propio export a veces ya dejó Parse Errors en el log.
+  if grep -qiE 'SCRIPT ERROR|Parse Error|Compile Error' /tmp/botgame-export-linux.log 2>/dev/null; then
+    echo "----- /tmp/botgame-export-linux.log (script errors) -----" >&2
+    grep -iE 'SCRIPT ERROR|Parse Error|Compile Error|Failed to load' /tmp/botgame-export-linux.log | tail -40 >&2 || true
+    die "Export Linux reportó errores de GDScript"
+  fi
+  log "Verificando server headless (scripts + WS)…"
+  local logf="/tmp/botgame-server-verify.log"
+  rm -f "$logf"
+  (
+    cd "$ROOT/export/server"
+    BOTGAME_WS_PORT=17777 ./BestiaVsRobots.x86_64 --headless --display-driver headless --audio-driver Dummy -- --server
+  ) >"$logf" 2>&1 &
+  local pid=$!
+  local i ok=0
+  for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+    sleep 1
+    if ! kill -0 "$pid" 2>/dev/null; then
+      break
+    fi
+    if grep -qE 'WebSocket escuchando|Presence\] HTTP lobby' "$logf" 2>/dev/null; then
+      ok=1
+      break
+    fi
+  done
+  kill "$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
+  if grep -qiE 'SCRIPT ERROR|Parse Error|Compile Error|Failed to load script' "$logf" 2>/dev/null; then
+    echo "----- $logf (tail) -----" >&2
+    tail -60 "$logf" >&2 || true
+    die "Server export tiene errores de GDScript (ver log)"
+  fi
+  if [ "$ok" = "1" ]; then
+    log "Server verify OK"
+    return 0
+  fi
+  if grep -qiE 'error while loading shared libraries|cannot open shared object' "$logf" 2>/dev/null; then
+    log "AVISO: verify en host sin libs (OK si Docker las tiene); no se bloquea"
+    return 0
+  fi
+  echo "----- $logf (tail) -----" >&2
+  tail -60 "$logf" >&2 || true
+  die "Server export no abrió WebSocket/Presence a tiempo"
+}
+
 need_export() {
   if [ "${FORCE_GODOT_EXPORT:-0}" = "1" ]; then return 0; fi
   exports_ok || return 0
@@ -345,10 +395,22 @@ run_export() {
   # Solo se usa con FORCE_GODOT_IMPORT=1 + BOTGAME_ALLOW_SLOW_IMPORT=1.
   # En todos los demás casos: borrar cache rota y dejar que --export-release importe.
   local gsz=0
+  local cache_ver_file="$ROOT/.godot/botgame_godot_ver"
   if [ -d "$ROOT/.godot" ]; then
     gsz="$(du -sm "$ROOT/.godot" 2>/dev/null | awk '{print $1}')" || gsz=0
   fi
   gsz="${gsz:-0}"
+  # Al cambiar de major/minor (p.ej. 4.3 → 4.6) la cache .godot miente: scripts
+  # viejos o class cache rota → Parse Error en runtime del server (WS 502).
+  if [ -d "$ROOT/.godot" ]; then
+    local cached_ver=""
+    cached_ver="$(cat "$cache_ver_file" 2>/dev/null || true)"
+    if [ "$cached_ver" != "$GODOT_VER" ]; then
+      log "Cache .godot de Godot '${cached_ver:-?}'; actual=$GODOT_VER → se descarta"
+      rm -rf "$ROOT/.godot"
+      gsz=0
+    fi
+  fi
   if [ "${FORCE_GODOT_IMPORT:-0}" = "1" ] && [ "${BOTGAME_ALLOW_SLOW_IMPORT:-0}" = "1" ]; then
     log "ALLOW_SLOW_IMPORT: --import con timeout ${IMPORT_TIMEOUT}s"
     rm -rf "$ROOT/.godot"
@@ -363,7 +425,7 @@ run_export() {
     log "Cache .godot=${gsz}MB incompleta → se descarta; export hará import incremental"
     rm -rf "$ROOT/.godot"
   else
-    log "Reusando .godot (${gsz}MB). Sin --import separado."
+    log "Reusando .godot (${gsz}MB, Godot $GODOT_VER). Sin --import separado."
   fi
 
   local export_timeout="${GODOT_EXPORT_TIMEOUT:-1200}"
@@ -415,6 +477,10 @@ run_export() {
   ls -lh export/web/ | head -20
   ls -lh export/server/ | head -10
   ls export/web/*.wasm >/dev/null 2>&1 || die "Export Web sin .wasm"
+  # Marca la cache con la versión que la generó (próximo export la invalida si cambia).
+  mkdir -p "$ROOT/.godot"
+  printf '%s\n' "$GODOT_VER" > "$ROOT/.godot/botgame_godot_ver"
+  verify_linux_server
   set_status "CACHE_BUST"
   log "Export OK"
   fingerprint > "$STAMP_FILE" || true

@@ -243,9 +243,10 @@ func _void_spawn_position() -> Vector3:
 				return lair.global_position + Vector3(0, 0.5, 0)
 	var spawns := get_tree().get_nodes_in_group("explorer_spawns")
 	if not spawns.is_empty():
-		# absi(), no abs(): abs() devuelve Variant y el := no infiere → el script
-		# entero deja de compilar y se lleva a combat_kit/combat_fx con él.
-		var idx: int = absi(peer_id) % spawns.size()
+		# Tipado explícito: abs()/:= con Variant tumba PlayerBase entero en export
+		# headless (beast/explorer/combat_fx dejan de compilar → WS 502).
+		var n: int = spawns.size()
+		var idx: int = absi(peer_id) % maxi(n, 1)
 		var spawn := spawns[idx] as Node3D
 		if spawn != null:
 			return spawn.global_position + Vector3(0, 0.5, 0)

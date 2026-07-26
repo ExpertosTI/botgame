@@ -62,7 +62,11 @@ func _ready() -> void:
 
 	# Arranque headless: godot --headless --path . -- --server
 	if _wants_dedicated_server():
-		start_dedicated_server()
+		var err: Error = start_dedicated_server()
+		if err != OK:
+			push_error("[NetworkManager] Servidor dedicado abortado: %s" % error_string(err))
+			# Fallar el contenedor → Swarm reinicia; Traefik no enruta a un zombie.
+			get_tree().quit(1)
 
 
 func _process(delta: float) -> void:
@@ -100,21 +104,33 @@ func _pong() -> void:
 
 
 func _wants_dedicated_server() -> bool:
+	if OS.has_feature("dedicated_server"):
+		return true
 	return "--server" in OS.get_cmdline_user_args() or "--server" in OS.get_cmdline_args()
 
 
+func _resolve_ws_port(port: int) -> int:
+	if port >= 0:
+		return port
+	var env_port := OS.get_environment("BOTGAME_WS_PORT").strip_edges()
+	if env_port.is_valid_int():
+		return int(env_port)
+	return config.websocket_port if config else 7777
+
+
 func start_dedicated_server(port: int = -1) -> Error:
-	is_dedicated_server = true
-	if port < 0:
-		port = config.websocket_port
+	port = _resolve_ws_port(port)
+	# Bind explícito: en Docker "*" a veces resuelve mal y Traefik ve 502.
 	var ws := WebSocketMultiplayerPeer.new()
-	var err: Error = ws.create_server(port)
+	var err: Error = ws.create_server(port, "0.0.0.0")
 	if err != OK:
 		push_error("No se pudo crear servidor WebSocket en puerto %d: %s" % [port, error_string(err)])
+		# No marcar dedicated si el WS no abrió: presence no debe mentir.
 		return err
+	is_dedicated_server = true
 	peer = ws
 	multiplayer.multiplayer_peer = ws
-	print("[Server] WebSocket escuchando en puerto ", port)
+	print("[Server] WebSocket escuchando en 0.0.0.0:", port)
 	server_started.emit()
 	return OK
 

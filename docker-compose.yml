@@ -47,11 +47,11 @@ services:
         delay: 5s
       resources:
         limits:
-          cpus: "0.50"
-          memory: 768M
+          cpus: "0.75"
+          memory: 1024M
         reservations:
           cpus: "0.10"
-          memory: 192M
+          memory: 256M
       labels:
         - "traefik.enable=true"
         - "traefik.docker.network=RenaceNet"

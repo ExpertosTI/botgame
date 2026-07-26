@@ -441,5 +441,6 @@ func _get_spawn_position() -> Vector3:
 	var spawns := get_tree().get_nodes_in_group("explorer_spawns")
 	if spawns.is_empty():
 		return global_position
-	var idx := peer_id % spawns.size()
+	var n: int = spawns.size()
+	var idx: int = absi(peer_id) % maxi(n, 1)
 	return spawns[idx].global_position

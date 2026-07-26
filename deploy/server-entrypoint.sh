@@ -19,6 +19,8 @@ if command -v ldd >/dev/null 2>&1; then
   fi
 fi
 
-echo "[botgame-server] starting headless (port ${BOTGAME_WS_PORT:-7777})..."
-# --headless implica display headless en 4.6; Dummy evita audio
-exec "$BIN" --headless --audio-driver Dummy -- --server
+PORT="${BOTGAME_WS_PORT:-7777}"
+echo "[botgame-server] starting headless (port ${PORT})..."
+# --headless + display/audio drivers explícitos (Godot 4.6 en Docker sin X11)
+export BOTGAME_WS_PORT="$PORT"
+exec "$BIN" --headless --display-driver headless --audio-driver Dummy -- --server
