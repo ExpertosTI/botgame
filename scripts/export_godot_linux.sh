@@ -141,23 +141,30 @@ need_export() {
 }
 
 install_godot() {
-  local found
-  found="$(find "$CACHE" -maxdepth 1 -type f -name 'Godot_v*_linux.x86_64' 2>/dev/null | head -1 || true)"
-  if [ -n "$found" ] && [ -x "$found" ]; then
-    GODOT_BIN="$found"
+  ## Exigir el binario de GODOT_VER. Un find genérico reutilizaba 4.3 con
+  ## templates 4.6 y el export fallaba o generaba builds rotos.
+  local want="$CACHE/Godot_v${GODOT_VER}_linux.x86_64"
+  if [ -x "$want" ]; then
+    GODOT_BIN="$want"
     log "Godot OK: $GODOT_BIN"
     return
   fi
+  ## Limpia binarios viejos de otra major (liberan disco en VPS al 80%).
+  find "$CACHE" -maxdepth 1 -type f -name 'Godot_v*_linux.x86_64' ! -name "Godot_v${GODOT_VER}_linux.x86_64" -delete 2>/dev/null || true
   log "Descargando Godot $GODOT_VER (linux.x86_64)..."
   mkdir -p "$CACHE"
   local zip="$CACHE/godot.zip"
   curl -fsSL -o "$zip" \
     "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VER}/Godot_v${GODOT_VER}_linux.x86_64.zip"
   extract_zip "$zip" "$CACHE"
-  found="$(find "$CACHE" -maxdepth 1 -type f -name 'Godot_v*_linux.x86_64' | head -1)"
-  [ -n "$found" ] || die "No se encontró binario Godot tras unzip"
-  chmod +x "$found"
-  GODOT_BIN="$found"
+  [ -x "$want" ] || {
+    local found
+    found="$(find "$CACHE" -maxdepth 1 -type f -name "Godot_v${GODOT_VER}_linux.x86_64" | head -1)"
+    [ -n "$found" ] || die "No se encontró binario Godot $GODOT_VER tras unzip"
+    want="$found"
+  }
+  chmod +x "$want"
+  GODOT_BIN="$want"
   log "Godot instalado: $GODOT_BIN"
 }
 
