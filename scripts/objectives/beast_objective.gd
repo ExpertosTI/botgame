@@ -26,6 +26,10 @@ var _pulse_tween: Tween
 func _ready() -> void:
 	add_to_group("beast_objectives")
 	set_physics_process(false)
+	## Web: GPUParticles3D × núcleos pega el heap.
+	if WebSafe.is_web() and particles:
+		particles.queue_free()
+		particles = null
 	_apply_visual()
 	_boot_variant_state()
 

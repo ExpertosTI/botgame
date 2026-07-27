@@ -130,10 +130,9 @@ func _setup_how_to_play() -> void:
 	else:
 		add_child(help)
 
-	# Primera vez: en Web landscape no abrir tutorial encima del hangar (presión + freeze).
-	if not SettingsManager.tutorial_seen:
-		if not ((OS.has_feature("web") or OS.get_name() == "Web") and _is_landscape()):
-			call_deferred("_on_how_to_play_pressed")
+	# Primera vez: en Web no abrir tutorial encima del hangar (presión + freeze).
+	if not SettingsManager.tutorial_seen and not WebSafe.is_web():
+		call_deferred("_on_how_to_play_pressed")
 
 
 func _on_how_to_play_pressed() -> void:
@@ -148,7 +147,7 @@ func _default_mesh_skin() -> int:
 func _setup_cinematic_bg() -> void:
 	## Web: vídeo + SubViewport 3D + animaciones GLB → OOB WASM en móvil.
 	## Atmósfera basta; el personaje del hangar es el ancla visual.
-	if OS.has_feature("web") or OS.get_name() == "Web":
+	if WebSafe.is_web():
 		_setup_keyart_bg()
 		return
 	## Vídeo de fondo como la landing (mute; AudioDirector lleva la música).
@@ -161,17 +160,10 @@ func _setup_cinematic_bg() -> void:
 	player.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	player.volume_db = -80.0
 	player.z_index = -2
-	var candidates: Array[String] = []
-	if OS.has_feature("web") or OS.get_name() == "Web":
-		candidates = [
-			"res://assets/video/intro/chadrine_intro.webm",
-			"res://assets/video/intro/chadrine_intro.mp4",
-		]
-	else:
-		candidates = [
-			"res://assets/video/intro/chadrine_intro.mp4",
-			"res://assets/video/intro/chadrine_intro.webm",
-		]
+	var candidates: Array[String] = [
+		"res://assets/video/intro/chadrine_intro.mp4",
+		"res://assets/video/intro/chadrine_intro.webm",
+	]
 	var ok := false
 	for path in candidates:
 		if not ResourceLoader.exists(path):
@@ -407,10 +399,8 @@ func _set_mode(mode: String) -> void:
 
 func _setup_atmosphere() -> void:
 	## Shader animado + SubViewport en Web móvil → presión de GPU/WASM.
-	if OS.has_feature("web") or OS.get_name() == "Web":
-		atmosphere.material = null
-		atmosphere.color = Color(0.03, 0.06, 0.09, 1.0)
-		atmosphere.modulate = Color.WHITE
+	if WebSafe.is_web():
+		WebSafe.flat_atmosphere(atmosphere)
 		return
 	var mat := ShaderMaterial.new()
 	mat.shader = BG_SHADER
@@ -421,7 +411,7 @@ func _spawn_showcase() -> void:
 	var stage_wrap := get_node_or_null("Main/Col/StageWrap") as Control
 	if stage_wrap == null:
 		return
-	if OS.has_feature("web") or OS.get_name() == "Web":
+	if WebSafe.is_web():
 		_fill_web_lite_stage(stage_wrap)
 	else:
 		_fill_dynamic_stage(stage_wrap)
@@ -433,17 +423,10 @@ func _fill_web_lite_stage(stage_wrap: Control) -> void:
 	if cap:
 		cap.visible = false
 
+	## Liberar el World3D dormido: hide+UPDATE_DISABLED aún deja RIDs en el heap.
 	var view := stage_wrap.get_node_or_null("VBox/StageView") as SubViewportContainer
 	if view:
-		view.visible = false
-		var sv := view.get_node_or_null("SubViewport") as SubViewport
-		if sv:
-			sv.render_target_update_mode = SubViewport.UPDATE_DISABLED
-			var world := sv.get_node_or_null("World") as Node3D
-			if world:
-				for ch in world.get_children():
-					if ch is MeshInstance3D or ch.name == "ModelPivot" or ch.name == "StageRoot":
-						ch.queue_free()
+		view.queue_free()
 
 	var vbox := stage_wrap.get_node_or_null("VBox") as VBoxContainer
 	if vbox == null:

@@ -13,8 +13,9 @@ func _ready() -> void:
 		return
 	var skip_btn := $SkipButton as Button
 	skip_btn.pressed.connect(_finish)
-	if OS.has_feature("web") or OS.get_name() == "Web":
-		## Vídeo HTML5 en iPhone/Chrome DevTools = memory access out of bounds.
+	if WebSafe.is_web():
+		## Vídeo HTML5 en iPhone/Chrome = memory access out of bounds.
+		WebSafe.kill_video_player($Video)
 		_show_keyart_fallback()
 		skip_btn.text = "JUGAR →"
 		get_tree().create_timer(1.4).timeout.connect(_finish)

@@ -378,6 +378,10 @@ func _build_skybridge() -> void:
 
 
 func _prop(path: String, pos: Vector3, yaw_deg: float = 0.0, scl: float = 1.0) -> void:
+	## Web: sin GLB+trimesh (pico de heap → OOB). Cajas de jugabilidad sí.
+	if _lite:
+		_box(pos + Vector3(0, 1, 0), Vector3(2, 2, 2) * scl, Color(0.4, 0.35, 0.3), 0.2)
+		return
 	if not ResourceLoader.exists(path):
 		_box(pos + Vector3(0, 1, 0), Vector3(2, 2, 2) * scl, Color(0.4, 0.35, 0.3), 0.2)
 		return
@@ -400,6 +404,8 @@ func _prop(path: String, pos: Vector3, yaw_deg: float = 0.0, scl: float = 1.0) -
 ## Convex rellenaba el interior de pasillos/salas (hull convexo = bloque sólido):
 ## cave/castle quedaban impracticables. Trimesh respeta el hueco.
 func _ensure_prop_collision(root: Node3D) -> void:
+	if _lite:
+		return
 	for existing in root.find_children("*", "CollisionObject3D", true, false):
 		if existing is StaticBody3D or existing is AnimatableBody3D:
 			return

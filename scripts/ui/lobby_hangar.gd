@@ -30,7 +30,7 @@ func _ready() -> void:
 		"panel",
 		GameTheme.panel_style(Color(0.03, 0.06, 0.08, 0.55), GameTheme.C_CYAN.darkened(0.35), 12, 2)
 	)
-	_use_3d = not (OS.has_feature("web") or OS.get_name() == "Web")
+	_use_3d = not WebSafe.is_web()
 	if _use_3d:
 		_setup_3d()
 	else:

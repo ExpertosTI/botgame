@@ -270,6 +270,9 @@ func _style_ui() -> void:
 
 
 func _setup_atmosphere() -> void:
+	if WebSafe.is_web():
+		WebSafe.flat_atmosphere(atmosphere)
+		return
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://shaders/ui_mobile_bg.gdshader")
 	atmosphere.material = mat

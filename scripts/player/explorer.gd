@@ -55,6 +55,9 @@ func _apply_robot_visuals() -> void:
 func _attach_catalog_mesh(cat_idx: int, scale_mult: float) -> void:
 	if not is_inside_tree():
 		return
+	## Web: bots sin GLB (cápsula) — evita N× AnimationPlayer al entrar a partida.
+	if not WebSafe.should_attach_catalog_mesh(peer_id):
+		return
 	var mesh_parent: Node3D = get_node_or_null("Mesh") as Node3D
 	if mesh_parent == null:
 		return

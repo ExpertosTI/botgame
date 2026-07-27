@@ -171,7 +171,7 @@ func _spawn_players_network() -> void:
 
 func _spawn_players_local() -> void:
 	## Práctica: instancia directa (sin MultiplayerSpawner).
-	## Un frame entre spawns evita el freeze Web al cargar varios GLB de golpe.
+	## Frames entre spawns: en Web evita el pico de varios GLB + AI juntos.
 	for peer_id in NetworkManager.players:
 		var pid := int(peer_id)
 		var role := GameManager.get_role(pid)
@@ -182,6 +182,8 @@ func _spawn_players_local() -> void:
 		if NetworkManager.is_bot_peer(pid):
 			_attach_practice_ai(node, role == GameManager.Role.BEAST)
 		await get_tree().process_frame
+		if WebSafe.is_web():
+			await get_tree().process_frame
 
 
 func _attach_practice_ai(player: Node, beast: bool) -> void:
