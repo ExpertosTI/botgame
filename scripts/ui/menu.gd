@@ -50,6 +50,9 @@ func _ready() -> void:
 		get_tree().change_scene_to_file("res://scenes/main/server_main.tscn")
 		return
 
+	## Peer colgado de una sesión previa → RPCs en hangar / OOB raro en Web.
+	NetworkManager.disconnect_from_game()
+
 	_mobile = _is_mobile_layout()
 	GameTheme.apply(self)
 	_setup_cinematic_bg()
@@ -116,10 +119,10 @@ func _setup_how_to_play() -> void:
 	else:
 		add_child(help)
 
-	# La primera vez se abre sola: llegar al 3D sin saber qué es un núcleo era la
-	# forma más rápida de perder a un jugador nuevo.
+	# Primera vez: en Web landscape no abrir tutorial encima del hangar (presión + freeze).
 	if not SettingsManager.tutorial_seen:
-		call_deferred("_on_how_to_play_pressed")
+		if not ((OS.has_feature("web") or OS.get_name() == "Web") and _is_landscape()):
+			call_deferred("_on_how_to_play_pressed")
 
 
 func _on_how_to_play_pressed() -> void:
@@ -132,6 +135,11 @@ func _default_mesh_skin() -> int:
 
 
 func _setup_cinematic_bg() -> void:
+	## Web: vídeo + SubViewport 3D + animaciones GLB → OOB WASM en móvil.
+	## Atmósfera basta; el personaje del hangar es el ancla visual.
+	if OS.has_feature("web") or OS.get_name() == "Web":
+		_setup_keyart_bg()
+		return
 	## Vídeo de fondo como la landing (mute; AudioDirector lleva la música).
 	if get_node_or_null("CinematicBg") != null:
 		return
@@ -413,14 +421,20 @@ func _fill_dynamic_stage(stage_wrap: Control) -> void:
 	if view and sv:
 		view.visible = true
 		var vh := get_viewport().get_visible_rect().size.y
+		var web := OS.has_feature("web") or OS.get_name() == "Web"
 		if _is_landscape():
-			view.custom_minimum_size = Vector2(0, maxf(vh * 0.68, 240))
-			sv.size = Vector2i(960, 540)
+			## Deja hueco abajo para tira táctil; el personaje no se recorta.
+			view.custom_minimum_size = Vector2(0, maxf(vh * 0.52, 200))
+			sv.size = Vector2i(640, 360) if web else Vector2i(960, 540)
 		else:
-			view.custom_minimum_size = Vector2(0, 420 if _mobile else 480)
-			sv.size = Vector2i(800 if _mobile else 960, 520 if _mobile else 560)
+			view.custom_minimum_size = Vector2(0, 360 if _mobile else 480)
+			sv.size = Vector2i(640, 400) if web else Vector2i(800 if _mobile else 960, 520 if _mobile else 560)
 		sv.render_target_update_mode = SubViewport.UPDATE_WHEN_VISIBLE
 		sv.transparent_bg = false
+		## Glow en SubViewport Web = riesgo alto de OOB.
+		var we := stage_wrap.get_node_or_null("VBox/StageView/SubViewport/World/WorldEnvironment") as WorldEnvironment
+		if we and we.environment:
+			we.environment.glow_enabled = false
 
 	var vbox := stage_wrap.get_node_or_null("VBox") as VBoxContainer
 	if vbox == null:
@@ -563,9 +577,15 @@ func _update_3d_stage_preview() -> void:
 
 	var attached := CharacterCatalog.attach_mesh(container, _pick_skin, 1.0)
 	if attached != null:
-		CharacterCatalog.fit_for_showcase(attached, 2.55 if _is_landscape() else (2.35 if _mobile else 2.15))
+		## Encuadre cuerpo completo — el zoom anterior cortaba la cabeza.
+		CharacterCatalog.fit_for_showcase(attached, 1.95 if _is_landscape() else (2.1 if _mobile else 2.15))
 		CharacterCatalog.attach_showcase_loadout(attached, _pick_role)
-		CharacterCatalog.play_showcase_motion(attached)
+		var web := OS.has_feature("web") or OS.get_name() == "Web"
+		if web:
+			## Idle estático en Web: walk + vídeo + SubViewport petaba WASM.
+			CharacterCatalog.play_locomotion(attached, false, false)
+		else:
+			CharacterCatalog.play_showcase_motion(attached)
 		# Luces más fuertes para que el modelo no se vea “plano”
 		var key := world.get_node_or_null("KeyLight") as DirectionalLight3D
 		if key:
@@ -578,15 +598,14 @@ func _update_3d_stage_preview() -> void:
 			rim.light_energy = 2.8
 		var cam := world.get_node_or_null("Camera3D") as Camera3D
 		if cam:
-			# Vista de lado, cerca — el modelo llena el marco
 			if _is_landscape():
-				cam.position = Vector3(1.6, 1.05, 2.0)
-				cam.look_at_from_position(cam.position, Vector3(0, 0.9, 0), Vector3.UP)
-				cam.fov = 32.0
+				cam.position = Vector3(2.6, 1.35, 3.4)
+				cam.look_at_from_position(cam.position, Vector3(0, 0.95, 0), Vector3.UP)
+				cam.fov = 42.0
 			else:
-				cam.position = Vector3(2.1, 1.15, 2.4)
-				cam.look_at_from_position(cam.position, Vector3(0, 0.85, 0), Vector3.UP)
-				cam.fov = 34.0 if _mobile else 36.0
+				cam.position = Vector3(2.4, 1.25, 3.0)
+				cam.look_at_from_position(cam.position, Vector3(0, 0.9, 0), Vector3.UP)
+				cam.fov = 38.0 if _mobile else 36.0
 		return
 
 	# Fallback procedural tintado (crew sin GLB)
@@ -633,13 +652,14 @@ func _add_hscroll(vbox: VBoxContainer, row_name: String) -> HBoxContainer:
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_ALWAYS
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.scroll_deadzone = 48 if _mobile else 28
-	var row_h := 118.0 if _is_landscape() else (210.0 if _mobile else 172.0)
+	## Landscape: tira gruesa para pulgar (antes quedaba en ~112px ilegible).
+	var row_h := 156.0 if _is_landscape() else (210.0 if _mobile else 172.0)
 	scroll.custom_minimum_size = Vector2(0, row_h)
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox.add_child(scroll)
 	var row := HBoxContainer.new()
 	row.name = row_name
-	row.add_theme_constant_override("separation", 10 if _is_landscape() else 12)
+	row.add_theme_constant_override("separation", 14 if _is_landscape() else 12)
 	scroll.add_child(row)
 	return row
 
@@ -810,10 +830,14 @@ func _start_ui_motion() -> void:
 
 func _process(delta: float) -> void:
 	_anim_t += delta
+	var spin := 0.28 if (OS.has_feature("web") or OS.get_name() == "Web") else 0.55
 	for i in _spin_nodes.size():
 		var n := _spin_nodes[i]
 		if is_instance_valid(n):
-			n.rotate_y(delta * (0.55 if i == 0 else -0.4))
+			n.rotate_y(delta * (spin if i == 0 else -spin * 0.7))
+	## En Web no modular cada chip cada frame (presión + GC).
+	if OS.has_feature("web") or OS.get_name() == "Web":
+		return
 	for i in _chip_nodes.size():
 		var c := _chip_nodes[i]
 		if not is_instance_valid(c) or c.is_queued_for_deletion():
@@ -911,7 +935,7 @@ func _layout_landscape() -> void:
 		brand.visible = true
 		col.move_child(brand, 0)
 		title_label.text = "CHADRINE"
-		title_label.add_theme_font_size_override("font_size", 26)
+		title_label.add_theme_font_size_override("font_size", 22)
 		subtitle.visible = false
 	if stage:
 		stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -922,11 +946,13 @@ func _layout_landscape() -> void:
 		var view := stage.get_node_or_null("VBox/StageView") as Control
 		if view:
 			var vh := get_viewport().get_visible_rect().size.y
-			view.custom_minimum_size = Vector2(0, maxf(vh * 0.58, 200))
+			view.custom_minimum_size = Vector2(0, maxf(vh * 0.50, 190))
 		for scroll_name in ["DynRobotsScroll", "DynBeastsScroll", "DynMapsScroll"]:
 			var sc := stage.find_child(scroll_name, true, false) as ScrollContainer
 			if sc:
-				sc.custom_minimum_size = Vector2(0, 112)
+				sc.custom_minimum_size = Vector2(0, 150)
+		if _dyn_status:
+			_dyn_status.add_theme_font_size_override("font_size", 13)
 
 	## Dock flotante: modo + CTA sin pelear con el scroll vertical.
 	_dock_landscape_form()
@@ -958,26 +984,32 @@ func _dock_landscape_form() -> void:
 	form.visible = true
 	form.mouse_filter = Control.MOUSE_FILTER_STOP
 	var sz := get_viewport().get_visible_rect().size
-	var w := clampf(sz.x * 0.34, 240.0, 340.0)
+	## Dock estrecho: el personaje manda (~26% max 268).
+	var w := clampf(sz.x * 0.26, 210.0, 268.0)
 	form.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	form.anchor_left = 1.0
 	form.anchor_right = 1.0
-	form.anchor_top = 0.08
-	form.anchor_bottom = 0.92
-	form.offset_left = -w - 12.0
-	form.offset_right = -12.0
+	form.anchor_top = 0.06
+	form.anchor_bottom = 0.94
+	form.offset_left = -w - 8.0
+	form.offset_right = -8.0
 	form.offset_top = 0.0
 	form.offset_bottom = 0.0
 	form.add_theme_stylebox_override(
 		"panel",
-		GameTheme.panel_style(Color(0.03, 0.05, 0.07, 0.82), GameTheme.C_CYAN.darkened(0.15), 20, 2)
+		GameTheme.panel_style(Color(0.03, 0.05, 0.07, 0.78), GameTheme.C_CYAN.darkened(0.15), 18, 2)
 	)
-	## CTA más gordos en landscape; callsign va de settings
-	solo_start_button.custom_minimum_size = Vector2(0, 72)
-	join_button.custom_minimum_size = Vector2(0, 64)
+	## CTA gordos; callsign va de settings
+	solo_start_button.custom_minimum_size = Vector2(0, 64)
+	solo_start_button.add_theme_font_size_override("font_size", 18)
+	join_button.custom_minimum_size = Vector2(0, 56)
+	join_button.add_theme_font_size_override("font_size", 16)
 	var qp := online_panel.get_node_or_null("QuickPlayButton") as Button
 	if qp:
-		qp.custom_minimum_size = Vector2(0, 64)
+		qp.custom_minimum_size = Vector2(0, 56)
+		qp.add_theme_font_size_override("font_size", 16)
+	online_mode_button.custom_minimum_size = Vector2(0, 44)
+	solo_mode_button.custom_minimum_size = Vector2(0, 44)
 	name_input.visible = false
 	solo_name_input.visible = false
 	var name_lb := online_panel.get_node_or_null("NameLabel") as Control
@@ -985,6 +1017,7 @@ func _dock_landscape_form() -> void:
 		name_lb.visible = false
 	host_button.visible = false
 	solo_hint.visible = false
+	status_label.add_theme_font_size_override("font_size", 12)
 
 
 func _undock_landscape_form() -> void:

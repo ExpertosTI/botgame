@@ -143,11 +143,12 @@ static func make_skin_card(skin: int, selected: bool, locked: bool = false) -> B
 	var sub := "LISTO" if selected else ("BESTIA" if str(entry.get("role", "")) == "beast" else "UNIDAD")
 	var land := _landscape()
 	var m := _narrow()
-	var h := 64.0 if land else (92.0 if m else 78.0)
+	## Landscape = targets táctiles gordos (antes los achicábamos: error).
+	var h := 86.0 if land else (92.0 if m else 78.0)
 	var portrait := UiIcons.catalog_tex(skin)
 	return make_card(
 		title, sub, tint, selected, portrait, "",
-		Vector2(96 if land else (128 if m else 108), 118 if land else (168 if m else 148)),
+		Vector2(118 if land else (128 if m else 108), 148 if land else (168 if m else 148)),
 		h, locked, null
 	)
 
@@ -187,11 +188,11 @@ static func make_map_card(map_id: String, selected: bool, locked: bool = false) 
 	var land := _landscape()
 	var m := _narrow()
 	var name_s := str(NetworkManager.MAP_NAMES.get(map_id, map_id))
-	var h := 58.0 if land else (80.0 if m else 70.0)
+	var h := 72.0 if land else (80.0 if m else 70.0)
 	var portrait := UiIcons.map_tex(map_id)
 	return make_card(
 		name_s, sub, accent, selected, portrait, "",
-		Vector2(108 if land else (136 if m else 116), 110 if land else (156 if m else 138)),
+		Vector2(124 if land else (136 if m else 116), 138 if land else (156 if m else 138)),
 		h, locked, null
 	)
 
