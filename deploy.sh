@@ -209,26 +209,27 @@ smoke() {
 
     # Handshake WebSocket: 101 = el servidor de partidas acepta jugadores.
     # Reintentos: tras force-recreate Traefik puede devolver 502 unos segundos.
-    local ws_code="000" attempt
+    # Importante: tras el 101 la conexión queda abierta y curl hace timeout (28).
+    # Si usamos `|| echo 000`, queda "101000" y el smoke hace rollback en falso.
+    local ws_code="000" ws_raw attempt
     for attempt in 1 2 3 4 5 6; do
-        # HTTP/1.1 obligatorio: con HTTP/2 el Upgrade no llega a Godot (ve header
-        # vacío → ERROR wsl_peer + Traefik/CF responden 502).
-        ws_code=$(curl -sS -m 15 --http1.1 -o /dev/null -w '%{http_code}' \
+        ws_raw=$(curl -sS -m 5 --http1.1 -o /dev/null -w '%{http_code}' \
             -H "Connection: Upgrade" -H "Upgrade: websocket" \
             -H "Sec-WebSocket-Version: 13" -H "Sec-WebSocket-Key: c2hha2VzcGVhcmUxMjM0" \
-            "https://${BOTGAME_DOMAIN}/ws" || echo "000")
+            "https://${BOTGAME_DOMAIN}/ws" 2>/dev/null || true)
+        ws_code=$(printf '%s' "$ws_raw" | tr -cd '0-9' | head -c 3)
+        [ -n "$ws_code" ] || ws_code="000"
         if [ "$ws_code" = "101" ]; then
             break
         fi
-        warn "  WebSocket /ws → HTTP $ws_code (intento $attempt/6); reintento en 5s…"
+        warn "  WebSocket /ws → HTTP ${ws_raw:-?} (intento $attempt/6); reintento en 5s…"
         sleep 5
     done
     if [ "$ws_code" = "101" ]; then
         log "  ok   WebSocket /ws (HTTP 101)"
     else
-        err "  FALLA WebSocket /ws → HTTP $ws_code (esperado 101)"
+        err "  FALLA WebSocket /ws → HTTP ${ws_raw:-$ws_code} (esperado 101)"
         SMOKE_FAILURES+=("websocket:HTTP_${ws_code}")
-        # Pista en el mismo smoke: logs del game-server si Swarm los tiene.
         docker service logs --tail 40 "${STACK_NAME}_game-server" 2>&1 | tail -40 || true
     fi
 
