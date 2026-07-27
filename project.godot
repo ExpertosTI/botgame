@@ -20,10 +20,10 @@ boot_splash/minimum_display_time=900
 
 [audio]
 
-## En ProjectSettings Stream=0 / Sample=1 (distinto del enum AudioServer).
-## Forzar Stream evita el path SAMPLE + buses que petaba WASM (godot#115560).
+; Web single-thread: Sample (1). Stream (0) mezcla mal y puede petar.
+; No crear buses extra en Web (ver AudioDirector) — eso si dispara godot#115560.
 general/default_playback_type=0
-general/default_playback_type.web=0
+general/default_playback_type.web=1
 
 [autoload]
 
@@ -260,14 +260,12 @@ zoom_out={
 
 [physics]
 
-## Jolt es el motor 3D de producción en Godot 4.6 (más estable y rápido en
-## web/móvil que GodotPhysics). Los proyectos viejos no migran solos: hay que
-## fijarlo aquí. CharacterBody3D / Area3D siguen con la misma API.
+; Jolt en escritorio. Web: GodotPhysics3D (menos heap al boot).
 3d/physics_engine="Jolt Physics"
-## Gravedad arcade: un pelín más alta que 9.8 para que el salto se sienta
-## cerrado y no “flote” en web.
+3d/physics_engine.web="GodotPhysics3D"
+; Gravedad arcade un pelin mas alta que 9.8
 3d/default_gravity=14.0
-## Menos “enganches” en aristas de CSG/props (muy visibles en Lab Neon).
+; Menos enganches en aristas CSG/props
 jolt_physics_3d/simulation/use_enhanced_internal_edge_removal=true
 jolt_physics_3d/queries/use_enhanced_internal_edge_removal=true
 jolt_physics_3d/motion_queries/use_enhanced_internal_edge_removal=true

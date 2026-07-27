@@ -14,21 +14,29 @@ extends Node
 ## tests/cases/export_contract_test.gd.
 
 const NUM_PLAYERS := 12
+const WEB_NUM_PLAYERS := 4
 const DEFAULT_DB := -10.0
 
 var _available: Array[AudioStreamPlayer] = []
 var _queue: Array[Dictionary] = []
+var _booted := false
 
 
 func _ready() -> void:
-	## Godot 4.6 web: SAMPLE + buses custom → OOB / Master mudo. STREAM + Master.
-	var web := WebSafe.is_web()
-	for i in NUM_PLAYERS:
+	## Web: no alloc al boot — se crean en el primer play().
+	if WebSafe.is_web():
+		return
+	_boot_players(NUM_PLAYERS)
+
+
+func _boot_players(n: int) -> void:
+	if _booted:
+		return
+	_booted = true
+	for i in n:
 		var p := AudioStreamPlayer.new()
 		p.volume_db = DEFAULT_DB
 		p.bus = "Master"
-		if web:
-			p.playback_type = AudioServer.PLAYBACK_TYPE_STREAM
 		p.finished.connect(_on_stream_finished.bind(p))
 		add_child(p)
 		_available.append(p)
@@ -44,6 +52,8 @@ func _on_stream_finished(player: AudioStreamPlayer) -> void:
 func play(sound_path: String, volume_db: float = DEFAULT_DB) -> void:
 	if sound_path.is_empty():
 		return
+	if WebSafe.is_web() and not _booted:
+		_boot_players(WEB_NUM_PLAYERS)
 	var options := sound_path.split(",")
 	if options.is_empty():
 		return

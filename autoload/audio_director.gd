@@ -66,32 +66,51 @@ var _pending: Array[Dictionary] = []
 
 
 func _ready() -> void:
-	## Godot 4.6 web: AudioServer.add_bus + Sample playback → OOB WASM / Master mudo
-	## (godot#115560, #119026). En Web solo Master + STREAM.
+	## Godot 4.6 web: add_bus + Sample → OOB (godot#115560). Solo Master.
+	## No forzar STREAM: en single-thread SAMPLE es el path soportado.
 	var web := WebSafe.is_web()
 	if not web:
 		_ensure_buses()
+	## Web: diferir players hasta el primer sonido (menos alloc al boot).
+	if web:
+		SettingsManager.settings_changed.connect(_on_settings)
+		_on_settings()
+		return
 	for i in 8:
 		var p := AudioStreamPlayer.new()
-		p.bus = "Master" if web else "SFX"
+		p.bus = "SFX"
 		p.max_polyphony = 1
-		if web:
-			p.playback_type = AudioServer.PLAYBACK_TYPE_STREAM
 		add_child(p)
 		_players.append(p)
 	_music = AudioStreamPlayer.new()
-	_music.bus = "Master" if web else "Music"
-	if web:
-		_music.playback_type = AudioServer.PLAYBACK_TYPE_STREAM
+	_music.bus = "Music"
 	add_child(_music)
 	_steps = AudioStreamPlayer.new()
-	_steps.bus = "Master" if web else "SFX"
+	_steps.bus = "SFX"
 	_steps.volume_db = -14.0
-	if web:
-		_steps.playback_type = AudioServer.PLAYBACK_TYPE_STREAM
 	add_child(_steps)
 	SettingsManager.settings_changed.connect(_on_settings)
 	_on_settings()
+
+
+func _ensure_web_players() -> void:
+	if not WebSafe.is_web():
+		return
+	while _players.size() < 4:
+		var p := AudioStreamPlayer.new()
+		p.bus = "Master"
+		p.max_polyphony = 1
+		add_child(p)
+		_players.append(p)
+	if _music == null:
+		_music = AudioStreamPlayer.new()
+		_music.bus = "Master"
+		add_child(_music)
+	if _steps == null:
+		_steps = AudioStreamPlayer.new()
+		_steps.bus = "Master"
+		_steps.volume_db = -14.0
+		add_child(_steps)
 
 
 func _web_bus(logical: String) -> String:
@@ -234,6 +253,7 @@ func play_death() -> void:
 ## La muestra de pasos es un bucle continuo, no una pisada suelta, así que se
 ## enciende y se apaga con el movimiento en vez de dispararse por zancada.
 func set_walking(active: bool, sprinting: bool = false) -> void:
+	_ensure_web_players()
 	if _steps == null:
 		return
 	if not active or SettingsManager.muted:
@@ -333,6 +353,9 @@ func _play_sample(key: String, bus: String, volume_db: float = 0.0, jitter: bool
 func _start_loop_sample(key: String, volume_db: float, pitch: float = 1.0) -> bool:
 	if SettingsManager.muted:
 		return true
+	_ensure_web_players()
+	if _music == null:
+		return false
 	var stream := _sample(key)
 	if stream == null:
 		return false
@@ -347,6 +370,9 @@ func _start_loop_sample(key: String, volume_db: float, pitch: float = 1.0) -> bo
 
 func _start_loop_tone(hz: float, amp: float) -> void:
 	if SettingsManager.muted:
+		return
+	_ensure_web_players()
+	if _music == null:
 		return
 	var stream := _make_tone(hz, 1.2, amp, true)
 	_music.stream = stream
@@ -401,6 +427,7 @@ func _noise_burst(dur: float, amp: float, base_hz: float, grit: float) -> void:
 
 
 func _free_player() -> AudioStreamPlayer:
+	_ensure_web_players()
 	for p in _players:
 		if not p.playing:
 			return p

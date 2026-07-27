@@ -56,17 +56,18 @@ func _menu_web_lite_hangar() -> void:
 func _audio_web_master_only() -> void:
 	var src := FileAccess.get_file_as_string("res://autoload/audio_director.gd")
 	ok(src.contains("_web_bus"), "AudioDirector._web_bus")
-	ok(src.contains("PLAYBACK_TYPE_STREAM"), "playback STREAM en Web")
+	ok(src.contains("_ensure_web_players"), "AudioDirector lazy players en Web")
 	ok(src.contains("if not web:") and src.contains("_ensure_buses"), "no add_bus en Web")
 	var proj := FileAccess.get_file_as_string("res://project.godot")
-	## En ProjectSettings: 0=Stream, 1=Sample (no el enum AudioServer).
-	ok(proj.contains("default_playback_type.web=0"), "project.godot fuerza Stream en web")
+	## ProjectSettings: 0=Stream, 1=Sample — web single-thread necesita Sample.
+	ok(proj.contains("default_playback_type.web=1"), "project.godot Sample en web")
+	ok(proj.contains("physics_engine.web=\"GodotPhysics3D\"") or proj.contains("physics_engine.web=GodotPhysics3D"), "Web sin Jolt al boot")
 
 
 func _mode_audio_pool_stream() -> void:
 	var src := FileAccess.get_file_as_string("res://autoload/mode_audio_pool.gd")
-	ok(src.contains("PLAYBACK_TYPE_STREAM"), "ModeAudioPool STREAM en Web")
 	ok(src.contains("WebSafe.is_web()"), "ModeAudioPool usa WebSafe")
+	ok(src.contains("_boot_players") or src.contains("WEB_NUM_PLAYERS"), "ModeAudioPool lazy en Web")
 
 
 func _no_glb_on_web() -> void:
