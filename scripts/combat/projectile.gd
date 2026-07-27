@@ -139,7 +139,8 @@ func recycle_now() -> void:
 
 func _recycle() -> void:
 	velocity = Vector3.ZERO
-	monitoring = false
+	## body_entered corre dentro del signal in/out: no tocar monitoring aquí.
+	set_deferred("monitoring", false)
 	FxPool.release_projectile(self)
 
 

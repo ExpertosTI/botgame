@@ -38,6 +38,11 @@ var _dyn_robots: HBoxContainer
 var _dyn_beasts: HBoxContainer
 var _dyn_maps: HBoxContainer
 var _dyn_status: Label
+var _landscape_docked := false
+var _picker_tab := 0
+var _tab_robots_btn: Button
+var _tab_beasts_btn: Button
+var _tab_maps_btn: Button
 
 
 func _ready() -> void:
@@ -187,10 +192,15 @@ func _setup_keyart_bg() -> void:
 
 
 func _is_mobile_layout() -> bool:
-	if OS.has_feature("mobile"):
+	if OS.has_feature("mobile") or OS.has_feature("web") or OS.get_name() == "Web":
 		return true
 	var sz := get_viewport().get_visible_rect().size
-	return sz.x < 820 or sz.y > sz.x
+	return sz.x < 900 or sz.y > sz.x
+
+
+func _is_landscape() -> bool:
+	var sz := get_viewport().get_visible_rect().size
+	return sz.x >= sz.y
 
 
 func _style_ui() -> void:
@@ -393,18 +403,23 @@ func _spawn_showcase() -> void:
 func _fill_dynamic_stage(stage_wrap: Control) -> void:
 	var cap := stage_wrap.get_node_or_null("VBox/StageCaption") as Label
 	if cap:
-		cap.text = "HANGAR · UNIDAD EN ESCENA"
-		GameTheme.style_muted(cap, 13)
-		cap.visible = true
+		cap.text = "UNIDAD EN ESCENA"
+		GameTheme.style_muted(cap, 12)
+		## En landscape el personaje es el fondo; el caption estorba.
+		cap.visible = not _is_landscape()
 
 	var view := stage_wrap.get_node_or_null("VBox/StageView") as SubViewportContainer
 	var sv := stage_wrap.get_node_or_null("VBox/StageView/SubViewport") as SubViewport
 	if view and sv:
 		view.visible = true
-		# Hero grande: el personaje manda; las filas son tiras bajo él.
-		view.custom_minimum_size = Vector2(0, 420 if _mobile else 480)
+		var vh := get_viewport().get_visible_rect().size.y
+		if _is_landscape():
+			view.custom_minimum_size = Vector2(0, maxf(vh * 0.68, 240))
+			sv.size = Vector2i(960, 540)
+		else:
+			view.custom_minimum_size = Vector2(0, 420 if _mobile else 480)
+			sv.size = Vector2i(800 if _mobile else 960, 520 if _mobile else 560)
 		sv.render_target_update_mode = SubViewport.UPDATE_WHEN_VISIBLE
-		sv.size = Vector2i(800 if _mobile else 960, 520 if _mobile else 560)
 		sv.transparent_bg = false
 
 	var vbox := stage_wrap.get_node_or_null("VBox") as VBoxContainer
@@ -428,12 +443,12 @@ func _fill_dynamic_stage(stage_wrap: Control) -> void:
 	_dyn_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	if GameTheme.font_title():
 		_dyn_status.add_theme_font_override("font", GameTheme.font_title())
-	_dyn_status.add_theme_font_size_override("font_size", 16 if _mobile else 17)
+	_dyn_status.add_theme_font_size_override("font_size", 15 if _mobile else 17)
 	_dyn_status.add_theme_color_override("font_color", GameTheme.C_CYAN)
 	vbox.add_child(_dyn_status)
 
-	# Móvil: una sola fila a la vez (tabs) — más claro
-	if _mobile:
+	# Móvil / landscape: tabs (una fila) — no apilar HTML vertical
+	if _mobile or _is_landscape():
 		_build_picker_tabs(vbox)
 	else:
 		vbox.add_child(_section_label("DynLblRobots", "ROBOTS"))
@@ -446,12 +461,6 @@ func _fill_dynamic_stage(stage_wrap: Control) -> void:
 	_rebuild_dynamic_pickers()
 	_update_pick_status()
 	call_deferred("_update_3d_stage_preview")
-
-
-var _picker_tab := 0
-var _tab_robots_btn: Button
-var _tab_beasts_btn: Button
-var _tab_maps_btn: Button
 
 
 func _build_picker_tabs(vbox: VBoxContainer) -> void:
@@ -547,9 +556,14 @@ func _update_3d_stage_preview() -> void:
 		container.remove_child(ch)
 		ch.free()
 
+	## Un frame libre antes del GLB: evita freeze al abrir hangar en web.
+	await get_tree().process_frame
+	if not is_inside_tree() or not is_instance_valid(container):
+		return
+
 	var attached := CharacterCatalog.attach_mesh(container, _pick_skin, 1.0)
 	if attached != null:
-		CharacterCatalog.fit_for_showcase(attached, 2.35 if _mobile else 2.15)
+		CharacterCatalog.fit_for_showcase(attached, 2.55 if _is_landscape() else (2.35 if _mobile else 2.15))
 		CharacterCatalog.attach_showcase_loadout(attached, _pick_role)
 		CharacterCatalog.play_showcase_motion(attached)
 		# Luces más fuertes para que el modelo no se vea “plano”
@@ -565,9 +579,14 @@ func _update_3d_stage_preview() -> void:
 		var cam := world.get_node_or_null("Camera3D") as Camera3D
 		if cam:
 			# Vista de lado, cerca — el modelo llena el marco
-			cam.position = Vector3(2.1, 1.15, 2.4)
-			cam.look_at_from_position(cam.position, Vector3(0, 0.85, 0), Vector3.UP)
-			cam.fov = 34.0 if _mobile else 36.0
+			if _is_landscape():
+				cam.position = Vector3(1.6, 1.05, 2.0)
+				cam.look_at_from_position(cam.position, Vector3(0, 0.9, 0), Vector3.UP)
+				cam.fov = 32.0
+			else:
+				cam.position = Vector3(2.1, 1.15, 2.4)
+				cam.look_at_from_position(cam.position, Vector3(0, 0.85, 0), Vector3.UP)
+				cam.fov = 34.0 if _mobile else 36.0
 		return
 
 	# Fallback procedural tintado (crew sin GLB)
@@ -614,12 +633,13 @@ func _add_hscroll(vbox: VBoxContainer, row_name: String) -> HBoxContainer:
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_ALWAYS
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.scroll_deadzone = 48 if _mobile else 28
-	scroll.custom_minimum_size = Vector2(0, 210 if _mobile else 172)
+	var row_h := 118.0 if _is_landscape() else (210.0 if _mobile else 172.0)
+	scroll.custom_minimum_size = Vector2(0, row_h)
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox.add_child(scroll)
 	var row := HBoxContainer.new()
 	row.name = row_name
-	row.add_theme_constant_override("separation", 12)
+	row.add_theme_constant_override("separation", 10 if _is_landscape() else 12)
 	scroll.add_child(row)
 	return row
 
@@ -814,20 +834,208 @@ func _notification(what: int) -> void:
 
 func _adapt_layout() -> void:
 	_mobile = _is_mobile_layout()
+	if _is_landscape():
+		_layout_landscape()
+	else:
+		_layout_portrait()
+
+
+func _layout_portrait() -> void:
+	_undock_landscape_form()
+	var main := get_node_or_null("Main") as ScrollContainer
 	var brand := get_node_or_null("Main/Col/BrandHeader") as Control
 	var stage := get_node_or_null("Main/Col/StageWrap") as Control
+	var form := get_node_or_null("Main/Col/FormWrap") as Control
 	var col := get_node_or_null("Main/Col") as VBoxContainer
-	if col == null:
+	if col == null or main == null:
 		return
-	# Orden: marca → hangar → misión (nunca formulario arriba)
+	main.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	main.offset_left = 12.0
+	main.offset_top = 12.0
+	main.offset_right = -12.0
+	main.offset_bottom = -12.0
+	col.add_theme_constant_override("separation", 10)
 	if brand:
+		brand.visible = true
 		col.move_child(brand, 0)
+		subtitle.visible = true
 	if stage:
+		stage.size_flags_vertical = 0
 		col.move_child(stage, 1 if brand else 0)
+		var cap := stage.get_node_or_null("VBox/StageCaption") as Label
+		if cap:
+			cap.visible = true
+		var view := stage.get_node_or_null("VBox/StageView") as Control
+		if view:
+			view.custom_minimum_size = Vector2(0, 420 if _mobile else 480)
+	if form:
+		form.visible = true
+	## Restaurar campos que landscape oculta
+	name_input.visible = true
+	solo_name_input.visible = true
+	var name_lb := online_panel.get_node_or_null("NameLabel") as Control
+	if name_lb:
+		name_lb.visible = true
+	solo_hint.visible = true
+	host_button.visible = not _mobile and not OS.has_feature("web")
+	legal_label.visible = true
+	mute_check.visible = true
+	credits_button.visible = true
+	var how := find_child("HowToPlayButton", true, false) as Control
+	if how:
+		how.visible = true
 	if is_instance_valid(_hero):
 		_hero.custom_minimum_size = Vector2(0, 220 if _mobile else 240)
 		if _hero.size.x > 1.0:
 			_hero.pivot_offset = Vector2(_hero.size.x * 0.5, _hero.size.y * 0.5)
+
+
+func _layout_landscape() -> void:
+	## Hangar arcade landscape: personaje full-bleed + dock flotante a la derecha.
+	var main := get_node_or_null("Main") as ScrollContainer
+	var brand := get_node_or_null("Main/Col/BrandHeader") as Control
+	var stage := get_node_or_null("Main/Col/StageWrap") as Control
+	var col := get_node_or_null("Main/Col") as VBoxContainer
+	if col == null or main == null:
+		return
+	main.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	main.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	main.offset_left = 0.0
+	main.offset_top = 0.0
+	main.offset_right = 0.0
+	main.offset_bottom = 0.0
+	col.add_theme_constant_override("separation", 2)
+	col.size_flags_vertical = Control.SIZE_EXPAND_FILL
+
+	if brand:
+		brand.visible = true
+		col.move_child(brand, 0)
+		title_label.text = "CHADRINE"
+		title_label.add_theme_font_size_override("font_size", 26)
+		subtitle.visible = false
+	if stage:
+		stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		col.move_child(stage, 1 if brand else 0)
+		var cap := stage.get_node_or_null("VBox/StageCaption") as Label
+		if cap:
+			cap.visible = false
+		var view := stage.get_node_or_null("VBox/StageView") as Control
+		if view:
+			var vh := get_viewport().get_visible_rect().size.y
+			view.custom_minimum_size = Vector2(0, maxf(vh * 0.58, 200))
+		for scroll_name in ["DynRobotsScroll", "DynBeastsScroll", "DynMapsScroll"]:
+			var sc := stage.find_child(scroll_name, true, false) as ScrollContainer
+			if sc:
+				sc.custom_minimum_size = Vector2(0, 112)
+
+	## Dock flotante: modo + CTA sin pelear con el scroll vertical.
+	_dock_landscape_form()
+	legal_label.visible = false
+	mute_check.visible = false
+	credits_button.visible = false
+	var how := find_child("HowToPlayButton", true, false) as Control
+	if how:
+		how.visible = false
+
+
+func _dock_landscape_form() -> void:
+	var form := get_node_or_null("Main/Col/FormWrap") as PanelContainer
+	if form == null:
+		form = get_node_or_null("LandscapeDock/FormWrap") as PanelContainer
+	if form == null:
+		return
+	var dock := get_node_or_null("LandscapeDock") as Control
+	if dock == null:
+		dock = Control.new()
+		dock.name = "LandscapeDock"
+		dock.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		dock.set_anchors_preset(Control.PRESET_FULL_RECT)
+		dock.z_index = 12
+		add_child(dock)
+	if form.get_parent() != dock:
+		form.reparent(dock)
+		_landscape_docked = true
+	form.visible = true
+	form.mouse_filter = Control.MOUSE_FILTER_STOP
+	var sz := get_viewport().get_visible_rect().size
+	var w := clampf(sz.x * 0.34, 240.0, 340.0)
+	form.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	form.anchor_left = 1.0
+	form.anchor_right = 1.0
+	form.anchor_top = 0.08
+	form.anchor_bottom = 0.92
+	form.offset_left = -w - 12.0
+	form.offset_right = -12.0
+	form.offset_top = 0.0
+	form.offset_bottom = 0.0
+	form.add_theme_stylebox_override(
+		"panel",
+		GameTheme.panel_style(Color(0.03, 0.05, 0.07, 0.82), GameTheme.C_CYAN.darkened(0.15), 20, 2)
+	)
+	## CTA más gordos en landscape; callsign va de settings
+	solo_start_button.custom_minimum_size = Vector2(0, 72)
+	join_button.custom_minimum_size = Vector2(0, 64)
+	var qp := online_panel.get_node_or_null("QuickPlayButton") as Button
+	if qp:
+		qp.custom_minimum_size = Vector2(0, 64)
+	name_input.visible = false
+	solo_name_input.visible = false
+	var name_lb := online_panel.get_node_or_null("NameLabel") as Control
+	if name_lb:
+		name_lb.visible = false
+	host_button.visible = false
+	solo_hint.visible = false
+
+
+func _undock_landscape_form() -> void:
+	if not _landscape_docked:
+		return
+	var form := get_node_or_null("LandscapeDock/FormWrap") as PanelContainer
+	var col := get_node_or_null("Main/Col") as VBoxContainer
+	if form == null or col == null:
+		return
+	form.reparent(col)
+	form.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	form.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	form.anchor_left = 0
+	form.anchor_right = 0
+	form.anchor_top = 0
+	form.anchor_bottom = 0
+	form.offset_left = 0
+	form.offset_right = 0
+	form.offset_top = 0
+	form.offset_bottom = 0
+	_style_hangar_panels()
+	_landscape_docked = false
+	var dock := get_node_or_null("LandscapeDock")
+	if dock:
+		dock.queue_free()
+
+
+## Apaga video + SubViewport 3D antes del cambio de escena (evita freeze Web).
+func _tear_hangar_for_launch() -> void:
+	var vid := get_node_or_null("CinematicBg") as VideoStreamPlayer
+	if vid == null:
+		vid = get_node_or_null("BgLayer/Video") as VideoStreamPlayer
+	if vid == null:
+		vid = find_child("Video", true, false) as VideoStreamPlayer
+	if vid:
+		vid.stop()
+		vid.stream = null
+	var sv := get_node_or_null("Main/Col/StageWrap/VBox/StageView/SubViewport") as SubViewport
+	if sv:
+		sv.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	var world := get_node_or_null("Main/Col/StageWrap/VBox/StageView/SubViewport/World") as Node3D
+	var pivot := world.get_node_or_null("ModelPivot") as Node3D if world else null
+	if pivot:
+		while pivot.get_child_count() > 0:
+			var ch := pivot.get_child(0)
+			pivot.remove_child(ch)
+			ch.free()
+	_spin_nodes.clear()
+	set_process(false)
+	await get_tree().process_frame
+	await get_tree().process_frame
 
 
 func _on_join_pressed() -> void:
@@ -939,30 +1147,6 @@ func _on_solo_match_start(_map_id: String) -> void:
 	status_label.text = "Cargando teatro…"
 	await _tear_hangar_for_launch()
 	get_tree().change_scene_to_file("res://scenes/main/game.tscn")
-
-
-## Apaga video + SubViewport 3D antes del cambio de escena (evita freeze Web).
-func _tear_hangar_for_launch() -> void:
-	var vid := get_node_or_null("BgLayer/Video") as VideoStreamPlayer
-	if vid == null:
-		vid = find_child("Video", true, false) as VideoStreamPlayer
-	if vid:
-		vid.stop()
-		vid.stream = null
-	var sv := get_node_or_null("Main/Col/StageWrap/VBox/StageView/SubViewport") as SubViewport
-	if sv:
-		sv.render_target_update_mode = SubViewport.UPDATE_DISABLED
-	var world := get_node_or_null("Main/Col/StageWrap/VBox/StageView/SubViewport/World") as Node3D
-	var pivot := world.get_node_or_null("ModelPivot") as Node3D if world else null
-	if pivot:
-		while pivot.get_child_count() > 0:
-			var ch := pivot.get_child(0)
-			pivot.remove_child(ch)
-			ch.free()
-	_spin_nodes.clear()
-	set_process(false)
-	await get_tree().process_frame
-	await get_tree().process_frame
 
 
 func _on_mute_toggled(on: bool) -> void:

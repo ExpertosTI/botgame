@@ -387,8 +387,9 @@ func _respawn_fx() -> void:
 	_respawning = true
 	visible = false
 	velocity = Vector3.ZERO
-	collision_layer = 0
-	collision_mask = 0
+	## Física callback (muerte/impacto): diferir capas de colisión.
+	set_deferred("collision_layer", 0)
+	set_deferred("collision_mask", 0)
 	if is_sabotaging:
 		_cancel_sabotage()
 	AudioDirector.set_walking(false)
@@ -399,8 +400,8 @@ func _respawn_fx() -> void:
 	if lives <= 0 or not is_instance_valid(self):
 		return
 	visible = true
-	collision_layer = 2
-	collision_mask = 1
+	set_deferred("collision_layer", 2)
+	set_deferred("collision_mask", 1)
 	velocity = Vector3.ZERO
 	reset_action_pose()
 	global_position = _get_spawn_position()
@@ -410,8 +411,8 @@ func _respawn_fx() -> void:
 func force_eliminate() -> void:
 	## Desconexión / forfeit: quitar cuerpo vivo del mundo.
 	if not alive:
-		collision_layer = 0
-		collision_mask = 0
+		set_deferred("collision_layer", 0)
+		set_deferred("collision_mask", 0)
 		return
 	lives = 0
 	_die()
@@ -420,8 +421,8 @@ func force_eliminate() -> void:
 func _die() -> void:
 	alive = false
 	_respawning = false
-	collision_layer = 0
-	collision_mask = 0
+	set_deferred("collision_layer", 0)
+	set_deferred("collision_mask", 0)
 	velocity = Vector3.ZERO
 	if is_sabotaging:
 		_cancel_sabotage()

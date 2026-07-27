@@ -1,6 +1,6 @@
 extends Control
 
-## Joystick virtual + botones combate — layout pensado para pulgares en móvil.
+## Joystick virtual + botones combate — layout pensado para pulgares en móvil landscape.
 
 @onready var stick_base: Control = $StickBase
 @onready var stick_knob: Control = $StickBase/Knob
@@ -30,6 +30,7 @@ func _ready() -> void:
 	_style_buttons()
 	call_deferred("_layout_for_screen")
 	call_deferred("_init_stick")
+	get_viewport().size_changed.connect(_layout_for_screen)
 	btn_action.button_down.connect(func(): InputManager.set_touch_action(true))
 	btn_action.button_up.connect(func(): InputManager.set_touch_action(false))
 	btn_sprint.button_down.connect(func(): InputManager.set_touch_sprint(true))
@@ -62,43 +63,74 @@ func _style_buttons() -> void:
 	btn_a2.text = "2"
 	btn_a3.text = "3"
 	btn_a4.text = "4"
-	btn_action.add_theme_font_size_override("font_size", 20)
-	for b in [btn_sprint, btn_jump, btn_dash, btn_grenade, btn_weapon, btn_a2, btn_a3, btn_a4]:
-		b.add_theme_font_size_override("font_size", 16)
 	stick_base.modulate = Color(0.15, 0.9, 0.85, 0.55)
 	stick_knob.modulate = Color(0.85, 1.0, 0.98, 0.92)
 
 
 func _layout_for_screen() -> void:
-	var h := get_viewport_rect().size.y
-	var scale := clampf(h / 720.0, 0.85, 1.35)
-	# Stick más grande para pulgar izquierdo
-	var stick_s := 170.0 * scale
-	stick_base.offset_left = 16.0
-	stick_base.offset_top = -stick_s - 48.0
-	stick_base.offset_right = 16.0 + stick_s
-	stick_base.offset_bottom = -48.0
-	stick_base.modulate = Color(0.2, 0.85, 0.9, 0.4)
-	stick_knob.modulate = Color(1, 1, 1, 0.85)
-	stick_knob.size = Vector2(64 * scale, 64 * scale)
+	var sz := get_viewport_rect().size
+	var landscape := sz.x >= sz.y
+	## Escala por el lado corto: en landscape móvil los botones deben ser gordos.
+	var short_side := minf(sz.x, sz.y)
+	var scale := clampf(short_side / 390.0, 0.95, 1.55)
+	if landscape:
+		scale = clampf(short_side / 360.0, 1.05, 1.65)
 
-	# Zona look + botones derecha
-	var fire := 120.0 * scale
-	btn_action.offset_left = 140.0 * scale
-	btn_action.offset_top = 130.0 * scale
+	var stick_s := (188.0 if landscape else 170.0) * scale
+	var margin := 20.0 * scale
+	stick_base.offset_left = margin
+	stick_base.offset_top = -stick_s - margin
+	stick_base.offset_right = margin + stick_s
+	stick_base.offset_bottom = -margin
+	stick_base.modulate = Color(0.2, 0.85, 0.9, 0.45)
+	stick_knob.modulate = Color(1, 1, 1, 0.9)
+	var knob_s := 72.0 * scale
+	stick_knob.size = Vector2(knob_s, knob_s)
+
+	var buttons := $Buttons as Control
+	var cluster_w := (360.0 if landscape else 300.0) * scale
+	var cluster_h := (340.0 if landscape else 300.0) * scale
+	buttons.offset_left = -cluster_w - 8.0
+	buttons.offset_top = -cluster_h - 8.0
+	buttons.offset_right = -10.0
+	buttons.offset_bottom = -10.0
+
+	look_zone.offset_left = -cluster_w - 40.0 * scale
+	look_zone.offset_top = -cluster_h - 40.0 * scale
+	look_zone.offset_right = -8.0
+	look_zone.offset_bottom = -8.0
+
+	var fire := (138.0 if landscape else 120.0) * scale
+	var side := (92.0 if landscape else 78.0) * scale
+	var side_sm := (84.0 if landscape else 72.0) * scale
+
+	btn_action.offset_left = cluster_w - fire - 16.0 * scale
+	btn_action.offset_top = cluster_h - fire - 18.0 * scale
 	btn_action.offset_right = btn_action.offset_left + fire
 	btn_action.offset_bottom = btn_action.offset_top + fire
+	btn_action.add_theme_font_size_override("font_size", int(22 * scale))
 
-	_place(btn_sprint, 20 * scale, 170 * scale, 78 * scale)
-	_place(btn_jump, 160 * scale, 20 * scale, 78 * scale)
-	_place(btn_dash, 40 * scale, 50 * scale, 78 * scale)
-	_place(btn_grenade, 250 * scale, 40 * scale, 72 * scale)
-	_place(btn_weapon, 250 * scale, 170 * scale, 72 * scale)
+	## Cluster pulgar derecho: JUMP arriba, DASH izq, RUN abajo-izq, FIRE grande.
+	_place(btn_jump, cluster_w - side - 28.0 * scale, 12.0 * scale, side)
+	_place(btn_dash, 18.0 * scale, 28.0 * scale, side)
+	_place(btn_sprint, 18.0 * scale, cluster_h - side - 28.0 * scale, side)
+	_place(btn_grenade, cluster_w * 0.42, 18.0 * scale, side_sm)
+	_place(btn_weapon, cluster_w * 0.42, cluster_h - side_sm - 24.0 * scale, side_sm)
 
-	# Habilidades más arriba para no tapar disparo
+	for b in [btn_sprint, btn_jump, btn_dash, btn_grenade, btn_weapon]:
+		b.add_theme_font_size_override("font_size", int(15 * scale))
+
 	var abl := $Abilities as Control
-	abl.offset_top = -100.0 * scale
-	abl.offset_bottom = -40.0 * scale
+	var abl_h := 56.0 * scale
+	abl.offset_top = -abl_h - 14.0 * scale
+	abl.offset_bottom = -12.0 * scale
+	abl.offset_left = -150.0 * scale
+	abl.offset_right = 150.0 * scale
+	for b in [btn_a2, btn_a3, btn_a4]:
+		b.custom_minimum_size = Vector2(72 * scale, 48 * scale)
+		b.add_theme_font_size_override("font_size", int(16 * scale))
+
+	call_deferred("_init_stick")
 
 
 func _place(btn: Button, x: float, y: float, s: float) -> void:
@@ -119,7 +151,6 @@ func _process(delta: float) -> void:
 		return
 	_pulse_t += delta
 	_update_action_label()
-	# Pulso suave en DISPARO para localizarlo
 	var p := 0.92 + 0.08 * sin(_pulse_t * 3.0)
 	btn_action.scale = Vector2(p, p)
 	btn_action.pivot_offset = btn_action.size * 0.5
@@ -171,7 +202,6 @@ func _handle_drag(event: InputEventScreenDrag) -> void:
 	if event.index == _stick_touch_index:
 		_update_stick(event.position)
 	elif event.index == _look_touch_index:
-		# Sensibilidad look un poco más alta en móvil
 		InputManager.set_touch_look(event.relative * 1.25)
 
 

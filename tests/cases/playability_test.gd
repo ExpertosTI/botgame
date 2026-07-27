@@ -50,7 +50,14 @@ func _roar_interrupts_sabotage() -> void:
 
 func _dead_explorer_clears_collision() -> void:
 	var src := FileAccess.get_file_as_string("res://scripts/player/explorer.gd")
-	ok(src.contains("func _die") and src.contains("collision_layer = 0"), "muerte sin colisión")
+	ok(
+		src.contains("func _die")
+		and (
+			src.contains("collision_layer = 0")
+			or src.contains('set_deferred("collision_layer", 0)')
+		),
+		"muerte sin colisión"
+	)
 
 
 func _projectiles_mask_includes_cores() -> void:

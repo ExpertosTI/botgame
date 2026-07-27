@@ -100,7 +100,18 @@ static func make_card(
 
 static func _narrow() -> bool:
 	var tre := Engine.get_main_loop() as SceneTree
-	return tre != null and tre.root != null and tre.root.get_visible_rect().size.x < 900
+	if tre == null or tre.root == null:
+		return false
+	var sz := tre.root.get_visible_rect().size
+	return sz.x < 900 or sz.x >= sz.y
+
+
+static func _landscape() -> bool:
+	var tre := Engine.get_main_loop() as SceneTree
+	if tre == null or tre.root == null:
+		return false
+	var sz := tre.root.get_visible_rect().size
+	return sz.x >= sz.y
 
 
 ## Fallback solo si no hay retrato.
@@ -130,12 +141,14 @@ static func make_skin_card(skin: int, selected: bool, locked: bool = false) -> B
 	var tint: Color = entry.get("tint", Color(0.25, 0.55, 1.0)) if not entry.is_empty() else Color(0.25, 0.55, 1.0)
 	var title := str(entry.get("name", "?")) if not entry.is_empty() else "?"
 	var sub := "LISTO" if selected else ("BESTIA" if str(entry.get("role", "")) == "beast" else "UNIDAD")
+	var land := _landscape()
 	var m := _narrow()
-	var h := 92.0 if m else 78.0
+	var h := 64.0 if land else (92.0 if m else 78.0)
 	var portrait := UiIcons.catalog_tex(skin)
 	return make_card(
 		title, sub, tint, selected, portrait, "",
-		Vector2(128 if m else 108, 168 if m else 148), h, locked, null
+		Vector2(96 if land else (128 if m else 108), 118 if land else (168 if m else 148)),
+		h, locked, null
 	)
 
 
@@ -171,13 +184,15 @@ static func make_map_card(map_id: String, selected: bool, locked: bool = false) 
 			accent = Color(0.55, 0.4, 0.3); sub = "Túneles"
 		"forest":
 			accent = Color(0.35, 0.7, 0.4); sub = "Bosque"
+	var land := _landscape()
 	var m := _narrow()
 	var name_s := str(NetworkManager.MAP_NAMES.get(map_id, map_id))
-	var h := 80.0 if m else 70.0
+	var h := 58.0 if land else (80.0 if m else 70.0)
 	var portrait := UiIcons.map_tex(map_id)
 	return make_card(
 		name_s, sub, accent, selected, portrait, "",
-		Vector2(136 if m else 116, 156 if m else 138), h, locked, null
+		Vector2(108 if land else (136 if m else 116), 110 if land else (156 if m else 138)),
+		h, locked, null
 	)
 
 

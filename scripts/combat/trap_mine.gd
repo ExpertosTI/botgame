@@ -81,12 +81,13 @@ func _detonate() -> void:
 	if _spent:
 		return
 	_spent = true
-	monitoring = false
+	## Puede llegar desde body_entered: diferir monitoring / free.
+	set_deferred("monitoring", false)
 	if NetworkManager.is_match_authority():
 		CombatFx.spawn_explosion(
 			global_position, radius, damage, owner_peer, hurts_explorers, hurts_beast
 		)
-	queue_free()
+	call_deferred("queue_free")
 
 
 func _expire() -> void:

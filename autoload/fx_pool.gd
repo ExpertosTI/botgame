@@ -74,7 +74,7 @@ func release_projectile(node: Area3D) -> void:
 	if _free_projectiles.has(node):
 		return
 	node.visible = false
-	node.monitoring = false
+	node.set_deferred("monitoring", false)
 	node.process_mode = Node.PROCESS_MODE_DISABLED
 	_free_projectiles.append(node)
 
