@@ -53,6 +53,8 @@ func _apply_robot_visuals() -> void:
 
 
 func _attach_catalog_mesh(cat_idx: int, scale_mult: float) -> void:
+	if not is_inside_tree():
+		return
 	var mesh_parent: Node3D = get_node_or_null("Mesh") as Node3D
 	if mesh_parent == null:
 		return
@@ -61,7 +63,7 @@ func _attach_catalog_mesh(cat_idx: int, scale_mult: float) -> void:
 		mesh_parent.remove_child(existing)
 		existing.free()
 	var attached := CharacterCatalog.attach_mesh(mesh_parent, cat_idx, scale_mult)
-	if attached and crew:
+	if attached and crew and is_instance_valid(crew):
 		# Ocultar cápsula vieja por completo: solo el GLB 3D
 		crew.visible = false
 		if crew.name_label:

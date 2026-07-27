@@ -658,6 +658,11 @@ func _on_start_pressed() -> void:
 
 
 func _on_match_start(_map_id: String) -> void:
+	# Apaga hangar 3D del lobby antes del cambio (misma causa de freeze que el menú).
+	var hangar := get_node_or_null("Hangar") as Node
+	if hangar and hangar.has_method("teardown"):
+		hangar.call("teardown")
+	await get_tree().process_frame
 	get_tree().change_scene_to_file(GAME_SCENE)
 
 

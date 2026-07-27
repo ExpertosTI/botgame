@@ -197,30 +197,32 @@ func _style_ui() -> void:
 	var title_size := 36 if _mobile else 42
 	GameTheme.style_title(title_label, title_size)
 	GameTheme.style_muted(subtitle, 15 if _mobile else 17)
-	subtitle.text = "Elige tripulación · lanza la misión"
+	subtitle.text = "Elige unidad · lanza la misión"
 	GameTheme.style_primary(join_button)
 	GameTheme.style_primary(solo_start_button)
 	join_button.text = "ENTRAR AL COMBATE"
 	host_button.text = "Sala LAN"
-	solo_start_button.text = "LANZAR MISIÓN"
+	solo_start_button.text = "▶  LANZAR MISIÓN"
 	var qp := online_panel.get_node_or_null("QuickPlayButton") as Button
 	if qp:
 		qp.text = "PARTIDA RÁPIDA"
 		GameTheme.style_primary(qp)
-		qp.custom_minimum_size = Vector2(0, 76 if _mobile else 58)
+		qp.custom_minimum_size = Vector2(0, 80 if _mobile else 62)
 		qp.add_theme_font_size_override("font_size", 22 if _mobile else 20)
 	online_mode_button.text = "ONLINE"
-	# «CAMPAÑA» escondía el único modo que se puede jugar sin nadie más conectado.
 	solo_mode_button.text = "SOLO · BOTS"
 	status_label.add_theme_color_override("font_color", GameTheme.C_AMBER)
-	join_button.custom_minimum_size = Vector2(0, 76 if _mobile else 58)
+	join_button.custom_minimum_size = Vector2(0, 80 if _mobile else 62)
 	join_button.add_theme_font_size_override("font_size", 24 if _mobile else 22)
-	solo_start_button.custom_minimum_size = Vector2(0, 76 if _mobile else 58)
-	solo_start_button.add_theme_font_size_override("font_size", 24 if _mobile else 22)
-	online_mode_button.custom_minimum_size = Vector2(0, 64 if _mobile else 54)
-	solo_mode_button.custom_minimum_size = Vector2(0, 64 if _mobile else 54)
-	online_mode_button.add_theme_font_size_override("font_size", 20 if _mobile else 18)
-	solo_mode_button.add_theme_font_size_override("font_size", 20 if _mobile else 18)
+	solo_start_button.custom_minimum_size = Vector2(0, 88 if _mobile else 68)
+	solo_start_button.add_theme_font_size_override("font_size", 26 if _mobile else 24)
+	# Píldoras de modo (estilo arcade / Asphalt)
+	_style_mode_pill(online_mode_button, false)
+	_style_mode_pill(solo_mode_button, true)
+	online_mode_button.custom_minimum_size = Vector2(0, 56 if _mobile else 48)
+	solo_mode_button.custom_minimum_size = Vector2(0, 56 if _mobile else 48)
+	online_mode_button.add_theme_font_size_override("font_size", 18 if _mobile else 16)
+	solo_mode_button.add_theme_font_size_override("font_size", 18 if _mobile else 16)
 	online_mode_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	solo_mode_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_input.custom_minimum_size = Vector2(0, 58 if _mobile else 44)
@@ -250,13 +252,22 @@ func _style_hangar_panels() -> void:
 	if stage:
 		stage.add_theme_stylebox_override(
 			"panel",
-			GameTheme.panel_style(Color(0.04, 0.07, 0.09, 0.48), GameTheme.C_CYAN, 14, 2)
+			GameTheme.panel_style(Color(0.03, 0.05, 0.07, 0.35), GameTheme.C_CYAN.darkened(0.2), 18, 1)
 		)
 	if form:
 		form.add_theme_stylebox_override(
 			"panel",
-			GameTheme.panel_style(Color(0.05, 0.08, 0.1, 0.62), GameTheme.C_AMBER.darkened(0.25), 14, 2)
+			GameTheme.panel_style(Color(0.04, 0.06, 0.08, 0.55), Color(0.15, 0.35, 0.32), 18, 1)
 		)
+
+
+func _style_mode_pill(btn: Button, active: bool) -> void:
+	var fill := GameTheme.C_PRIMARY if active else Color(0.08, 0.1, 0.12, 0.95)
+	var edge := GameTheme.C_CYAN if active else Color(0.35, 0.4, 0.42)
+	btn.add_theme_stylebox_override("normal", GameTheme.panel_style(fill, edge, 28, 2))
+	btn.add_theme_stylebox_override("hover", GameTheme.panel_style(fill.lightened(0.08), GameTheme.C_CYAN, 28, 2))
+	btn.add_theme_stylebox_override("pressed", GameTheme.panel_style(fill.darkened(0.1), Color.WHITE, 28, 2))
+	btn.add_theme_color_override("font_color", Color.WHITE)
 
 
 func _tone_down_form_labels() -> void:
@@ -333,10 +344,10 @@ func _build_hub_modes() -> void:
 
 
 func _style_mode_toggle(active: Button, idle: Button) -> void:
-	GameTheme.style_primary(active)
-	GameTheme.style_touch(idle, GameTheme.C_MUTED)
-	active.add_theme_font_size_override("font_size", 20 if _mobile else 18)
-	idle.add_theme_font_size_override("font_size", 20 if _mobile else 18)
+	_style_mode_pill(active, true)
+	_style_mode_pill(idle, false)
+	active.add_theme_font_size_override("font_size", 18 if _mobile else 16)
+	idle.add_theme_font_size_override("font_size", 18 if _mobile else 16)
 
 
 func _set_mode(mode: String) -> void:
@@ -382,17 +393,18 @@ func _spawn_showcase() -> void:
 func _fill_dynamic_stage(stage_wrap: Control) -> void:
 	var cap := stage_wrap.get_node_or_null("VBox/StageCaption") as Label
 	if cap:
-		cap.text = "HANGAR · TRIPULACIÓN"
-		GameTheme.style_muted(cap, 12)
+		cap.text = "HANGAR · UNIDAD EN ESCENA"
+		GameTheme.style_muted(cap, 13)
 		cap.visible = true
 
 	var view := stage_wrap.get_node_or_null("VBox/StageView") as SubViewportContainer
 	var sv := stage_wrap.get_node_or_null("VBox/StageView/SubViewport") as SubViewport
 	if view and sv:
 		view.visible = true
-		view.custom_minimum_size = Vector2(0, 360 if _mobile else 400)
+		# Hero grande: el personaje manda; las filas son tiras bajo él.
+		view.custom_minimum_size = Vector2(0, 420 if _mobile else 480)
 		sv.render_target_update_mode = SubViewport.UPDATE_WHEN_VISIBLE
-		sv.size = Vector2i(720 if _mobile else 800, 450 if _mobile else 480)
+		sv.size = Vector2i(800 if _mobile else 960, 520 if _mobile else 560)
 		sv.transparent_bg = false
 
 	var vbox := stage_wrap.get_node_or_null("VBox") as VBoxContainer
@@ -924,7 +936,33 @@ func _on_solo_start_pressed() -> void:
 
 func _on_solo_match_start(_map_id: String) -> void:
 	solo_start_button.disabled = false
+	status_label.text = "Cargando teatro…"
+	await _tear_hangar_for_launch()
 	get_tree().change_scene_to_file("res://scenes/main/game.tscn")
+
+
+## Apaga video + SubViewport 3D antes del cambio de escena (evita freeze Web).
+func _tear_hangar_for_launch() -> void:
+	var vid := get_node_or_null("BgLayer/Video") as VideoStreamPlayer
+	if vid == null:
+		vid = find_child("Video", true, false) as VideoStreamPlayer
+	if vid:
+		vid.stop()
+		vid.stream = null
+	var sv := get_node_or_null("Main/Col/StageWrap/VBox/StageView/SubViewport") as SubViewport
+	if sv:
+		sv.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	var world := get_node_or_null("Main/Col/StageWrap/VBox/StageView/SubViewport/World") as Node3D
+	var pivot := world.get_node_or_null("ModelPivot") as Node3D if world else null
+	if pivot:
+		while pivot.get_child_count() > 0:
+			var ch := pivot.get_child(0)
+			pivot.remove_child(ch)
+			ch.free()
+	_spin_nodes.clear()
+	set_process(false)
+	await get_tree().process_frame
+	await get_tree().process_frame
 
 
 func _on_mute_toggled(on: bool) -> void:

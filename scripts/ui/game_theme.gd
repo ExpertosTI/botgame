@@ -149,11 +149,13 @@ static func style_touch(btn: Button, accent: Color = C_CYAN) -> void:
 
 
 static func style_primary(btn: Button) -> void:
-	btn.add_theme_stylebox_override("normal", _btn(C_PRIMARY, C_CYAN, 10))
-	btn.add_theme_stylebox_override("hover", _btn(C_PRIMARY_HOVER, Color.WHITE, 10))
-	btn.add_theme_stylebox_override("pressed", _btn(C_PRIMARY.darkened(0.15), C_CYAN, 10))
-	btn.add_theme_color_override("font_color", Color(0.05, 0.12, 0.12))
+	btn.add_theme_stylebox_override("normal", _btn(C_PRIMARY, C_CYAN, 22))
+	btn.add_theme_stylebox_override("hover", _btn(C_PRIMARY_HOVER, Color.WHITE, 22))
+	btn.add_theme_stylebox_override("pressed", _btn(C_PRIMARY.darkened(0.15), C_CYAN, 22))
+	btn.add_theme_color_override("font_color", Color(0.04, 0.1, 0.1))
 	btn.add_theme_color_override("font_hover_color", Color(0.02, 0.08, 0.08))
+	if font_title():
+		btn.add_theme_font_override("font", font_title())
 
 
 static func style_danger(btn: Button) -> void:

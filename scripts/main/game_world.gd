@@ -43,7 +43,7 @@ func _ready() -> void:
 			# Offline: sin RPC/Spawner (evita freeze con peers fantasma 9001+)
 			_apply_match_setup(roles, GameManager.beast_variant, NetworkManager.selected_map)
 			_spawn_objectives_local(_pack_objective_positions())
-			_spawn_players_local()
+			await _spawn_players_local()
 			await get_tree().process_frame
 			GameManager.start_match()
 			if hud:
@@ -171,6 +171,7 @@ func _spawn_players_network() -> void:
 
 func _spawn_players_local() -> void:
 	## Práctica: instancia directa (sin MultiplayerSpawner).
+	## Un frame entre spawns evita el freeze Web al cargar varios GLB de golpe.
 	for peer_id in NetworkManager.players:
 		var pid := int(peer_id)
 		var role := GameManager.get_role(pid)
@@ -180,6 +181,7 @@ func _spawn_players_local() -> void:
 		players_root.add_child(node, true)
 		if NetworkManager.is_bot_peer(pid):
 			_attach_practice_ai(node, role == GameManager.Role.BEAST)
+		await get_tree().process_frame
 
 
 func _attach_practice_ai(player: Node, beast: bool) -> void:

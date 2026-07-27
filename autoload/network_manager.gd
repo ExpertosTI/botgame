@@ -759,8 +759,9 @@ func request_start_match() -> void:
 		var match_time := -1.0
 		var beast_hp := 1.0
 		ProgressionManager.campaign_mode = true
-		## JUGAR NIVEL: el teatro debe ser el del nivel o no avanza campaña.
-		selected_map = ProgressionManager.force_campaign_map()
+		## Respeta teatro del hangar; si no hay pick válido, usa el del nivel.
+		if selected_map.is_empty() or not (selected_map in MAP_IDS):
+			selected_map = ProgressionManager.force_campaign_map()
 		var lv := ProgressionManager.current_level()
 		cores = int(lv.get("cores", 5))
 		match_time = float(lv.get("time", 240))

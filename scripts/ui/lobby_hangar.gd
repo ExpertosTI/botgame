@@ -68,7 +68,7 @@ func _setup_3d() -> void:
 	_viewport = SubViewport.new()
 	_viewport.size = Vector2i(560, 280)
 	_viewport.transparent_bg = true
-	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	_viewport.render_target_update_mode = SubViewport.UPDATE_WHEN_VISIBLE
 	wrap.add_child(_viewport)
 
 	var world := Node3D.new()
@@ -125,6 +125,15 @@ func show_selection(role: String, skin: int) -> void:
 		_rebuild_crew(role == "beast", skin)
 	else:
 		_update_2d(role, skin)
+
+
+func teardown() -> void:
+	set_process(false)
+	if _viewport:
+		_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	if is_instance_valid(_crew):
+		_crew.queue_free()
+		_crew = null
 
 
 func _update_2d(role: String, skin: int) -> void:
