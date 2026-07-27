@@ -411,7 +411,8 @@ func _spawn_showcase() -> void:
 	if stage_wrap == null:
 		return
 	if WebSafe.is_web():
-		_fill_web_lite_stage(stage_wrap)
+		## Diferir un frame: deja pintar el CTA antes de construir pickers.
+		call_deferred("_fill_web_lite_stage", stage_wrap)
 	else:
 		_fill_dynamic_stage(stage_wrap)
 
@@ -799,7 +800,9 @@ func _add_hscroll(vbox: VBoxContainer, row_name: String) -> HBoxContainer:
 
 
 func _menu_explorer_indices() -> Array:
-	## Solo roster hangar 3D — sin cápsulas legacy ni fantasy.
+	## Web: sin GLB en PCK → badges. Desktop: preferir los que tienen mesh.
+	if WebSafe.is_web():
+		return CharacterCatalog.hangar_explorer_indices()
 	var with_mesh: Array = []
 	for idx in CharacterCatalog.hangar_explorer_indices():
 		var i := int(idx)
@@ -812,6 +815,8 @@ func _menu_explorer_indices() -> Array:
 
 
 func _menu_beast_indices() -> Array:
+	if WebSafe.is_web():
+		return CharacterCatalog.hangar_beast_indices()
 	var with_mesh: Array = []
 	for idx in CharacterCatalog.hangar_beast_indices():
 		var i := int(idx)

@@ -13,9 +13,10 @@ func _ready() -> void:
 	var skip_btn := $SkipButton as Button
 	skip_btn.pressed.connect(_finish)
 	if WebSafe.is_web():
-		_show_keyart_fallback()
+		## Sin splash de 1.2s: en móvil lento el engine ya esperó al WASM.
 		skip_btn.text = "JUGAR →"
-		get_tree().create_timer(1.2).timeout.connect(_finish)
+		_show_keyart_fallback()
+		call_deferred("_finish")
 		return
 	_try_play_desktop_video()
 

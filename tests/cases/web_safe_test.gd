@@ -104,4 +104,11 @@ func _bots_skip_catalog_mesh_on_web() -> void:
 func _export_web_guards() -> void:
 	var cfg := FileAccess.get_file_as_string("res://export_presets.cfg")
 	ok(cfg.contains("assets/video/intro/*"), "export Web excluye vídeo intro del PCK")
+	ok(cfg.contains("assets/characters/roster/*.glb"), "export Web excluye GLB roster (peso)")
+	ok(cfg.contains("assets/kenney/props/*"), "export Web excluye props Kenney")
+	ok(cfg.contains("assets/audio/music/*"), "export Web excluye ambience.ogg (1MB+)")
 	ok(cfg.contains("progressive_web_app/enabled=true"), "PWA habilitado (workaround OOB audio)")
+	var bust := FileAccess.get_file_as_string("res://scripts/cache_bust_web.sh")
+	ok(bust.contains("Solo limpia caché") or bust.contains("no en cada visita"), "cache-bust no borra caché cada load")
+	var ngx := FileAccess.get_file_as_string("res://deploy/nginx-web.conf")
+	ok(ngx.contains("immutable"), "nginx cachea wasm/pck versionados")

@@ -46,7 +46,7 @@ FORCE_JS = f"""
     try {{
       var url = new URL(u, location.href);
       url.searchParams.set("v", BUILD);
-      url.searchParams.set("_", String(Date.now()));
+      // No añadir Date.now(): forzaría re-descarga de wasm/pck en cada visita.
       return url.toString();
     }} catch (e) {{
       return u + (u.indexOf("?") >= 0 ? "&" : "?") + "v=" + BUILD;
@@ -85,7 +85,6 @@ FORCE_JS = f"""
   }}
 
   async function ensureLatest() {{
-    await clearCaches();
     var remote = BUILD;
     try {{
       var res = await fetch("/version.json?_=" + Date.now(), {{
@@ -101,7 +100,9 @@ FORCE_JS = f"""
     var local = null;
     try {{ local = localStorage.getItem(KEY); }} catch (e) {{}}
 
+    // Solo limpia caché / recarga cuando cambia el SHA — no en cada visita.
     if (local && local !== remote) {{
+      await clearCaches();
       var already = null;
       try {{ already = sessionStorage.getItem(RELOAD_KEY); }} catch (e) {{}}
       if (already !== remote) {{
@@ -119,7 +120,6 @@ FORCE_JS = f"""
     try {{ localStorage.setItem(KEY, remote); }} catch (e) {{}}
   }}
 
-  // Arrancar cuanto antes (bloquea lo mínimo: fire and forget + sync clear attempt)
   ensureLatest();
 }})();
 </script>

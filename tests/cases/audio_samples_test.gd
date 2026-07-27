@@ -64,14 +64,20 @@ func _the_sounds_the_game_asks_for_are_declared() -> void:
 func _audio_is_not_excluded_from_the_export() -> void:
 	## El sonido vivía en `modes/`, que está excluido del export: si se hubiera
 	## referenciado allí en vez de copiarlo, el juego publicado saldría mudo.
+	## La música de menú (ambience ~1MB) sí se puede excluir en Web: hay tono de
+	## respaldo. Los SFX no.
 	var cfg := FileAccess.get_file_as_string("res://export_presets.cfg")
 	ok(not cfg.is_empty(), "no se pudo leer export_presets.cfg")
 	for line in cfg.split("\n"):
 		if not line.begins_with("exclude_filter"):
 			continue
 		ok(
-			not line.contains("assets/audio"),
-			"el export excluye assets/audio; el juego publicado se quedaría sin sonido"
+			not line.contains("assets/audio/*") and not line.contains("assets/audio,\"") and not line.contains("assets/audio\""),
+			"el export no debe excluir todo assets/audio"
+		)
+		ok(
+			not line.contains("assets/audio/sfx"),
+			"el export no debe excluir assets/audio/sfx"
 		)
 	for key in AudioDirector.SAMPLES:
 		var path := str(AudioDirector.SAMPLES[key])

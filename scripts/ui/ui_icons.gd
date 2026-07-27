@@ -61,6 +61,29 @@ static func catalog_tex(index: int) -> Texture2D:
 	var entry: Dictionary = CharacterCatalog.get_entry(index)
 	if entry.is_empty():
 		return skin_tex(0)
+	## Web: badges baratos — no decodificar docenas de PNG al abrir hangar.
+	if WebSafe.is_web():
+		var id_web := str(entry.get("id", ""))
+		var out_web: Texture2D = null
+		match id_web:
+			"crew_blue":
+				out_web = skin_tex(0)
+			"crew_pink":
+				out_web = skin_tex(1)
+			"crew_green":
+				out_web = skin_tex(2)
+			"crew_yellow":
+				out_web = skin_tex(3)
+			"beast_classic":
+				out_web = beast_tex(int(GameManager.BeastVariant.CLASSIC))
+			"beast_mecha":
+				out_web = beast_tex(int(GameManager.BeastVariant.MECHA))
+			"beast_shadow":
+				out_web = beast_tex(int(GameManager.BeastVariant.SHADOW))
+			_:
+				out_web = _badge_tex(index, entry)
+		_catalog_cache[index] = out_web
+		return out_web
 	var id := str(entry.get("id", ""))
 	var out: Texture2D = null
 	match id:
