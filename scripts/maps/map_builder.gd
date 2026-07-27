@@ -89,27 +89,35 @@ func _seed_hazards(hazards: HazardSystem, map_id: String) -> void:
 func _env(sky_top: Color, sky_h: Color, ambient: Color, fog: Color, fog_dens: float = 0.012) -> void:
 	var we := WorldEnvironment.new()
 	var env := Environment.new()
-	var sky_mat := ProceduralSkyMaterial.new()
-	sky_mat.sky_top_color = sky_top
-	sky_mat.sky_horizon_color = sky_h
-	sky_mat.ground_bottom_color = sky_h.darkened(0.4)
-	sky_mat.ground_horizon_color = sky_h
-	var sky := Sky.new()
-	sky.sky_material = sky_mat
-	env.background_mode = Environment.BG_SKY
-	env.sky = sky
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = ambient
-	env.ambient_light_energy = 1.0 if _lite else 0.9
-	env.tonemap_mode = Environment.TONE_MAPPER_ACES
-	env.tonemap_exposure = 1.05
-	# Glow/fog son caros en HTML5 / GL Compatibility
-	env.glow_enabled = not _lite
-	if not _lite:
+	if _lite:
+		## Web: sin ProceduralSky (shader + cubemap). Color plano + ambient.
+		env.background_mode = Environment.BG_COLOR
+		env.background_color = sky_h.darkened(0.35)
+		env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+		env.ambient_light_color = ambient
+		env.ambient_light_energy = 1.05
+		env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+		env.glow_enabled = false
+		env.fog_enabled = false
+	else:
+		var sky_mat := ProceduralSkyMaterial.new()
+		sky_mat.sky_top_color = sky_top
+		sky_mat.sky_horizon_color = sky_h
+		sky_mat.ground_bottom_color = sky_h.darkened(0.4)
+		sky_mat.ground_horizon_color = sky_h
+		var sky := Sky.new()
+		sky.sky_material = sky_mat
+		env.background_mode = Environment.BG_SKY
+		env.sky = sky
+		env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+		env.ambient_light_color = ambient
+		env.ambient_light_energy = 0.9
+		env.tonemap_mode = Environment.TONE_MAPPER_ACES
+		env.tonemap_exposure = 1.05
+		env.glow_enabled = true
 		env.glow_intensity = 0.4
 		env.glow_bloom = 0.1
-	env.fog_enabled = not _lite
-	if not _lite:
+		env.fog_enabled = true
 		env.fog_light_color = fog
 		env.fog_density = fog_dens * 0.7
 	we.environment = env
@@ -136,6 +144,21 @@ func _accent_light(pos: Vector3, color: Color, energy: float = 3.0, rng: float =
 
 
 func _neon_tube(pos: Vector3, size: Vector3, color: Color) -> void:
+	if _lite:
+		## Web: MeshInstance + StandardMaterial basta; CSG es más pesado.
+		var mi := MeshInstance3D.new()
+		var box := BoxMesh.new()
+		box.size = size
+		mi.mesh = box
+		mi.position = pos
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = color
+		mat.emission_enabled = true
+		mat.emission = color
+		mat.emission_energy_multiplier = 2.4
+		mi.material_override = mat
+		add_child(mi)
+		return
 	var csg := CSGBox3D.new()
 	csg.use_collision = false
 	csg.size = size
@@ -144,7 +167,7 @@ func _neon_tube(pos: Vector3, size: Vector3, color: Color) -> void:
 	mat.albedo_color = color
 	mat.emission_enabled = true
 	mat.emission = color
-	mat.emission_energy_multiplier = 3.2 if _lite else 4.0
+	mat.emission_energy_multiplier = 4.0
 	csg.material = mat
 	add_child(csg)
 

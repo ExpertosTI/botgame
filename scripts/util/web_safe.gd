@@ -36,24 +36,14 @@ static func flat_atmosphere(rect: ColorRect, color: Color = Color(0.03, 0.06, 0.
 	rect.modulate = Color.WHITE
 
 
-## En Web solo el humano local carga GLB; bots/remotos se quedan en cápsula.
-static func should_attach_catalog_mesh(peer_id: int) -> bool:
-	if not is_web():
-		return true
-	if NetworkManager.is_bot_peer(peer_id):
-		return false
-	if NetworkManager.is_solo_practice:
-		return peer_id == 1
-	var tree := Engine.get_main_loop() as SceneTree
-	if tree == null:
-		return peer_id == 1
-	var mp := tree.get_multiplayer()
-	if mp != null and mp.has_multiplayer_peer():
-		return peer_id == mp.get_unique_id()
-	return peer_id == 1
+## En Web nadie carga GLB/AnimationPlayer: solo cápsula. El humano local también
+## petaba WASM al entrar a partida (skel_*.glb ~300KB + idle).
+static func should_attach_catalog_mesh(_peer_id: int = 0) -> bool:
+	return not is_web()
 
 
 static func strip_gpu_particles(root: Node) -> void:
+	## Preferible no embeber GPUParticles en .tscn; esto es red de seguridad.
 	if root == null or not is_web():
 		return
 	for n in root.find_children("*", "GPUParticles3D", true, false):

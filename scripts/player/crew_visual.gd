@@ -148,6 +148,9 @@ func _set_mat(mi: MeshInstance3D, color: Color, emission: float = 0.0, shiny: bo
 
 
 func _start_idle() -> void:
+	## Web: N tweens en loop por jugador → presión inútil; cápsula estática basta.
+	if WebSafe.is_web():
+		return
 	if _idle_tween:
 		_idle_tween.kill()
 	_idle_tween = create_tween().set_loops()

@@ -20,6 +20,8 @@ boot_splash/minimum_display_time=900
 
 [audio]
 
+## En ProjectSettings Stream=0 / Sample=1 (distinto del enum AudioServer).
+## Forzar Stream evita el path SAMPLE + buses que petaba WASM (godot#115560).
 general/default_playback_type=0
 general/default_playback_type.web=0
 

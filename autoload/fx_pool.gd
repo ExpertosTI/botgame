@@ -18,8 +18,8 @@ const PROJECTILE_SCRIPT := preload("res://scripts/combat/projectile.gd")
 ## en Web es mejor perder un destello que perder el frame rate.
 const MAX_PROJECTILES := 64
 const MAX_ONESHOTS := 72
-const WEB_MAX_PROJECTILES := 36
-const WEB_MAX_ONESHOTS := 40
+const WEB_MAX_PROJECTILES := 20
+const WEB_MAX_ONESHOTS := 24
 
 var _free_projectiles: Array[Area3D] = []
 var _live_projectiles: Array[Area3D] = []

@@ -8,6 +8,8 @@ extends RefCounted
 
 
 static func burst(_parent: Node, pos: Vector3, color: Color, radius: float = 1.2, count: int = 10) -> void:
+	if WebSafe.is_web():
+		count = mini(count, 4)
 	FxPool.burst(pos, color, radius, count)
 
 
@@ -21,6 +23,9 @@ static func flash(_parent: Node, pos: Vector3, color: Color, size: float = 0.35)
 
 static func shake_camera(cam: Camera3D, strength: float = 0.18, duration: float = 0.18) -> void:
 	if cam == null or not is_instance_valid(cam):
+		return
+	if WebSafe.is_web():
+		## Sacudida con tween encadenado en web móvil → skip; el hit se oye igual.
 		return
 	# Un solo Tween por sacudida (no por partícula) y siempre sobre la misma
 	# cámara: si ya había uno corriendo se descarta para no acumular offsets.

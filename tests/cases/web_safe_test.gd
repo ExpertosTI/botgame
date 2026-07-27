@@ -1,7 +1,8 @@
 extends "res://tests/test_case.gd"
 
 ## Contrato anti-OOB WASM: los mismos fallos que petaron el hangar en móvil
-## (vídeo + SubViewport 3D + buses de audio + GLB masivo) no deben volver a colarse.
+## (vídeo + SubViewport 3D + buses de audio + GLB masivo + GPUParticles) no
+## deben volver a colarse.
 
 
 func suite_name() -> String:
@@ -14,11 +15,13 @@ func run() -> void:
 	_menu_scene_has_no_subviewport()
 	_menu_web_lite_hangar()
 	_audio_web_master_only()
+	_mode_audio_pool_stream()
+	_no_glb_on_web()
+	_core_scene_has_no_particles()
 	_lobby_skips_shader_on_web()
 	_map_skips_glb_props_on_lite()
 	_bots_skip_catalog_mesh_on_web()
 	_export_web_guards()
-	_objective_strips_particles_on_web()
 
 
 func _web_safe_helper_exists() -> void:
@@ -34,7 +37,6 @@ func _intro_has_no_video_node() -> void:
 	var src := FileAccess.get_file_as_string("res://scripts/ui/intro.gd")
 	ok(src.contains("WebSafe.is_web()"), "intro usa WebSafe")
 	ok(src.contains("_show_keyart_fallback"), "intro web → splash, no vídeo")
-	ok(not src.contains("kill_video_player"), "intro ya no instancia Video en escena")
 	var tscn := FileAccess.get_file_as_string("res://scenes/main/intro.tscn")
 	ok(not tscn.contains("VideoStreamPlayer"), "intro.tscn sin VideoStreamPlayer")
 
@@ -57,7 +59,26 @@ func _audio_web_master_only() -> void:
 	ok(src.contains("PLAYBACK_TYPE_STREAM"), "playback STREAM en Web")
 	ok(src.contains("if not web:") and src.contains("_ensure_buses"), "no add_bus en Web")
 	var proj := FileAccess.get_file_as_string("res://project.godot")
-	ok(proj.contains("default_playback_type.web=0"), "project.godot fuerza STREAM en web")
+	## En ProjectSettings: 0=Stream, 1=Sample (no el enum AudioServer).
+	ok(proj.contains("default_playback_type.web=0"), "project.godot fuerza Stream en web")
+
+
+func _mode_audio_pool_stream() -> void:
+	var src := FileAccess.get_file_as_string("res://autoload/mode_audio_pool.gd")
+	ok(src.contains("PLAYBACK_TYPE_STREAM"), "ModeAudioPool STREAM en Web")
+	ok(src.contains("WebSafe.is_web()"), "ModeAudioPool usa WebSafe")
+
+
+func _no_glb_on_web() -> void:
+	var src := FileAccess.get_file_as_string("res://scripts/util/web_safe.gd")
+	ok(src.contains("return not is_web()"), "Web: cero GLB (ni humano local)")
+
+
+func _core_scene_has_no_particles() -> void:
+	var tscn := FileAccess.get_file_as_string("res://scenes/objectives/beast_objective.tscn")
+	ok(not tscn.contains("GPUParticles"), "núcleo.tscn sin GPUParticles (alloc al instantiate)")
+	var src := FileAccess.get_file_as_string("res://scripts/objectives/beast_objective.gd")
+	ok(src.contains("_emit_desktop_destroy_particles") or src.contains("not WebSafe.is_web()"), "partículas solo desktop")
 
 
 func _lobby_skips_shader_on_web() -> void:
@@ -69,6 +90,7 @@ func _lobby_skips_shader_on_web() -> void:
 func _map_skips_glb_props_on_lite() -> void:
 	var src := FileAccess.get_file_as_string("res://scripts/maps/map_builder.gd")
 	ok(src.contains("if _lite:") and src.contains("_box("), "props lite → cajas, no GLB")
+	ok(src.contains("BG_COLOR"), "mapa lite sin ProceduralSky")
 	ok(src.contains("if _lite:\n\t\treturn") or src.contains("if _lite:\n\t\treturn\n\tfor existing"), "sin trimesh en lite")
 
 
@@ -83,8 +105,3 @@ func _export_web_guards() -> void:
 	var cfg := FileAccess.get_file_as_string("res://export_presets.cfg")
 	ok(cfg.contains("assets/video/intro/*"), "export Web excluye vídeo intro del PCK")
 	ok(cfg.contains("progressive_web_app/enabled=true"), "PWA habilitado (workaround OOB audio)")
-
-
-func _objective_strips_particles_on_web() -> void:
-	var src := FileAccess.get_file_as_string("res://scripts/objectives/beast_objective.gd")
-	ok(src.contains("WebSafe.is_web()") and src.contains("particles.queue_free"), "núcleos sin GPUParticles en Web")

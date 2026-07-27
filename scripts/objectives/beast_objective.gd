@@ -8,7 +8,6 @@ signal relay_changed(open: bool)
 @export var health := 100.0
 
 @onready var mesh: MeshInstance3D = $Mesh
-@onready var particles: GPUParticles3D = $DestroyParticles
 
 var is_active := true
 var sabotage_progress := 0.0
@@ -21,15 +20,13 @@ var _relay_t := 0.0
 var _ring: MeshInstance3D
 var _status_lab: Label3D
 var _pulse_tween: Tween
+var _destroy_particles: GPUParticles3D
 
 
 func _ready() -> void:
 	add_to_group("beast_objectives")
 	set_physics_process(false)
-	## Web: GPUParticles3D × núcleos pega el heap.
-	if WebSafe.is_web() and particles:
-		particles.queue_free()
-		particles = null
+	## GPUParticles no van en el .tscn: instanciarlas = alloc antes de _ready (OOB web).
 	_apply_visual()
 	_boot_variant_state()
 
@@ -279,8 +276,21 @@ func _play_destroy_effect() -> void:
 	CombatVfx.ring(self, global_position, tint, 3.0)
 	if variant == ObjectiveVariants.Kind.OVERCHARGED:
 		CombatVfx.ring(self, global_position, tint, ObjectiveVariants.OVERCHARGE_RADIUS)
-	if particles:
-		particles.emitting = true
+	if not WebSafe.is_web():
+		_emit_desktop_destroy_particles()
 	var tween := create_tween()
 	tween.tween_property(mesh, "scale", Vector3.ZERO, 0.4)
 	tween.tween_callback(queue_free)
+
+
+func _emit_desktop_destroy_particles() -> void:
+	if _destroy_particles == null:
+		_destroy_particles = GPUParticles3D.new()
+		_destroy_particles.position = Vector3(0, 0.75, 0)
+		_destroy_particles.emitting = false
+		_destroy_particles.amount = 30
+		_destroy_particles.lifetime = 0.8
+		_destroy_particles.one_shot = true
+		_destroy_particles.explosiveness = 1.0
+		add_child(_destroy_particles)
+	_destroy_particles.emitting = true

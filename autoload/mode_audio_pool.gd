@@ -21,10 +21,14 @@ var _queue: Array[Dictionary] = []
 
 
 func _ready() -> void:
+	## Godot 4.6 web: SAMPLE + buses custom → OOB / Master mudo. STREAM + Master.
+	var web := WebSafe.is_web()
 	for i in NUM_PLAYERS:
 		var p := AudioStreamPlayer.new()
 		p.volume_db = DEFAULT_DB
 		p.bus = "Master"
+		if web:
+			p.playback_type = AudioServer.PLAYBACK_TYPE_STREAM
 		p.finished.connect(_on_stream_finished.bind(p))
 		add_child(p)
 		_available.append(p)
