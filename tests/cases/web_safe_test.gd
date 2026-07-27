@@ -57,11 +57,15 @@ func _audio_web_master_only() -> void:
 	var src := FileAccess.get_file_as_string("res://autoload/audio_director.gd")
 	ok(src.contains("_web_bus"), "AudioDirector._web_bus")
 	ok(src.contains("_ensure_web_players"), "AudioDirector lazy players en Web")
-	ok(src.contains("if not web:") and src.contains("_ensure_buses"), "no add_bus en Web")
+	ok(not src.contains("AudioServer.add_bus("), "nunca add_bus (OOB 4.6)")
+	ok(ResourceLoader.exists("res://default_bus_layout.tres"), "layout Master-only en proyecto")
 	var proj := FileAccess.get_file_as_string("res://project.godot")
-	## ProjectSettings: 0=Stream, 1=Sample — web single-thread necesita Sample.
 	ok(proj.contains("default_playback_type.web=1"), "project.godot Sample en web")
+	ok(proj.contains("default_bus_layout"), "project apunta al bus layout")
 	ok(proj.contains("physics_engine.web=\"GodotPhysics3D\"") or proj.contains("physics_engine.web=GodotPhysics3D"), "Web sin Jolt al boot")
+	var sh := FileAccess.get_file_as_string("res://scripts/export_godot_linux.sh")
+	ok(sh.contains("--export-debug"), "export Web usa template debug (workaround OOB)")
+	ok(sh.contains("4.6.2-stable"), "export en Godot 4.6.2")
 
 
 func _mode_audio_pool_stream() -> void:

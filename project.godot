@@ -20,8 +20,9 @@ boot_splash/minimum_display_time=900
 
 [audio]
 
-; Web single-thread: Sample (1). Stream (0) mezcla mal y puede petar.
-; No crear buses extra en Web (ver AudioDirector) — eso si dispara godot#115560.
+; Web single-thread: Sample (1). Stream (0) mezcla mal.
+; Layout solo Master — add_bus en runtime dispara OOB en 4.6 release (godot#115560).
+buses/default_bus_layout="res://default_bus_layout.tres"
 general/default_playback_type=0
 general/default_playback_type.web=1
 

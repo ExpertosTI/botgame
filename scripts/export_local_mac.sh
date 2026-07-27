@@ -20,7 +20,7 @@ fi
 
 mkdir -p export/web export/server
 "$GODOT_BIN" --headless --path "$ROOT" --import || true
-"$GODOT_BIN" --headless --path "$ROOT" --export-release "Web" "export/web/index.html"
+"$GODOT_BIN" --headless --path "$ROOT" --export-debug "Web" "export/web/index.html"
 "$GODOT_BIN" --headless --path "$ROOT" --export-release "Linux" "export/server/BestiaVsRobots.x86_64"
 echo "Export local OK. Siguiente: git add/commit/push (no rsync)."
 echo "En VPS: cd /opt/botgame && ./deploy.sh update"

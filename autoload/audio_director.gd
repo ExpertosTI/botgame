@@ -66,11 +66,9 @@ var _pending: Array[Dictionary] = []
 
 
 func _ready() -> void:
-	## Godot 4.6 web: add_bus + Sample → OOB (godot#115560). Solo Master.
-	## No forzar STREAM: en single-thread SAMPLE es el path soportado.
+	## Nunca AudioServer.add_bus: en Godot 4.6 web release → OOB (godot#115560).
+	## Layout = solo Master (default_bus_layout.tres).
 	var web := WebSafe.is_web()
-	if not web:
-		_ensure_buses()
 	## Web: diferir players hasta el primer sonido (menos alloc al boot).
 	if web:
 		SettingsManager.settings_changed.connect(_on_settings)
@@ -78,15 +76,15 @@ func _ready() -> void:
 		return
 	for i in 8:
 		var p := AudioStreamPlayer.new()
-		p.bus = "SFX"
+		p.bus = "Master"
 		p.max_polyphony = 1
 		add_child(p)
 		_players.append(p)
 	_music = AudioStreamPlayer.new()
-	_music.bus = "Music"
+	_music.bus = "Master"
 	add_child(_music)
 	_steps = AudioStreamPlayer.new()
-	_steps.bus = "SFX"
+	_steps.bus = "Master"
 	_steps.volume_db = -14.0
 	add_child(_steps)
 	SettingsManager.settings_changed.connect(_on_settings)
@@ -113,48 +111,18 @@ func _ensure_web_players() -> void:
 		add_child(_steps)
 
 
-func _web_bus(logical: String) -> String:
-	## En Web todos los buses lógicos → Master.
-	if WebSafe.is_web():
-		return "Master"
-	return logical
-
-
-func _ensure_buses() -> void:
-	_add_bus_if_missing("SFX")
-	_add_bus_if_missing("Music")
-	_add_bus_if_missing("UI")
-
-
-func _add_bus_if_missing(bus_name: String) -> void:
-	if AudioServer.get_bus_index(bus_name) >= 0:
-		return
-	var idx := AudioServer.bus_count
-	AudioServer.add_bus(idx)
-	AudioServer.set_bus_name(idx, bus_name)
-	AudioServer.set_bus_send(idx, "Master")
+func _web_bus(_logical: String) -> String:
+	## Todos los buses lógicos → Master (layout sin SFX/Music/UI).
+	return "Master"
 
 
 func _on_settings() -> void:
 	var mute := SettingsManager.muted
 	var master_lin := clampf(SettingsManager.master_volume, 0.0, 1.0)
-	if WebSafe.is_web():
-		## Solo Master existe.
-		AudioServer.set_bus_mute(0, mute)
-		AudioServer.set_bus_volume_db(0, linear_to_db(clampf(master_lin, 0.001, 1.0)))
-		return
-	var sfx_i := AudioServer.get_bus_index("SFX")
-	var mus_i := AudioServer.get_bus_index("Music")
-	var ui_i := AudioServer.get_bus_index("UI")
-	if sfx_i >= 0:
-		AudioServer.set_bus_mute(sfx_i, mute)
-		AudioServer.set_bus_volume_db(sfx_i, linear_to_db(clampf(SettingsManager.sfx_volume * master_lin, 0.001, 1.0)))
-	if mus_i >= 0:
-		AudioServer.set_bus_mute(mus_i, mute)
-		AudioServer.set_bus_volume_db(mus_i, linear_to_db(clampf(SettingsManager.music_volume * master_lin * 0.55, 0.001, 1.0)))
-	if ui_i >= 0:
-		AudioServer.set_bus_mute(ui_i, mute)
-		AudioServer.set_bus_volume_db(ui_i, linear_to_db(clampf(SettingsManager.sfx_volume * master_lin, 0.001, 1.0)))
+	AudioServer.set_bus_mute(0, mute)
+	AudioServer.set_bus_volume_db(0, linear_to_db(clampf(master_lin, 0.001, 1.0)))
+	if _music != null and is_instance_valid(_music):
+		_music.volume_db = linear_to_db(clampf(SettingsManager.music_volume * 0.55, 0.001, 1.0)) - 6.0
 
 
 func play_ui(kind: String = "click") -> void:

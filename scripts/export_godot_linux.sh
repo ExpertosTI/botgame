@@ -12,10 +12,11 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-GODOT_VER="${GODOT_VER:-4.6-stable}"
+GODOT_VER="${GODOT_VER:-4.6.2-stable}"
 CACHE="${BOTGAME_GODOT_CACHE:-/var/cache/botgame-godot}"
 GODOT_BIN="$CACHE/Godot_v${GODOT_VER}_linux.x86_64"
-TPL_DEST="$HOME/.local/share/godot/export_templates/4.6.stable"
+# 4.6-stable → 4.6.stable · 4.6.2-stable → 4.6.2.stable
+TPL_DEST="$HOME/.local/share/godot/export_templates/${GODOT_VER%-stable}.stable"
 STAMP_FILE="$CACHE/export.stamp"
 IMPORT_TIMEOUT="${GODOT_IMPORT_TIMEOUT:-900}"
 
@@ -242,13 +243,17 @@ install_godot() {
 }
 
 templates_ok() {
-  [ -f "$TPL_DEST/web_nothreads_release.zip" ] && [ -f "$TPL_DEST/linux_release.x86_64" ]
+  ## Web usa template debug (workaround OOB 4.6 release); Linux release.
+  [ -f "$TPL_DEST/web_nothreads_debug.zip" ] \
+    && [ -f "$TPL_DEST/web_nothreads_release.zip" ] \
+    && [ -f "$TPL_DEST/linux_release.x86_64" ]
 }
 
 prune_unused_templates() {
   [ -d "$TPL_DEST" ] || return 0
   local before after
   before="$(du -sm "$TPL_DEST" 2>/dev/null | awk '{print $1}')"
+  ## Conservar web_nothreads_debug.zip — el export Web usa --export-debug.
   rm -f "$TPL_DEST"/android_* \
     "$TPL_DEST"/ios.zip \
     "$TPL_DEST"/macos.zip \
@@ -259,7 +264,6 @@ prune_unused_templates() {
     "$TPL_DEST"/linux_release.x86_32 \
     "$TPL_DEST"/web_debug.zip \
     "$TPL_DEST"/web_release.zip \
-    "$TPL_DEST"/web_nothreads_debug.zip \
     2>/dev/null || true
   after="$(du -sm "$TPL_DEST" 2>/dev/null | awk '{print $1}')"
   if [ -n "$before" ] && [ -n "$after" ] && [ "$before" != "$after" ]; then
@@ -289,7 +293,7 @@ install_templates() {
   prune_unused_templates
   log "Templates en $TPL_DEST:"
   ls -lh "$TPL_DEST" | head -30
-  templates_ok || die "Faltan web_nothreads_release.zip o linux_release.x86_64 en $TPL_DEST"
+  templates_ok || die "Faltan web_nothreads_debug.zip / web_nothreads_release.zip / linux_release.x86_64 en $TPL_DEST"
 }
 
 run_godot_timeout() {
@@ -469,9 +473,13 @@ run_export() {
   ) &
   local hb_pid=$!
 
+  # Web: --export-debug. Godot 4.6.0 release template petaba WASM al boot
+  # (godot#115560); el template debug lleva DEBUG_ENABLED y no OOB.
+  # Linux dedicated server sigue en release.
   local rc=0
+  log "Export Web (debug template) → export/web/index.html"
   run_godot_timeout "${export_timeout}" /tmp/botgame-export-web.log \
-    --headless --path "$ROOT" --export-release "Web" "$ROOT/export/web/index.html" || rc=$?
+    --headless --path "$ROOT" --export-debug "Web" "$ROOT/export/web/index.html" || rc=$?
   kill "$hb_pid" 2>/dev/null || true
   wait "$hb_pid" 2>/dev/null || true
   if [ "$rc" -ne 0 ]; then
