@@ -18,6 +18,11 @@ boot_splash/fullsize=false
 boot_splash/use_filter=true
 boot_splash/minimum_display_time=900
 
+[audio]
+
+general/default_playback_type=0
+general/default_playback_type.web=0
+
 [autoload]
 
 NetworkManager="*res://autoload/network_manager.gd"

@@ -66,22 +66,39 @@ var _pending: Array[Dictionary] = []
 
 
 func _ready() -> void:
-	_ensure_buses()
+	## Godot 4.6 web: AudioServer.add_bus + Sample playback → OOB WASM / Master mudo
+	## (godot#115560, #119026). En Web solo Master + STREAM.
+	var web := WebSafe.is_web()
+	if not web:
+		_ensure_buses()
 	for i in 8:
 		var p := AudioStreamPlayer.new()
-		p.bus = "SFX"
+		p.bus = "Master" if web else "SFX"
 		p.max_polyphony = 1
+		if web:
+			p.playback_type = AudioServer.PLAYBACK_TYPE_STREAM
 		add_child(p)
 		_players.append(p)
 	_music = AudioStreamPlayer.new()
-	_music.bus = "Music"
+	_music.bus = "Master" if web else "Music"
+	if web:
+		_music.playback_type = AudioServer.PLAYBACK_TYPE_STREAM
 	add_child(_music)
 	_steps = AudioStreamPlayer.new()
-	_steps.bus = "SFX"
+	_steps.bus = "Master" if web else "SFX"
 	_steps.volume_db = -14.0
+	if web:
+		_steps.playback_type = AudioServer.PLAYBACK_TYPE_STREAM
 	add_child(_steps)
 	SettingsManager.settings_changed.connect(_on_settings)
 	_on_settings()
+
+
+func _web_bus(logical: String) -> String:
+	## En Web todos los buses lógicos → Master.
+	if WebSafe.is_web():
+		return "Master"
+	return logical
 
 
 func _ensure_buses() -> void:
@@ -100,11 +117,16 @@ func _add_bus_if_missing(bus_name: String) -> void:
 
 
 func _on_settings() -> void:
+	var mute := SettingsManager.muted
+	var master_lin := clampf(SettingsManager.master_volume, 0.0, 1.0)
+	if WebSafe.is_web():
+		## Solo Master existe.
+		AudioServer.set_bus_mute(0, mute)
+		AudioServer.set_bus_volume_db(0, linear_to_db(clampf(master_lin, 0.001, 1.0)))
+		return
 	var sfx_i := AudioServer.get_bus_index("SFX")
 	var mus_i := AudioServer.get_bus_index("Music")
 	var ui_i := AudioServer.get_bus_index("UI")
-	var mute := SettingsManager.muted
-	var master_lin := clampf(SettingsManager.master_volume, 0.0, 1.0)
 	if sfx_i >= 0:
 		AudioServer.set_bus_mute(sfx_i, mute)
 		AudioServer.set_bus_volume_db(sfx_i, linear_to_db(clampf(SettingsManager.sfx_volume * master_lin, 0.001, 1.0)))
@@ -300,7 +322,7 @@ func _play_sample(key: String, bus: String, volume_db: float = 0.0, jitter: bool
 	var p := _free_player()
 	if p == null:
 		return false
-	p.bus = bus
+	p.bus = _web_bus(bus)
 	p.stream = stream
 	p.volume_db = volume_db
 	p.pitch_scale = randf_range(1.0 - PITCH_JITTER, 1.0 + PITCH_JITTER) if jitter else 1.0
@@ -342,7 +364,7 @@ func _beep(hz: float, dur: float, amp: float, bus: String, delay: float = 0.0) -
 	var p := _free_player()
 	if p == null:
 		return
-	p.bus = bus
+	p.bus = _web_bus(bus)
 	# Los reproductores son compartidos y las muestras los dejan con su propio
 	# volumen y tono; sin reponerlos, un bip heredaría el ajuste del disparo
 	# anterior.
@@ -371,7 +393,7 @@ func _noise_burst(dur: float, amp: float, base_hz: float, grit: float) -> void:
 	var p := _free_player()
 	if p == null:
 		return
-	p.bus = "SFX"
+	p.bus = _web_bus("SFX")
 	p.volume_db = 0.0
 	p.pitch_scale = 1.0
 	p.stream = _make_noise(dur, amp, base_hz, grit)

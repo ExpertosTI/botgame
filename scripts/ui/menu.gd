@@ -7,7 +7,6 @@ extends Control
 @onready var status_label: Label = %StatusLabel
 @onready var title_label: Label = %TitleLabel
 @onready var subtitle: Label = %Subtitle
-@onready var stage_root: Node3D = %StageRoot
 @onready var atmosphere: ColorRect = %Atmosphere
 @onready var online_mode_button: Button = %OnlineModeButton
 @onready var solo_mode_button: Button = %SoloModeButton
@@ -418,15 +417,11 @@ func _spawn_showcase() -> void:
 
 
 ## Hangar Web: solo retratos 2D. Cero SubViewport / GLB / AnimationPlayer.
+## El .tscn ya no trae SubViewport (instanciarlo = World3D en el heap antes de _ready).
 func _fill_web_lite_stage(stage_wrap: Control) -> void:
 	var cap := stage_wrap.get_node_or_null("VBox/StageCaption") as Label
 	if cap:
 		cap.visible = false
-
-	## Liberar el World3D dormido: hide+UPDATE_DISABLED aún deja RIDs en el heap.
-	var view := stage_wrap.get_node_or_null("VBox/StageView") as SubViewportContainer
-	if view:
-		view.queue_free()
 
 	var vbox := stage_wrap.get_node_or_null("VBox") as VBoxContainer
 	if vbox == null:
@@ -473,37 +468,108 @@ func _update_web_hero() -> void:
 		_hero.texture = UiIcons.catalog_tex(_pick_skin)
 
 
+func _ensure_desktop_stage_view(vbox: VBoxContainer) -> SubViewportContainer:
+	var view := vbox.get_node_or_null("StageView") as SubViewportContainer
+	if view != null:
+		return view
+	view = SubViewportContainer.new()
+	view.name = "StageView"
+	view.stretch = true
+	view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_child(view)
+	vbox.move_child(view, mini(1, vbox.get_child_count() - 1))
+
+	var sv := SubViewport.new()
+	sv.name = "SubViewport"
+	sv.own_world_3d = true
+	sv.handle_input_locally = false
+	sv.size = Vector2i(960, 540)
+	sv.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	view.add_child(sv)
+
+	var world := Node3D.new()
+	world.name = "World"
+	sv.add_child(world)
+
+	var cam := Camera3D.new()
+	cam.name = "Camera3D"
+	cam.transform = Transform3D(Basis(), Vector3(0, 1.55, 4.2))
+	cam.current = true
+	cam.fov = 42.0
+	world.add_child(cam)
+
+	var env := Environment.new()
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = Color(0.02, 0.04, 0.06, 1)
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color(0.35, 0.55, 0.6, 1)
+	env.ambient_light_energy = 0.85
+	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.glow_enabled = false
+	var we := WorldEnvironment.new()
+	we.name = "WorldEnvironment"
+	we.environment = env
+	world.add_child(we)
+
+	var key := DirectionalLight3D.new()
+	key.name = "KeyLight"
+	key.light_color = Color(0.75, 0.9, 1, 1)
+	key.light_energy = 1.2
+	key.transform = Transform3D(Basis.from_euler(Vector3(-0.7, 0.6, 0)), Vector3(0, 3, 2))
+	world.add_child(key)
+
+	var fill := OmniLight3D.new()
+	fill.name = "Fill"
+	fill.position = Vector3(-2, 1.5, 1)
+	fill.light_color = Color(0.2, 0.85, 0.8, 1)
+	fill.light_energy = 2.5
+	fill.omni_range = 6.0
+	world.add_child(fill)
+
+	var rim := OmniLight3D.new()
+	rim.name = "Rim"
+	rim.position = Vector3(2.2, 1.2, -0.5)
+	rim.light_color = Color(1, 0.25, 0.3, 1)
+	rim.light_energy = 2.2
+	rim.omni_range = 5.0
+	world.add_child(rim)
+
+	var root := Node3D.new()
+	root.name = "StageRoot"
+	root.unique_name_in_owner = true
+	world.add_child(root)
+	return view
+
+
 func _fill_dynamic_stage(stage_wrap: Control) -> void:
-	var cap := stage_wrap.get_node_or_null("VBox/StageCaption") as Label
+	var vbox := stage_wrap.get_node_or_null("VBox") as VBoxContainer
+	if vbox == null:
+		return
+
+	var cap := vbox.get_node_or_null("StageCaption") as Label
 	if cap:
 		cap.text = "UNIDAD EN ESCENA"
 		GameTheme.style_muted(cap, 12)
 		## En landscape el personaje es el fondo; el caption estorba.
 		cap.visible = not _is_landscape()
 
-	var view := stage_wrap.get_node_or_null("VBox/StageView") as SubViewportContainer
-	var sv := stage_wrap.get_node_or_null("VBox/StageView/SubViewport") as SubViewport
-	if view and sv:
+	var view := _ensure_desktop_stage_view(vbox)
+	var sv := view.get_node_or_null("SubViewport") as SubViewport
+	if sv:
 		view.visible = true
 		var vh := get_viewport().get_visible_rect().size.y
-		var web := OS.has_feature("web") or OS.get_name() == "Web"
 		if _is_landscape():
 			## Deja hueco abajo para tira táctil; el personaje no se recorta.
 			view.custom_minimum_size = Vector2(0, maxf(vh * 0.52, 200))
-			sv.size = Vector2i(640, 360) if web else Vector2i(960, 540)
+			sv.size = Vector2i(960, 540)
 		else:
 			view.custom_minimum_size = Vector2(0, 360 if _mobile else 480)
-			sv.size = Vector2i(640, 400) if web else Vector2i(800 if _mobile else 960, 520 if _mobile else 560)
+			sv.size = Vector2i(800 if _mobile else 960, 520 if _mobile else 560)
 		sv.render_target_update_mode = SubViewport.UPDATE_WHEN_VISIBLE
 		sv.transparent_bg = false
-		## Glow en SubViewport Web = riesgo alto de OOB.
-		var we := stage_wrap.get_node_or_null("VBox/StageView/SubViewport/World/WorldEnvironment") as WorldEnvironment
+		var we := sv.get_node_or_null("World/WorldEnvironment") as WorldEnvironment
 		if we and we.environment:
 			we.environment.glow_enabled = false
-
-	var vbox := stage_wrap.get_node_or_null("VBox") as VBoxContainer
-	if vbox == null:
-		return
 
 	for c in vbox.get_children():
 		if str(c.name).begins_with("Dyn"):

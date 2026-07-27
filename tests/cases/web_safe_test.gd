@@ -1,7 +1,7 @@
 extends "res://tests/test_case.gd"
 
 ## Contrato anti-OOB WASM: los mismos fallos que petaron el hangar en móvil
-## (vídeo + SubViewport 3D + GLB masivo) no deben volver a colarse.
+## (vídeo + SubViewport 3D + buses de audio + GLB masivo) no deben volver a colarse.
 
 
 func suite_name() -> String:
@@ -10,12 +10,14 @@ func suite_name() -> String:
 
 func run() -> void:
 	_web_safe_helper_exists()
-	_intro_kills_video_on_web()
-	_menu_frees_stage_on_web()
+	_intro_has_no_video_node()
+	_menu_scene_has_no_subviewport()
+	_menu_web_lite_hangar()
+	_audio_web_master_only()
 	_lobby_skips_shader_on_web()
 	_map_skips_glb_props_on_lite()
 	_bots_skip_catalog_mesh_on_web()
-	_export_excludes_intro_video()
+	_export_web_guards()
 	_objective_strips_particles_on_web()
 
 
@@ -28,17 +30,34 @@ func _web_safe_helper_exists() -> void:
 	ok(src.contains("flat_atmosphere"), "flat_atmosphere")
 
 
-func _intro_kills_video_on_web() -> void:
+func _intro_has_no_video_node() -> void:
 	var src := FileAccess.get_file_as_string("res://scripts/ui/intro.gd")
 	ok(src.contains("WebSafe.is_web()"), "intro usa WebSafe")
-	ok(src.contains("kill_video_player"), "intro libera VideoStreamPlayer en Web")
+	ok(src.contains("_show_keyart_fallback"), "intro web → splash, no vídeo")
+	ok(not src.contains("kill_video_player"), "intro ya no instancia Video en escena")
+	var tscn := FileAccess.get_file_as_string("res://scenes/main/intro.tscn")
+	ok(not tscn.contains("VideoStreamPlayer"), "intro.tscn sin VideoStreamPlayer")
 
 
-func _menu_frees_stage_on_web() -> void:
+func _menu_scene_has_no_subviewport() -> void:
+	var tscn := FileAccess.get_file_as_string("res://scenes/main/menu.tscn")
+	ok(not tscn.contains("SubViewport"), "menu.tscn sin SubViewport (no World3D al boot web)")
+
+
+func _menu_web_lite_hangar() -> void:
 	var src := FileAccess.get_file_as_string("res://scripts/ui/menu.gd")
 	ok(src.contains("_fill_web_lite_stage"), "hangar web lite")
-	ok(src.contains("StageView") and src.contains("queue_free"), "libera SubViewport en Web")
+	ok(src.contains("_ensure_desktop_stage_view"), "SubViewport solo en desktop")
 	ok(src.contains("WebSafe.flat_atmosphere") or src.contains("flat_atmosphere"), "menú sin shader animado en Web")
+
+
+func _audio_web_master_only() -> void:
+	var src := FileAccess.get_file_as_string("res://autoload/audio_director.gd")
+	ok(src.contains("_web_bus"), "AudioDirector._web_bus")
+	ok(src.contains("PLAYBACK_TYPE_STREAM"), "playback STREAM en Web")
+	ok(src.contains("if not web:") and src.contains("_ensure_buses"), "no add_bus en Web")
+	var proj := FileAccess.get_file_as_string("res://project.godot")
+	ok(proj.contains("default_playback_type.web=0"), "project.godot fuerza STREAM en web")
 
 
 func _lobby_skips_shader_on_web() -> void:
@@ -60,9 +79,10 @@ func _bots_skip_catalog_mesh_on_web() -> void:
 	ok(beast.contains("WebSafe.should_attach_catalog_mesh"), "beast respeta WebSafe mesh")
 
 
-func _export_excludes_intro_video() -> void:
+func _export_web_guards() -> void:
 	var cfg := FileAccess.get_file_as_string("res://export_presets.cfg")
 	ok(cfg.contains("assets/video/intro/*"), "export Web excluye vídeo intro del PCK")
+	ok(cfg.contains("progressive_web_app/enabled=true"), "PWA habilitado (workaround OOB audio)")
 
 
 func _objective_strips_particles_on_web() -> void:

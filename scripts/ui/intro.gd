@@ -1,36 +1,38 @@
 extends Control
 
 ## Intro al arrancar; Skip → hub.
-## Web: NUNCA VideoStreamPlayer (OOB WASM en móvil). Solo splash + avanzar.
+## Web: sin VideoStreamPlayer en la escena (OOB Godot 4.6). Desktop crea vídeo al vuelo.
 
 var _finished := false
 
 
 func _ready() -> void:
 	if NetworkManager.is_dedicated_server:
-		# call_deferred: change_scene en _ready pega remove_child ("Parent busy").
 		get_tree().change_scene_to_file.call_deferred("res://scenes/main/server_main.tscn")
 		return
 	var skip_btn := $SkipButton as Button
 	skip_btn.pressed.connect(_finish)
 	if WebSafe.is_web():
-		## Vídeo HTML5 en iPhone/Chrome = memory access out of bounds.
-		WebSafe.kill_video_player($Video)
 		_show_keyart_fallback()
 		skip_btn.text = "JUGAR →"
-		get_tree().create_timer(1.4).timeout.connect(_finish)
+		get_tree().create_timer(1.2).timeout.connect(_finish)
 		return
-	var player := $Video as VideoStreamPlayer
+	_try_play_desktop_video()
+
+
+func _try_play_desktop_video() -> void:
+	var player := VideoStreamPlayer.new()
+	player.name = "Video"
+	player.set_anchors_preset(Control.PRESET_FULL_RECT)
+	player.expand = true
+	add_child(player)
+	move_child(player, 1)
 	var ok := false
-	var candidates: Array[String] = [
-		"res://assets/video/intro/chadrine_intro.mp4",
-		"res://assets/video/intro/chadrine_intro.webm",
-	]
-	for path in candidates:
+	for path in ["res://assets/video/intro/chadrine_intro.mp4", "res://assets/video/intro/chadrine_intro.webm"]:
 		if not ResourceLoader.exists(path):
 			continue
 		var stream = load(path)
-		if stream == null or player == null:
+		if stream == null:
 			continue
 		player.stream = stream
 		if not player.finished.is_connected(_finish):
@@ -40,12 +42,12 @@ func _ready() -> void:
 		if ok:
 			break
 	if not ok:
+		player.queue_free()
 		_show_keyart_fallback()
 		get_tree().create_timer(3.0).timeout.connect(_finish)
 
 
 func _show_keyart_fallback() -> void:
-	## Icono del juego centrado (no keyart AI).
 	var art_path := "res://assets/ui/splash_chadrine.png"
 	if not ResourceLoader.exists(art_path):
 		art_path = "res://icon.png"
@@ -81,7 +83,6 @@ func _finish() -> void:
 		return
 	_finished = true
 	ModeRouter.intro_seen_session = true
-	## Parar vídeo si existía (desktop) antes del cambio de escena.
 	var player := get_node_or_null("Video") as VideoStreamPlayer
 	if player:
 		player.stop()
