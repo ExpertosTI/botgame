@@ -61,9 +61,8 @@ services:
         - "traefik.http.routers.botgame-ws.tls=true"
         - "traefik.http.routers.botgame-ws.tls.certresolver=letsencryptresolver"
         - "traefik.http.routers.botgame-ws.priority=100"
-        - "traefik.http.routers.botgame-ws.middlewares=botgame-ws-strip"
+        # Sin stripprefix: Godot acepta /ws; el strip puede interferir con Upgrade.
         - "traefik.http.routers.botgame-ws.service=botgame-ws"
-        - "traefik.http.middlewares.botgame-ws-strip.stripprefix.prefixes=/ws"
         - "traefik.http.services.botgame-ws.loadbalancer.server.port=7777"
         # Presence JSON (práctica → invitación online)
         - "traefik.http.routers.botgame-presence.rule=Host(`botgame.renace.tech`) && PathPrefix(`/api/presence`)"

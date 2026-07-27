@@ -211,7 +211,9 @@ smoke() {
     # Reintentos: tras force-recreate Traefik puede devolver 502 unos segundos.
     local ws_code="000" attempt
     for attempt in 1 2 3 4 5 6; do
-        ws_code=$(curl -sS -m 15 -o /dev/null -w '%{http_code}' \
+        # HTTP/1.1 obligatorio: con HTTP/2 el Upgrade no llega a Godot (ve header
+        # vacío → ERROR wsl_peer + Traefik/CF responden 502).
+        ws_code=$(curl -sS -m 15 --http1.1 -o /dev/null -w '%{http_code}' \
             -H "Connection: Upgrade" -H "Upgrade: websocket" \
             -H "Sec-WebSocket-Version: 13" -H "Sec-WebSocket-Key: c2hha2VzcGVhcmUxMjM0" \
             "https://${BOTGAME_DOMAIN}/ws" || echo "000")
@@ -262,6 +264,18 @@ cmd_update() {
         log "→ git fetch + reset origin/main"
         local before after
         before="$(git rev-parse HEAD 2>/dev/null || true)"
+        # Si un export anterior dejó media aparcada, devolverla antes del reset
+        # (si no, `git status` muestra cientos de D y el working tree queda a medias).
+        PARK_DIR="${BOTGAME_GODOT_CACHE:-/var/cache/botgame-godot}/parked-media"
+        if [ -d "$PARK_DIR" ] && [ -n "$(find "$PARK_DIR" -type f 2>/dev/null | head -1)" ]; then
+            log "→ Restaurando media aparcada de export previo…"
+            while IFS= read -r -d '' f; do
+                rel="${f#"$PARK_DIR"/}"
+                mkdir -p "$ROOT/$(dirname "$rel")"
+                mv -f "$f" "$ROOT/$rel" 2>/dev/null || true
+            done < <(find "$PARK_DIR" -type f -print0 2>/dev/null)
+            find "$PARK_DIR" -type d -empty -delete 2>/dev/null || true
+        fi
         git fetch --all --prune
         git checkout main 2>/dev/null || git checkout master
         git reset --hard "origin/$(git rev-parse --abbrev-ref HEAD)"

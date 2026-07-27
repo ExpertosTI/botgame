@@ -171,7 +171,7 @@ verify_linux_server() {
     fi
     if command -v curl >/dev/null 2>&1; then
       local ws_code
-      ws_code=$(curl -sS -m 1 -o /dev/null -w '%{http_code}' \
+      ws_code=$(curl -sS -m 1 --http1.1 -o /dev/null -w '%{http_code}' \
         -H "Connection: Upgrade" -H "Upgrade: websocket" \
         -H "Sec-WebSocket-Version: 13" -H "Sec-WebSocket-Key: c2hha2VzcGVhcmUxMjM0" \
         "http://127.0.0.1:${vport}/" 2>/dev/null || echo "000")
