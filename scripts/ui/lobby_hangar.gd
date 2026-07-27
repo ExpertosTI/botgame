@@ -30,11 +30,13 @@ func _ready() -> void:
 		"panel",
 		GameTheme.panel_style(Color(0.03, 0.06, 0.08, 0.55), GameTheme.C_CYAN.darkened(0.35), 12, 2)
 	)
-	# 3D también en Web (mismo roster GLB que la landing / menú)
-	_use_3d = true
-	_setup_3d()
+	_use_3d = not (OS.has_feature("web") or OS.get_name() == "Web")
+	if _use_3d:
+		_setup_3d()
+	else:
+		_setup_2d()
 	show_selection("explorer", CharacterCatalog.index_of_id("blocky_a"))
-	set_process(true)
+	set_process(_use_3d)
 
 
 func _setup_2d() -> void:

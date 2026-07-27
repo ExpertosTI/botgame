@@ -62,14 +62,16 @@ func _ready() -> void:
 	_spawn_showcase()
 	_start_ui_motion()
 	call_deferred("_adapt_layout")
-	AudioDirector.start_menu_music()
+	## Web: no arrancar audio hasta gesto (y evita alloc extra al boot).
+	if not (OS.has_feature("web") or OS.get_name() == "Web"):
+		AudioDirector.start_menu_music()
 	_build_hub_modes()
 
 	join_button.pressed.connect(_on_join_pressed)
 	_ensure_quick_play_button()
 	host_button.pressed.connect(_on_host_pressed)
-	online_mode_button.pressed.connect(func(): AudioDirector.play_ui("click"); _set_mode("online"))
-	solo_mode_button.pressed.connect(func(): AudioDirector.play_ui("click"); _set_mode("solo"))
+	online_mode_button.pressed.connect(func(): _ensure_web_audio(); AudioDirector.play_ui("click"); _set_mode("online"))
+	solo_mode_button.pressed.connect(func(): _ensure_web_audio(); AudioDirector.play_ui("click"); _set_mode("solo"))
 	solo_start_button.pressed.connect(_on_solo_start_pressed)
 	mute_check.toggled.connect(_on_mute_toggled)
 	credits_button.pressed.connect(_on_credits_pressed)
@@ -103,6 +105,15 @@ func _ensure_quick_play_button() -> void:
 	var idx := join_button.get_index()
 	online_panel.add_child(qp)
 	online_panel.move_child(qp, idx)
+
+
+func _ensure_web_audio() -> void:
+	if not (OS.has_feature("web") or OS.get_name() == "Web"):
+		return
+	if AudioDirector.has_meta("menu_music_started"):
+		return
+	AudioDirector.set_meta("menu_music_started", true)
+	AudioDirector.start_menu_music()
 
 
 func _setup_how_to_play() -> void:
@@ -395,6 +406,12 @@ func _set_mode(mode: String) -> void:
 
 
 func _setup_atmosphere() -> void:
+	## Shader animado + SubViewport en Web móvil → presión de GPU/WASM.
+	if OS.has_feature("web") or OS.get_name() == "Web":
+		atmosphere.material = null
+		atmosphere.color = Color(0.03, 0.06, 0.09, 1.0)
+		atmosphere.modulate = Color.WHITE
+		return
 	var mat := ShaderMaterial.new()
 	mat.shader = BG_SHADER
 	atmosphere.material = mat
@@ -404,8 +421,73 @@ func _spawn_showcase() -> void:
 	var stage_wrap := get_node_or_null("Main/Col/StageWrap") as Control
 	if stage_wrap == null:
 		return
-	# Menú web y desktop: selección dinámica (sin chips estáticos viejos)
-	_fill_dynamic_stage(stage_wrap)
+	if OS.has_feature("web") or OS.get_name() == "Web":
+		_fill_web_lite_stage(stage_wrap)
+	else:
+		_fill_dynamic_stage(stage_wrap)
+
+
+## Hangar Web: solo retratos 2D. Cero SubViewport / GLB / AnimationPlayer.
+func _fill_web_lite_stage(stage_wrap: Control) -> void:
+	var cap := stage_wrap.get_node_or_null("VBox/StageCaption") as Label
+	if cap:
+		cap.visible = false
+
+	var view := stage_wrap.get_node_or_null("VBox/StageView") as SubViewportContainer
+	if view:
+		view.visible = false
+		var sv := view.get_node_or_null("SubViewport") as SubViewport
+		if sv:
+			sv.render_target_update_mode = SubViewport.UPDATE_DISABLED
+			var world := sv.get_node_or_null("World") as Node3D
+			if world:
+				for ch in world.get_children():
+					if ch is MeshInstance3D or ch.name == "ModelPivot" or ch.name == "StageRoot":
+						ch.queue_free()
+
+	var vbox := stage_wrap.get_node_or_null("VBox") as VBoxContainer
+	if vbox == null:
+		return
+
+	for c in vbox.get_children():
+		if str(c.name).begins_with("Dyn"):
+			c.queue_free()
+
+	var prefer := NetworkManager.selected_map
+	var idx := NetworkManager.MAP_IDS.find(prefer)
+	if idx < 0:
+		idx = NetworkManager.MAP_IDS.find(ProgressionManager.force_campaign_map())
+	_pick_map_idx = idx if idx >= 0 else 0
+
+	_hero = TextureRect.new()
+	_hero.name = "DynHero"
+	_hero.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_hero.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_hero.custom_minimum_size = Vector2(0, 200 if _is_landscape() else 260)
+	_hero.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_hero.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hero.texture = UiIcons.catalog_tex(_pick_skin)
+	vbox.add_child(_hero)
+
+	_dyn_status = Label.new()
+	_dyn_status.name = "DynStatus"
+	_dyn_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_dyn_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if GameTheme.font_title():
+		_dyn_status.add_theme_font_override("font", GameTheme.font_title())
+	_dyn_status.add_theme_font_size_override("font_size", 14)
+	_dyn_status.add_theme_color_override("font_color", GameTheme.C_CYAN)
+	vbox.add_child(_dyn_status)
+
+	_build_picker_tabs(vbox)
+	_rebuild_dynamic_pickers()
+	_update_pick_status()
+	_update_web_hero()
+
+
+func _update_web_hero() -> void:
+	if is_instance_valid(_hero):
+		_hero.texture = UiIcons.catalog_tex(_pick_skin)
 
 
 func _fill_dynamic_stage(stage_wrap: Control) -> void:
@@ -532,6 +614,9 @@ func _set_picker_tab(tab: int) -> void:
 
 
 func _update_3d_stage_preview() -> void:
+	if OS.has_feature("web") or OS.get_name() == "Web":
+		_update_web_hero()
+		return
 	var world := get_node_or_null("Main/Col/StageWrap/VBox/StageView/SubViewport/World") as Node3D
 	if world == null:
 		return
@@ -760,7 +845,10 @@ func _on_pick_robot(skin: int) -> void:
 	_pick_skin = skin
 	_rebuild_dynamic_pickers()
 	_update_pick_status()
-	call_deferred("_update_3d_stage_preview")
+	if OS.has_feature("web") or OS.get_name() == "Web":
+		_update_web_hero()
+	else:
+		call_deferred("_update_3d_stage_preview")
 
 
 func _on_pick_beast_entry(catalog_i: int) -> void:
@@ -771,7 +859,10 @@ func _on_pick_beast_entry(catalog_i: int) -> void:
 	_pick_beast_variant = _beast_variant_for_entry(CharacterCatalog.get_entry(catalog_i)) as GameManager.BeastVariant
 	_rebuild_dynamic_pickers()
 	_update_pick_status()
-	call_deferred("_update_3d_stage_preview")
+	if OS.has_feature("web") or OS.get_name() == "Web":
+		_update_web_hero()
+	else:
+		call_deferred("_update_3d_stage_preview")
 
 
 func _on_pick_map(map_idx: int) -> void:
@@ -1072,6 +1163,7 @@ func _tear_hangar_for_launch() -> void:
 
 
 func _on_join_pressed() -> void:
+	_ensure_web_audio()
 	NetworkManager.quick_play_active = false
 	var player_name := name_input.text.strip_edges()
 	if player_name.is_empty():
@@ -1093,6 +1185,7 @@ func _on_join_pressed() -> void:
 
 
 func _on_quick_play_pressed() -> void:
+	_ensure_web_audio()
 	var player_name := name_input.text.strip_edges()
 	if player_name.is_empty():
 		player_name = SettingsManager.preferred_name
@@ -1154,6 +1247,7 @@ func _on_host_pressed() -> void:
 
 
 func _on_solo_start_pressed() -> void:
+	_ensure_web_audio()
 	var player_name := solo_name_input.text.strip_edges()
 	if player_name.is_empty():
 		player_name = "Practicante"

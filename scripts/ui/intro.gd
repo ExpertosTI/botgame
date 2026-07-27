@@ -1,7 +1,9 @@
 extends Control
 
 ## Intro al arrancar; Skip → hub.
-## Web: preferir WebM (MP4 suele fallar en HTML5). Fallback keyart.
+## Web: NUNCA VideoStreamPlayer (OOB WASM en móvil). Solo splash + avanzar.
+
+var _finished := false
 
 
 func _ready() -> void:
@@ -11,19 +13,18 @@ func _ready() -> void:
 		return
 	var skip_btn := $SkipButton as Button
 	skip_btn.pressed.connect(_finish)
+	if OS.has_feature("web") or OS.get_name() == "Web":
+		## Vídeo HTML5 en iPhone/Chrome DevTools = memory access out of bounds.
+		_show_keyart_fallback()
+		skip_btn.text = "JUGAR →"
+		get_tree().create_timer(1.4).timeout.connect(_finish)
+		return
 	var player := $Video as VideoStreamPlayer
 	var ok := false
-	var candidates: Array[String] = []
-	if OS.has_feature("web") or OS.get_name() == "Web":
-		candidates = [
-			"res://assets/video/intro/chadrine_intro.webm",
-			"res://assets/video/intro/chadrine_intro.mp4",
-		]
-	else:
-		candidates = [
-			"res://assets/video/intro/chadrine_intro.mp4",
-			"res://assets/video/intro/chadrine_intro.webm",
-		]
+	var candidates: Array[String] = [
+		"res://assets/video/intro/chadrine_intro.mp4",
+		"res://assets/video/intro/chadrine_intro.webm",
+	]
 	for path in candidates:
 		if not ResourceLoader.exists(path):
 			continue
@@ -45,6 +46,8 @@ func _ready() -> void:
 func _show_keyart_fallback() -> void:
 	## Icono del juego centrado (no keyart AI).
 	var art_path := "res://assets/ui/splash_chadrine.png"
+	if not ResourceLoader.exists(art_path):
+		art_path = "res://icon.png"
 	if not ResourceLoader.exists(art_path):
 		art_path = "res://icon.svg"
 	if not ResourceLoader.exists(art_path):
@@ -73,5 +76,13 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _finish() -> void:
+	if _finished:
+		return
+	_finished = true
 	ModeRouter.intro_seen_session = true
+	## Parar vídeo si existía (desktop) antes del cambio de escena.
+	var player := get_node_or_null("Video") as VideoStreamPlayer
+	if player:
+		player.stop()
+		player.stream = null
 	get_tree().change_scene_to_file(ModeRouter.HUB_SCENE)
