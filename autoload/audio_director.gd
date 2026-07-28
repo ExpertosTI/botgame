@@ -66,8 +66,8 @@ var _pending: Array[Dictionary] = []
 
 
 func _ready() -> void:
-	## Nunca AudioServer.add_bus: en Godot 4.6 web release → OOB (godot#115560).
-	## Layout = solo Master (default_bus_layout.tres).
+	## Nunca AudioServer.add_bus / custom bus layout: Godot 4.6 web → OOB
+	## en set_bus_layout (godot#115560). Solo Master built-in.
 	var web := WebSafe.is_web()
 	## Web: diferir players hasta el primer sonido (menos alloc al boot).
 	if web:

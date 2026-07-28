@@ -473,7 +473,8 @@ run_export() {
   ) &
   local hb_pid=$!
 
-  # Web: --export-debug. Godot 4.6.0 release template petaba WASM al boot
+  # Web: --export-debug. Godot 4.6 release template + bus layout binario → OOB
+  # (godot#115560). También: convert_text_resources_to_binary=false en project.godot.
   # (godot#115560); el template debug lleva DEBUG_ENABLED y no OOB.
   # Linux dedicated server sigue en release.
   local rc=0

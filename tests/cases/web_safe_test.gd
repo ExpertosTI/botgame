@@ -51,6 +51,9 @@ func _menu_web_lite_hangar() -> void:
 	ok(src.contains("_fill_web_lite_stage"), "hangar web lite")
 	ok(src.contains("_ensure_desktop_stage_view"), "SubViewport solo en desktop")
 	ok(src.contains("WebSafe.flat_atmosphere") or src.contains("flat_atmosphere"), "menú sin shader animado en Web")
+	ok(src.contains("is_node_ready()"), "layout espera @onready (anti Nil landscape)")
+	ok(src.contains("stage_wrap.add_child(_hero)"), "héroe web full-bleed en StageWrap")
+	ok(src.contains("PRESET_FULL_RECT"), "héroe anclado a pantalla completa")
 
 
 func _audio_web_master_only() -> void:
@@ -58,10 +61,11 @@ func _audio_web_master_only() -> void:
 	ok(src.contains("_web_bus"), "AudioDirector._web_bus")
 	ok(src.contains("_ensure_web_players"), "AudioDirector lazy players en Web")
 	ok(not src.contains("AudioServer.add_bus("), "nunca add_bus (OOB 4.6)")
-	ok(ResourceLoader.exists("res://default_bus_layout.tres"), "layout Master-only en proyecto")
 	var proj := FileAccess.get_file_as_string("res://project.godot")
 	ok(proj.contains("default_playback_type.web=1"), "project.godot Sample en web")
-	ok(proj.contains("default_bus_layout"), "project apunta al bus layout")
+	## No custom layout: load_default_bus_layout→set_bus_layout es el stack del OOB.
+	ok(not proj.contains("buses/default_bus_layout"), "sin default_bus_layout custom (OOB)")
+	ok(proj.contains("convert_text_resources_to_binary=false"), "sin .tres→binario (godot#107311)")
 	ok(proj.contains("physics_engine.web=\"GodotPhysics3D\"") or proj.contains("physics_engine.web=GodotPhysics3D"), "Web sin Jolt al boot")
 	var sh := FileAccess.get_file_as_string("res://scripts/export_godot_linux.sh")
 	ok(sh.contains("--export-debug"), "export Web usa template debug (workaround OOB)")

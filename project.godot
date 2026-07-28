@@ -21,10 +21,16 @@ boot_splash/minimum_display_time=900
 [audio]
 
 ; Web single-thread: Sample (1). Stream (0) mezcla mal.
-; Layout solo Master — add_bus en runtime dispara OOB en 4.6 release (godot#115560).
-buses/default_bus_layout="res://default_bus_layout.tres"
+; NO custom bus layout: load_default_bus_layout → set_bus_layout en 4.6 web
+; peta OOB (godot#115560 / #107311). Motor arranca con Master built-in.
 general/default_playback_type=0
 general/default_playback_type.web=1
+
+[editor]
+
+; Conversión .tres→binario corrompe AudioBusLayout en export Web (godot#107311).
+; Off = el workaround que quitó el OOB en el MRP oficial.
+export/convert_text_resources_to_binary=false
 
 [autoload]
 

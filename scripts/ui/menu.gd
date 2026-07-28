@@ -431,6 +431,10 @@ func _fill_web_lite_stage(stage_wrap: Control) -> void:
 	for c in vbox.get_children():
 		if str(c.name).begins_with("Dyn"):
 			c.queue_free()
+	## Limpia héroe full-bleed de un pase anterior (hijo directo de StageWrap).
+	var old_hero := stage_wrap.get_node_or_null("DynHero") as Control
+	if old_hero:
+		old_hero.queue_free()
 
 	var prefer := NetworkManager.selected_map
 	var idx := NetworkManager.MAP_IDS.find(prefer)
@@ -438,15 +442,24 @@ func _fill_web_lite_stage(stage_wrap: Control) -> void:
 		idx = NetworkManager.MAP_IDS.find(ProgressionManager.force_campaign_map())
 	_pick_map_idx = idx if idx >= 0 else 0
 
+	## Fondo full-bleed (hermano del VBox). En VBox el héroe quedaba en una
+	## franja y landscape mostraba un vacío negro enorme bajo los pickers.
 	_hero = TextureRect.new()
 	_hero.name = "DynHero"
 	_hero.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_hero.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	_hero.custom_minimum_size = Vector2(0, 200 if _is_landscape() else 260)
-	_hero.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_hero.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hero.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_hero.offset_left = 0
+	_hero.offset_top = 0
+	_hero.offset_right = 0
+	_hero.offset_bottom = 0
 	_hero.texture = UiIcons.catalog_tex(_pick_skin)
-	vbox.add_child(_hero)
+	_hero.modulate = Color(1, 1, 1, 0.92)
+	stage_wrap.add_child(_hero)
+	stage_wrap.move_child(_hero, 0)
+	if vbox.get_parent() == stage_wrap:
+		stage_wrap.move_child(vbox, stage_wrap.get_child_count() - 1)
 
 	_dyn_status = Label.new()
 	_dyn_status.name = "DynStatus"
@@ -462,6 +475,8 @@ func _fill_web_lite_stage(stage_wrap: Control) -> void:
 	_rebuild_dynamic_pickers()
 	_update_pick_status()
 	_update_web_hero()
+	## Tras construir el héroe, re-aplica landscape (el RESIZED temprano no lo tenía).
+	call_deferred("_adapt_layout")
 
 
 func _update_web_hero() -> void:
@@ -998,10 +1013,15 @@ func _process(delta: float) -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED:
+		## RESIZED puede disparar antes de @onready → botones Nil y overlay rojo.
+		if not is_node_ready():
+			return
 		_adapt_layout()
 
 
 func _adapt_layout() -> void:
+	if not is_node_ready():
+		return
 	_mobile = _is_mobile_layout()
 	if _is_landscape():
 		_layout_landscape()
@@ -1015,6 +1035,8 @@ func _layout_portrait() -> void:
 	var brand := get_node_or_null("Main/Col/BrandHeader") as Control
 	var stage := get_node_or_null("Main/Col/StageWrap") as Control
 	var form := get_node_or_null("Main/Col/FormWrap") as Control
+	if form == null:
+		form = get_node_or_null("LandscapeDock/FormWrap") as Control
 	var col := get_node_or_null("Main/Col") as VBoxContainer
 	if col == null or main == null:
 		return
@@ -1027,36 +1049,41 @@ func _layout_portrait() -> void:
 	if brand:
 		brand.visible = true
 		col.move_child(brand, 0)
-		subtitle.visible = true
+		if subtitle:
+			subtitle.visible = true
 	if stage:
 		stage.size_flags_vertical = 0
+		stage.custom_minimum_size = Vector2(0, 420 if _mobile else 480)
 		col.move_child(stage, 1 if brand else 0)
 		var cap := stage.get_node_or_null("VBox/StageCaption") as Label
 		if cap:
 			cap.visible = true
-		var view := stage.get_node_or_null("VBox/StageView") as Control
-		if view:
-			view.custom_minimum_size = Vector2(0, 420 if _mobile else 480)
+		## Quita override landscape (panel casi transparente).
+		stage.remove_theme_stylebox_override("panel")
 	if form:
 		form.visible = true
 	## Restaurar campos que landscape oculta
-	name_input.visible = true
-	solo_name_input.visible = true
-	var name_lb := online_panel.get_node_or_null("NameLabel") as Control
-	if name_lb:
-		name_lb.visible = true
-	solo_hint.visible = true
-	host_button.visible = not _mobile and not OS.has_feature("web")
-	legal_label.visible = true
-	mute_check.visible = true
-	credits_button.visible = true
+	if name_input:
+		name_input.visible = true
+	if solo_name_input:
+		solo_name_input.visible = true
+	if online_panel:
+		var name_lb := online_panel.get_node_or_null("NameLabel") as Control
+		if name_lb:
+			name_lb.visible = true
+	if solo_hint:
+		solo_hint.visible = true
+	if host_button:
+		host_button.visible = not _mobile and not OS.has_feature("web")
+	if legal_label:
+		legal_label.visible = true
+	if mute_check:
+		mute_check.visible = true
+	if credits_button:
+		credits_button.visible = true
 	var how := find_child("HowToPlayButton", true, false) as Control
 	if how:
 		how.visible = true
-	if is_instance_valid(_hero):
-		_hero.custom_minimum_size = Vector2(0, 220 if _mobile else 240)
-		if _hero.size.x > 1.0:
-			_hero.pivot_offset = Vector2(_hero.size.x * 0.5, _hero.size.y * 0.5)
 
 
 func _layout_landscape() -> void:
@@ -1079,12 +1106,20 @@ func _layout_landscape() -> void:
 	if brand:
 		brand.visible = true
 		col.move_child(brand, 0)
-		title_label.text = "CHADRINE"
-		title_label.add_theme_font_size_override("font_size", 22)
-		subtitle.visible = false
+		if title_label:
+			title_label.text = "CHADRINE"
+			title_label.add_theme_font_size_override("font_size", 22)
+		if subtitle:
+			subtitle.visible = false
 	if stage:
 		stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		stage.custom_minimum_size = Vector2(0, 0)
 		col.move_child(stage, 1 if brand else 0)
+		## Panel casi transparente: el DynHero full-bleed se ve, no un hueco negro.
+		stage.add_theme_stylebox_override(
+			"panel",
+			GameTheme.panel_style(Color(0.02, 0.04, 0.06, 0.22), GameTheme.C_CYAN.darkened(0.35), 12, 1)
+		)
 		var cap := stage.get_node_or_null("VBox/StageCaption") as Label
 		if cap:
 			cap.visible = false
@@ -1095,15 +1130,21 @@ func _layout_landscape() -> void:
 		for scroll_name in ["DynRobotsScroll", "DynBeastsScroll", "DynMapsScroll"]:
 			var sc := stage.find_child(scroll_name, true, false) as ScrollContainer
 			if sc:
-				sc.custom_minimum_size = Vector2(0, 150)
+				sc.custom_minimum_size = Vector2(0, 118)
 		if _dyn_status:
 			_dyn_status.add_theme_font_size_override("font_size", 13)
+		if is_instance_valid(_hero):
+			_hero.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			_hero.visible = true
 
 	## Dock flotante: modo + CTA sin pelear con el scroll vertical.
 	_dock_landscape_form()
-	legal_label.visible = false
-	mute_check.visible = false
-	credits_button.visible = false
+	if legal_label:
+		legal_label.visible = false
+	if mute_check:
+		mute_check.visible = false
+	if credits_button:
+		credits_button.visible = false
 	var how := find_child("HowToPlayButton", true, false) as Control
 	if how:
 		how.visible = false
@@ -1125,6 +1166,7 @@ func _dock_landscape_form() -> void:
 		add_child(dock)
 	if form.get_parent() != dock:
 		form.reparent(dock)
+		form.owner = self
 		_landscape_docked = true
 	form.visible = true
 	form.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -1145,24 +1187,34 @@ func _dock_landscape_form() -> void:
 		GameTheme.panel_style(Color(0.03, 0.05, 0.07, 0.78), GameTheme.C_CYAN.darkened(0.15), 18, 2)
 	)
 	## CTA gordos; callsign va de settings
+	if solo_start_button == null or join_button == null:
+		return
 	solo_start_button.custom_minimum_size = Vector2(0, 64)
 	solo_start_button.add_theme_font_size_override("font_size", 18)
 	join_button.custom_minimum_size = Vector2(0, 56)
 	join_button.add_theme_font_size_override("font_size", 16)
-	var qp := online_panel.get_node_or_null("QuickPlayButton") as Button
-	if qp:
-		qp.custom_minimum_size = Vector2(0, 56)
-		qp.add_theme_font_size_override("font_size", 16)
-	online_mode_button.custom_minimum_size = Vector2(0, 44)
-	solo_mode_button.custom_minimum_size = Vector2(0, 44)
-	name_input.visible = false
-	solo_name_input.visible = false
-	var name_lb := online_panel.get_node_or_null("NameLabel") as Control
-	if name_lb:
-		name_lb.visible = false
-	host_button.visible = false
-	solo_hint.visible = false
-	status_label.add_theme_font_size_override("font_size", 12)
+	if online_panel:
+		var qp := online_panel.get_node_or_null("QuickPlayButton") as Button
+		if qp:
+			qp.custom_minimum_size = Vector2(0, 56)
+			qp.add_theme_font_size_override("font_size", 16)
+		var name_lb := online_panel.get_node_or_null("NameLabel") as Control
+		if name_lb:
+			name_lb.visible = false
+	if online_mode_button:
+		online_mode_button.custom_minimum_size = Vector2(0, 44)
+	if solo_mode_button:
+		solo_mode_button.custom_minimum_size = Vector2(0, 44)
+	if name_input:
+		name_input.visible = false
+	if solo_name_input:
+		solo_name_input.visible = false
+	if host_button:
+		host_button.visible = false
+	if solo_hint:
+		solo_hint.visible = false
+	if status_label:
+		status_label.add_theme_font_size_override("font_size", 12)
 
 
 func _undock_landscape_form() -> void:
@@ -1173,6 +1225,7 @@ func _undock_landscape_form() -> void:
 	if form == null or col == null:
 		return
 	form.reparent(col)
+	form.owner = self
 	form.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
 	form.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	form.anchor_left = 0
